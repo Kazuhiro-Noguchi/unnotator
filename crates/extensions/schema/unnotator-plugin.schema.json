@@ -1,0 +1,435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unnotator.dev/schemas/unnotator-plugin.schema.json",
+  "title": "unnotator extension manifest (unnotator-plugin.json)",
+  "description": "拡張機能のマニフェスト v1。名前（id）は拡張機能内のローカル名で、コアは '<拡張機能 id>/<名前>' に名前空間化する。他の拡張機能の要素を参照するときは名前空間付きの完全 ID を書く。'%key%' 形式の文字列は locales/<lang>.json で翻訳される。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "engines", "main"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "description": "逆ドメイン形式の拡張機能 ID。'core' で始まる ID は予約済み。",
+      "type": "string",
+      "pattern": "^(?!core(\\.|$))[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$",
+      "maxLength": 128
+    },
+    "version": { "$ref": "#/$defs/semver" },
+    "displayName": { "$ref": "#/$defs/text" },
+    "description": { "$ref": "#/$defs/text" },
+    "publisher": { "type": "string", "maxLength": 64 },
+    "license": { "type": "string" },
+    "repository": { "type": "string", "format": "uri" },
+    "icon": { "$ref": "#/$defs/relPath" },
+    "engines": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unnotator"],
+      "properties": {
+        "unnotator": { "description": "対応する拡張 API のバージョン範囲（例 '^1.0.0'）。", "$ref": "#/$defs/semverRange" }
+      }
+    },
+    "main": { "description": "ES Module のエントリ（1 ファイルにバンドル済み）。", "$ref": "#/$defs/relPath" },
+    "extensionDependencies": {
+      "description": "依存する拡張機能 ID とバージョン範囲。依存先が先に有効化され、host.extensions.getApi で公開 API を受け取れる。",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$" },
+      "additionalProperties": { "$ref": "#/$defs/semverRange" }
+    },
+    "activationEvents": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(onStartup|onExport|onImport|onMediaType:\\S+|onEditor:\\S+|onCommand:\\S+|onView:\\S+|onAnnotationType:\\S+)$"
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "assets.read",
+          "assets.metadata",
+          "annotations.read",
+          "annotations.write",
+          "labels.read",
+          "labels.write",
+          "project.status",
+          "project.files",
+          "fs.export",
+          "fs.import",
+          "python.spawn",
+          "network"
+        ]
+      }
+    },
+    "contributes": { "$ref": "#/$defs/contributes" },
+    "python": { "$ref": "#/$defs/python" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["python"] },
+      "then": {
+        "properties": { "permissions": { "type": "array", "contains": { "const": "python.spawn" } } },
+        "required": ["permissions"]
+      }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "semverRange": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "localName": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*([.-][A-Za-z0-9]+)*$", "maxLength": 64 },
+    "ref": {
+      "description": "ローカル名、または名前空間付きの完全 ID（'<拡張機能 id>/<名前>' または 'core/<名前>'）。",
+      "type": "string",
+      "pattern": "^([a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+/|core/)?[a-z][A-Za-z0-9]*([.-][A-Za-z0-9]+)*$"
+    },
+    "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "relPath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\:]+$" },
+    "when": { "description": "表示・有効条件の式（例: activeEditor == 'com.example.text/editor'）。", "type": "string" },
+    "icon": {
+      "description": "拡張機能内の SVG への相対パス、またはコアのアイコン名（'$(name)' 形式）。",
+      "type": "string"
+    },
+    "jsonSchema": { "description": "JSON Schema（draft 2020-12）。", "type": "object" },
+    "contributes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mediaTypes": { "type": "array", "items": { "$ref": "#/$defs/mediaType" } },
+        "editors": { "type": "array", "items": { "$ref": "#/$defs/editor" } },
+        "previewers": { "type": "array", "items": { "$ref": "#/$defs/previewer" } },
+        "itemProviders": { "type": "array", "items": { "$ref": "#/$defs/itemProvider" } },
+        "annotationTypes": { "type": "array", "items": { "$ref": "#/$defs/annotationType" } },
+        "relationTypes": { "type": "array", "items": { "$ref": "#/$defs/relationType" } },
+        "groupTypes": { "type": "array", "items": { "$ref": "#/$defs/groupType" } },
+        "tools": { "type": "array", "items": { "$ref": "#/$defs/tool" } },
+        "commands": { "type": "array", "items": { "$ref": "#/$defs/command" } },
+        "keybindings": { "type": "array", "items": { "$ref": "#/$defs/keybinding" } },
+        "ribbon": { "$ref": "#/$defs/ribbon" },
+        "views": { "type": "array", "items": { "$ref": "#/$defs/view" } },
+        "statusBarItems": { "type": "array", "items": { "$ref": "#/$defs/statusBarItem" } },
+        "exporters": { "type": "array", "items": { "$ref": "#/$defs/porter" } },
+        "importers": { "type": "array", "items": { "$ref": "#/$defs/porter" } },
+        "settings": { "$ref": "#/$defs/settings" }
+      }
+    },
+    "mediaType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "anyOf": [{ "required": ["extensions"] }, { "required": ["mimeTypes"] }],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "extensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^\\.[A-Za-z0-9._-]+$" }
+        },
+        "mimeTypes": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[\\w.+-]+/[\\w.+*-]+$" } },
+        "workUnit": {
+          "description": "「次へ」「完了にして次へ」の単位。item の場合は itemProvider が必要。",
+          "enum": ["asset", "item"],
+          "default": "asset"
+        },
+        "itemProvider": { "$ref": "#/$defs/ref" },
+        "icon": { "$ref": "#/$defs/icon" }
+      }
+    },
+    "editor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "mediaTypes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "mediaTypes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+        "priority": { "enum": ["default", "option"], "default": "default" }
+      }
+    },
+    "previewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mediaTypes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "mediaTypes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } }
+      }
+    },
+    "itemProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "mediaTypes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "mediaTypes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+        "itemKeyPattern": { "description": "item_key の形式（正規表現、検証用）。", "type": "string" }
+      }
+    },
+    "annotationType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "title", "mediaTypes", "selectorSchema"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "version": { "type": "integer", "minimum": 1 },
+        "title": { "$ref": "#/$defs/text" },
+        "mediaTypes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+        "target": {
+          "description": "アセット全体に付くか、アイテムに付くか。",
+          "enum": ["asset", "item", "either"],
+          "default": "either"
+        },
+        "selectorSchema": { "$ref": "#/$defs/jsonSchema" },
+        "icon": { "$ref": "#/$defs/icon" }
+      }
+    },
+    "relationType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "directed": { "type": "boolean", "default": true },
+        "from": { "description": "始点にできる種別（省略時はすべて）。", "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "to": { "description": "終点にできる種別（省略時はすべて）。", "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "crossAsset": { "description": "異なるアセットのアノテーション同士を結べるか。", "type": "boolean", "default": false }
+      }
+    },
+    "groupType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "ordered": { "type": "boolean", "default": false },
+        "members": { "description": "メンバーにできる種別（省略時はすべて）。", "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "crossAsset": { "type": "boolean", "default": false }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "editor"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "editor": { "description": "このツールが動くエディター。", "$ref": "#/$defs/ref" },
+        "annotationType": { "$ref": "#/$defs/ref" },
+        "icon": { "$ref": "#/$defs/icon" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "category": { "$ref": "#/$defs/text" },
+        "icon": { "$ref": "#/$defs/icon" },
+        "enablement": { "$ref": "#/$defs/when" }
+      }
+    },
+    "keybinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "command"],
+      "properties": {
+        "key": { "description": "例: 'R', 'Ctrl+Shift+K'（macOS では Ctrl を Cmd に読み替え）", "type": "string" },
+        "command": { "$ref": "#/$defs/ref" },
+        "args": {},
+        "when": { "$ref": "#/$defs/when" }
+      }
+    },
+    "ribbonItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["largeButton", "smallButton", "splitButton", "toggle", "dropdown", "gallery", "numberInput", "separator"]
+        },
+        "command": { "$ref": "#/$defs/ref" },
+        "tool": { "$ref": "#/$defs/ref" },
+        "args": {},
+        "items": { "description": "splitButton / dropdown の中身。", "type": "array", "items": { "$ref": "#/$defs/ribbonItem" } },
+        "when": { "$ref": "#/$defs/when" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "enum": ["largeButton", "smallButton", "toggle"] } } },
+          "then": { "oneOf": [{ "required": ["command"] }, { "required": ["tool"] }] }
+        }
+      ]
+    },
+    "ribbonGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "priority": { "description": "狭い幅で縮退する順（小さいほど先に縮退）。", "type": "integer", "default": 0 },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ribbonItem" } },
+        "when": { "$ref": "#/$defs/when" }
+      }
+    },
+    "ribbon": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "description": "既存タブ（コアまたは他の拡張機能）へのグループ追加。group を既存グループ ID にするとそのグループへ項目を追加する。",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tab", "items"],
+            "anyOf": [{ "required": ["group"] }, { "required": ["id", "title"] }],
+            "properties": {
+              "tab": {
+                "description": "コアのタブ（home / view / project / extensions）または完全 ID。",
+                "anyOf": [{ "enum": ["home", "view", "project", "extensions"] }, { "$ref": "#/$defs/ref" }]
+              },
+              "group": {
+                "description": "既存グループへ追加する場合のグループ ID。コア: home.clipboard / home.edit / home.tools / home.labels / home.relations / home.navigation / home.status / view.panels / view.annotations / view.theme",
+                "type": "string"
+              },
+              "id": { "$ref": "#/$defs/localName" },
+              "title": { "$ref": "#/$defs/text" },
+              "priority": { "type": "integer" },
+              "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ribbonItem" } },
+              "when": { "$ref": "#/$defs/when" }
+            }
+          }
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "groups"],
+            "properties": {
+              "id": { "$ref": "#/$defs/localName" },
+              "title": { "$ref": "#/$defs/text" },
+              "order": { "type": "integer" },
+              "groups": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ribbonGroup" } },
+              "when": { "$ref": "#/$defs/when" }
+            }
+          }
+        },
+        "contextualTabs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "when", "groups"],
+            "properties": {
+              "id": { "$ref": "#/$defs/localName" },
+              "title": { "$ref": "#/$defs/text" },
+              "when": { "$ref": "#/$defs/when" },
+              "groups": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ribbonGroup" } }
+            }
+          }
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "location"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "location": { "enum": ["sidebar", "panel", "properties"] },
+        "icon": { "description": "sidebar の場合はアクティビティバーのアイコン（必須）。", "$ref": "#/$defs/icon" },
+        "kind": {
+          "description": "module = 同じ WebView の DOM に描画 / iframe = html を sandbox 付き iframe で表示",
+          "enum": ["module", "iframe"],
+          "default": "module"
+        },
+        "html": { "$ref": "#/$defs/relPath" },
+        "when": { "$ref": "#/$defs/when" }
+      },
+      "allOf": [
+        { "if": { "properties": { "location": { "const": "sidebar" } } }, "then": { "required": ["icon"] } },
+        { "if": { "properties": { "kind": { "const": "iframe" } }, "required": ["kind"] }, "then": { "required": ["html"] } }
+      ]
+    },
+    "statusBarItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "alignment"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "alignment": { "enum": ["left", "right"] },
+        "priority": { "type": "integer", "default": 0 },
+        "command": { "$ref": "#/$defs/ref" },
+        "when": { "$ref": "#/$defs/when" }
+      }
+    },
+    "porter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "fileExtensions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localName" },
+        "title": { "$ref": "#/$defs/text" },
+        "fileExtensions": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^\\.[A-Za-z0-9._-]+$" } },
+        "output": { "description": "書き出し先がファイルかフォルダか（importers では入力）。", "enum": ["file", "folder"], "default": "file" },
+        "annotationTypes": { "description": "対応する種別（省略時はすべて）。", "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "includesRelations": { "type": "boolean", "default": false },
+        "includesGroups": { "type": "boolean", "default": false },
+        "optionsSchema": { "$ref": "#/$defs/jsonSchema" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["properties"],
+      "properties": {
+        "type": { "const": "object" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "enum": ["string", "number", "integer", "boolean", "array", "object"] },
+              "default": {},
+              "scope": { "description": "user = アプリ設定 / project = .unnotator/settings.json", "enum": ["user", "project"], "default": "user" },
+              "title": { "$ref": "#/$defs/text" },
+              "description": { "type": "string" },
+              "enum": { "type": "array" }
+            }
+          }
+        }
+      }
+    },
+    "python": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner", "module"],
+      "properties": {
+        "runner": { "description": "uv（推奨）/ system（ユーザー指定の既存 Python）", "enum": ["uv", "system"] },
+        "project": { "description": "pyproject.toml のあるフォルダ。", "$ref": "#/$defs/relPath", "default": "python" },
+        "module": { "description": "python -m で起動するモジュール。", "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$" },
+        "requiresPython": { "type": "string" },
+        "lifetime": { "enum": ["on-demand", "persistent"], "default": "on-demand" },
+        "idleTimeoutSec": { "type": "integer", "minimum": 10, "default": 300 },
+        "startupTimeoutSec": { "type": "integer", "minimum": 1, "default": 30 },
+        "requestTimeoutSec": { "type": "integer", "minimum": 1, "default": 600 },
+        "gpu": { "enum": ["none", "optional", "required"], "default": "none" }
+      }
+    }
+  }
+}

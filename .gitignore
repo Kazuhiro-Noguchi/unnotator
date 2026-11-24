@@ -1,0 +1,25 @@
+# build
+/target/
+node_modules/
+dist/
+/src-tauri/target/
+/src-tauri/gen/
+
+# graphify（再生成できる）
+graphify-out/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+*.log
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*

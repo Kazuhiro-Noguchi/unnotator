@@ -57,7 +57,11 @@ jobs:
       - name: cargo clippy
         if: runner.os == 'Linux'
         run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      # テスト用の実行ファイルを並列に走らせる（Windows は実行ファイルごとの起動が遅い）。
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - run: cargo nextest run --workspace
 
       # 実機の WebView での `unno://` の診断（S-01）。同じジョブで続けて動かし、ビルドの成果物を使い回す。
       # 結果は標準出力の UNNO_SELFTEST_RESULT。失敗は、ジョブの失敗になる（終了コードが 0 でなければ）。

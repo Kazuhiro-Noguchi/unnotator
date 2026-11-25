@@ -302,3 +302,104 @@ pub fn journal_entries(folder: &Path) -> Vec<(String, String, Option<String>, St
         .collect::<Result<_, _>>()
         .unwrap()
 }
+
+// ---------------------------------------------------------------------------
+// 004: ファイルの木の準備とアセットの読み出し
+// ---------------------------------------------------------------------------
+
+/// `root` の下に `rel` のファイルを作る（途中のフォルダも作る）。
+pub fn write_file(root: &Path, rel: &str, bytes: &[u8]) {
+    let path = root.join(rel);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("フォルダを作れる");
+    }
+    std::fs::write(path, bytes).expect("ファイルを書ける");
+}
+
+pub fn remove_file(root: &Path, rel: &str) {
+    std::fs::remove_file(root.join(rel)).expect("ファイルを消せる");
+}
+
+/// `from` を `to` へ動かす（行き先のフォルダも作る）。
+pub fn move_file(root: &Path, from: &str, to: &str) {
+    let target = root.join(to);
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).expect("フォルダを作れる");
+    }
+    std::fs::rename(root.join(from), target).expect("ファイルを動かせる");
+}
+
+/// 更新時刻を、UNIX 時刻（ミリ秒）に設定する。
+pub fn touch(root: &Path, rel: &str, mtime_ms: u64) {
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(root.join(rel))
+        .expect("ファイルを開ける");
+    file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_millis(mtime_ms))
+        .expect("更新時刻を設定できる");
+}
+
+/// 一覧に出るアセットの行。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetLine {
+    pub id: String,
+    pub root_key: String,
+    pub rel_path: String,
+    pub file_size: i64,
+    pub mtime_ms: i64,
+    pub missing: bool,
+    pub media_type: Option<String>,
+    pub status: String,
+}
+
+/// `working.db`（無ければ `project.db`）の `assets` を、`(root_key, rel_path)` の順で読む。
+pub fn read_assets(folder: &Path) -> Vec<AssetLine> {
+    let conn = read_conn(folder);
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, root_key, rel_path, file_size, mtime_ms, missing, media_type, status \
+             FROM assets ORDER BY root_key, rel_path",
+        )
+        .unwrap();
+    stmt.query_map([], |r| {
+        Ok(AssetLine {
+            id: r.get(0)?,
+            root_key: r.get(1)?,
+            rel_path: r.get(2)?,
+            file_size: r.get(3)?,
+            mtime_ms: r.get(4)?,
+            missing: r.get::<_, i64>(5)? == 1,
+            media_type: r.get(6)?,
+            status: r.get(7)?,
+        })
+    })
+    .unwrap()
+    .collect::<Result<_, _>>()
+    .unwrap()
+}
+
+/// ユーザー設定の置き場（`TempDir` の下）。
+pub fn user_settings_dir(dir: &TempDir) -> PathBuf {
+    let path = dir.recovery_root().parent().expect("親がある").join("user");
+    std::fs::create_dir_all(&path).expect("フォルダを作れる");
+    path
+}
+
+/// ファイルの木だけを作った、プロジェクトのフォルダ（まだプロジェクトではない）。
+pub fn folder_with_files(files: &[(&str, &str)]) -> TempDir {
+    let dir = TempDir::new();
+    for (rel, body) in files {
+        write_file(dir.path(), rel, body.as_bytes());
+    }
+    dir
+}
+
+/// 新しいプロジェクトを、既にあるファイルの木の上に作って開く（アセットは未登録）。
+pub fn create_and_open(dir: &TempDir) -> ProjectStore {
+    ProjectStore::create(dir.path(), system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .map_err(|failed| failed.error)
+        .unwrap();
+    open_store(dir.path())
+}

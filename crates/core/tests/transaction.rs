@@ -9,7 +9,7 @@ use rusqlite::Connection;
 use support::{create_annotation, create_label, new_project, read_conn, snapshot};
 use unnotator_core::command::Command;
 use unnotator_core::error::StoreError;
-use unnotator_core::event::{ChangeKind, ChangeObserver, ChangeSet, Entity};
+use unnotator_core::event::{ChangeKind, ChangeObserver, ChangeSet, Entity, Origin};
 use unnotator_core::history::recorder::RowOp;
 
 #[test]
@@ -95,14 +95,24 @@ fn subscribers_are_notified_after_success_only() {
 
 struct FailingObserver;
 impl ChangeObserver for FailingObserver {
-    fn before_commit(&mut self, _conn: &Connection, _ops: &[RowOp]) -> Result<(), StoreError> {
+    fn before_commit(
+        &mut self,
+        _conn: &Connection,
+        _origin: Origin,
+        _ops: &[RowOp],
+    ) -> Result<(), StoreError> {
         Err(StoreError::InvalidCommand("journal を書けない".into()))
     }
 }
 
 struct RecordingObserver(Arc<Mutex<Vec<usize>>>);
 impl ChangeObserver for RecordingObserver {
-    fn before_commit(&mut self, _conn: &Connection, ops: &[RowOp]) -> Result<(), StoreError> {
+    fn before_commit(
+        &mut self,
+        _conn: &Connection,
+        _origin: Origin,
+        ops: &[RowOp],
+    ) -> Result<(), StoreError> {
         self.0.lock().unwrap().push(ops.len());
         Ok(())
     }

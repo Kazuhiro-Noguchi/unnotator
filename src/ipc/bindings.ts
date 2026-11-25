@@ -16,6 +16,9 @@ export const commands = {
 	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<ProjectInfo_Serialize>("project_open", { folder, create }, options),
 	projectClose: (options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", undefined, options),
 	applyCommand: (command: Command_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("apply_command", { command }, options),
+	undo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("undo", undefined, options),
+	redo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("redo", undefined, options),
+	undoState: (options?: InvokeOptions) => __TAURI_INVOKE<UndoState>("undo_state", undefined, options),
 };
 
 /** Events */
@@ -211,6 +214,13 @@ export type Target_Deserialize = {
 export type Target_Serialize = {
 	asset_id: string,
 	item: ItemRef | null,
+};
+
+export type UndoState = {
+	can_undo: boolean,
+	can_redo: boolean,
+	undo_depth: number,
+	redo_depth: number,
 };
 
 /* Tauri Specta runtime */

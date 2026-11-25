@@ -18,4 +18,5 @@ export {
   type ProjectInfo,
   type Status,
   type Target,
+  type UndoState,
 } from "./bindings";

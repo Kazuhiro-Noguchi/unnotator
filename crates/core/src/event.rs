@@ -194,8 +194,13 @@ impl ChangeSet {
 /// コミットの直前に、変更の行イメージを受け取る差し込み口。
 /// 003 が journal を同じトランザクション内で書くために使う。失敗すると適用全体が取り消される。
 pub trait ChangeObserver: Send {
-    fn before_commit(&mut self, conn: &Connection, ops: &[RowOp]) -> Result<(), StoreError> {
-        let _ = (conn, ops);
+    fn before_commit(
+        &mut self,
+        conn: &Connection,
+        origin: Origin,
+        ops: &[RowOp],
+    ) -> Result<(), StoreError> {
+        let _ = (conn, origin, ops);
         Ok(())
     }
 }
@@ -221,10 +226,11 @@ impl EventHub {
     pub fn run_before_commit(
         &mut self,
         conn: &Connection,
+        origin: Origin,
         ops: &[RowOp],
     ) -> Result<(), StoreError> {
         for observer in &mut self.observers {
-            observer.before_commit(conn, ops)?;
+            observer.before_commit(conn, origin, ops)?;
         }
         Ok(())
     }
@@ -392,6 +398,7 @@ mod tests {
         fn before_commit(
             &mut self,
             _conn: &Connection,
+            _origin: Origin,
             _ops: &[RowOp],
         ) -> Result<(), crate::error::StoreError> {
             Err(crate::error::StoreError::InvalidCommand("journal".into()))
@@ -403,8 +410,8 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         let mut hub = EventHub::default();
         hub.add_observer(Box::new(Failing));
-        assert!(hub.run_before_commit(&conn, &[]).is_err());
+        assert!(hub.run_before_commit(&conn, Origin::Apply, &[]).is_err());
         let mut empty = EventHub::default();
-        assert!(empty.run_before_commit(&conn, &[]).is_ok());
+        assert!(empty.run_before_commit(&conn, Origin::Apply, &[]).is_ok());
     }
 }

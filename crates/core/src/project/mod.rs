@@ -14,7 +14,7 @@ use crate::db::migrate::{PROJECT_MIGRATIONS, apply_all, latest_version};
 use crate::db::open_connection;
 use crate::error::StoreError;
 use crate::event::{ChangeObserver, ChangeSet, EventHub, Origin};
-use crate::history::recorder::{Recorder, RowOp};
+use crate::history::recorder::{Recorder, RowOp, apply_redo, apply_undo};
 use crate::history::{UndoEntry, UndoStack, UndoState};
 use crate::id::{IdGenerator, UuidV7Generator};
 use layout::ProjectLayout;
@@ -268,9 +268,37 @@ impl ProjectStore {
             run(&mut ctx, &command)?;
             ctx.into_recorder().into_ops()
         };
-        self.hub.run_before_commit(&tx, &ops)?;
+        self.hub.run_before_commit(&tx, Origin::Apply, &ops)?;
         tx.commit()?;
         Ok(self.finish(Origin::Apply, ops))
+    }
+
+    /// 直前の操作を元に戻す。戻す操作が無ければ `None`。
+    pub fn undo(&mut self) -> Result<Option<ChangeSet>, StoreError> {
+        let Some(entry) = self.undo.undo_top() else {
+            return Ok(None);
+        };
+        let ops = entry.ops.clone();
+        let tx = self.conn.unchecked_transaction()?;
+        apply_undo(&tx, &ops)?;
+        self.hub.run_before_commit(&tx, Origin::Undo, &ops)?;
+        tx.commit()?;
+        self.undo.commit_undo();
+        Ok(Some(self.finish(Origin::Undo, ops)))
+    }
+
+    /// 直前に戻した操作をやり直す。やり直す操作が無ければ `None`。
+    pub fn redo(&mut self) -> Result<Option<ChangeSet>, StoreError> {
+        let Some(entry) = self.undo.redo_top() else {
+            return Ok(None);
+        };
+        let ops = entry.ops.clone();
+        let tx = self.conn.unchecked_transaction()?;
+        apply_redo(&tx, &ops)?;
+        self.hub.run_before_commit(&tx, Origin::Redo, &ops)?;
+        tx.commit()?;
+        self.undo.commit_redo();
+        Ok(Some(self.finish(Origin::Redo, ops)))
     }
 
     /// コミット後の仕上げ: 通し番号・履歴・差分・通知。

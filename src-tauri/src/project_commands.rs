@@ -95,7 +95,19 @@ pub fn apply(state: &ProjectState, command: Command) -> Result<ChangeSet, IpcErr
     Ok(store.apply_command(command)?)
 }
 
-pub fn undo_state(state: &ProjectState) -> Result<UndoState, IpcError> {
+pub fn undo_project(state: &ProjectState) -> Result<Option<ChangeSet>, IpcError> {
+    let mut guard = lock(state)?;
+    let store = guard.as_mut().ok_or(StoreError::NotOpen)?;
+    Ok(store.undo()?)
+}
+
+pub fn redo_project(state: &ProjectState) -> Result<Option<ChangeSet>, IpcError> {
+    let mut guard = lock(state)?;
+    let store = guard.as_mut().ok_or(StoreError::NotOpen)?;
+    Ok(store.redo()?)
+}
+
+pub fn project_undo_state(state: &ProjectState) -> Result<UndoState, IpcError> {
     let guard = lock(state)?;
     Ok(guard.as_ref().ok_or(StoreError::NotOpen)?.undo_state())
 }
@@ -129,6 +141,24 @@ pub fn apply_command(
     command: Command,
 ) -> Result<ChangeSet, IpcError> {
     apply(&state, command)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn undo(state: tauri::State<'_, ProjectState>) -> Result<Option<ChangeSet>, IpcError> {
+    undo_project(&state)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn redo(state: tauri::State<'_, ProjectState>) -> Result<Option<ChangeSet>, IpcError> {
+    redo_project(&state)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn undo_state(state: tauri::State<'_, ProjectState>) -> Result<UndoState, IpcError> {
+    project_undo_state(&state)
 }
 
 #[cfg(test)]
@@ -188,11 +218,25 @@ mod tests {
         let set = apply(&state, label()).expect("適用できる");
         assert_eq!(set.changes.len(), 1);
         assert_eq!(seen.lock().expect("lock").len(), 1);
-        assert!(undo_state(&state).expect("状態").can_undo);
+        assert!(project_undo_state(&state).expect("状態").can_undo);
+
+        // Undo / Redo も通知される
+        let undone = undo_project(&state)
+            .expect("戻せる")
+            .expect("戻す操作がある");
+        assert_eq!(undone.origin, unnotator_core::event::Origin::Undo);
+        assert!(!project_undo_state(&state).expect("状態").can_undo);
+        let redone = redo_project(&state)
+            .expect("やり直せる")
+            .expect("やり直す操作がある");
+        assert_eq!(redone.origin, unnotator_core::event::Origin::Redo);
+        assert_eq!(seen.lock().expect("lock").len(), 3);
+        assert!(redo_project(&state).expect("状態").is_none());
 
         close_project(&state).expect("閉じられる");
         // 閉じたあと
         assert_eq!(apply(&state, label()).unwrap_err().code, "not_open");
+        assert_eq!(undo_project(&state).unwrap_err().code, "not_open");
         assert_eq!(close_project(&state).unwrap_err().code, "not_open");
         // 開き直すと、保存した内容が残っている（同じプロジェクト）
         let reopened = open_project(&state, &temp.0, false, None).expect("開ける");

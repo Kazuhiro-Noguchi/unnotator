@@ -9,21 +9,11 @@ use unnotator_core::assets::scan::ScanPath;
 use unnotator_core::assets::watch::{NotifyWatcher, WatchBatch, Watcher};
 
 use crate::error::ExtensionError;
-use crate::manifest::Manifest;
-use crate::manifest::text::Locales;
 use crate::registry::{Origin, Problem, ProblemKind, RawExtension};
 use crate::state::ExtensionsState;
 
-const MANIFEST_FILE: &str = "unnotator-plugin.json";
-
 fn read_folder(folder: &Path) -> Result<RawExtension, String> {
-    let bytes = std::fs::read(folder.join(MANIFEST_FILE))
-        .map_err(|e| format!("{MANIFEST_FILE} を読めません: {e}"))?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes)
-        .map_err(|e| format!("{MANIFEST_FILE} が JSON ではありません: {e}"))?;
-    let manifest = Manifest::from_value(value)?;
-    let (locales, warnings) = Locales::load(folder);
-    Ok(RawExtension::new(folder.to_owned(), Origin::Dev, manifest).with_locales(locales, warnings))
+    crate::store::read_extension_dir(folder, Origin::Dev)
 }
 
 /// 開発者モードがオンのときだけ、フォルダを 1 つ読み込む。

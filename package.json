@@ -26,6 +26,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "biome check . && node scripts/check-deps.mjs",
-    "schema:check": "node scripts/schema-check/index.mjs"
+    "schema:check": "node scripts/schema-check/index.mjs",
+    "ipc:gen": "cargo run -p unnotator --example gen_bindings"
   }
 }

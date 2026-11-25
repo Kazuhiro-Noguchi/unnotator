@@ -1,0 +1,32 @@
+{
+  "id": "com.example.selftest",
+  "version": "1.0.0",
+  "engines": {
+    "unnotator": "^1.0.0"
+  },
+  "main": "dist/index.js",
+  "contributes": {
+    "mediaTypes": [
+      {
+        "id": "tone",
+        "title": "tone",
+        "extensions": [
+          ".wav"
+        ],
+        "mimeTypes": [
+          "audio/wav"
+        ]
+      },
+      {
+        "id": "blob",
+        "title": "blob",
+        "extensions": [
+          ".bin"
+        ],
+        "mimeTypes": [
+          "application/octet-stream"
+        ]
+      }
+    ]
+  }
+}

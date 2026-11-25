@@ -13,6 +13,8 @@ export const commands = {
 	 *  計測用の出力が書けなくてもアプリは止めない。
 	 */
 	reportReady: (options?: InvokeOptions) => __TAURI_INVOKE<void>("report_ready", undefined, options),
+	/**  診断の結果を受け取る（診断を求められたときだけ受け付ける）。 */
+	reportSelftest: (report: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("report_selftest", { report }, options),
 	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<OpenResult_Serialize>("project_open", { folder, create }, options),
 	projectClose: (action: CloseChoice | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", { action }, options),
 	projectSave: (options?: InvokeOptions) => __TAURI_INVOKE<SaveState_Serialize>("project_save", undefined, options),

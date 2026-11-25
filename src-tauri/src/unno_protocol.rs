@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use unnotator_core::serve::mime::{EXT_HTML_CSP, FALLBACK_CONTENT_TYPE, web_content_type};
 use unnotator_core::serve::{
@@ -16,8 +17,17 @@ use unnotator_extensions::state::ExtensionsState;
 
 use crate::project_commands::{ProjectState, with_store};
 
+/// 配信の数え上げ（自己診断が読む）。
+#[derive(Default)]
+pub struct ServeStats {
+    pub requests: AtomicU64,
+    /// `Range` つきの要求の数。
+    pub ranged: AtomicU64,
+}
+
 /// 配信が使う、登録簿由来の情報。登録簿が作り直されるたびに `update` で入れ替える。
 pub struct ServeState {
+    pub stats: ServeStats,
     pub blobs: BlobStore,
     pub previews: PreviewCache,
     pub budget: Budget,
@@ -29,6 +39,7 @@ pub struct ServeState {
 impl ServeState {
     pub fn new(blobs: BlobStore, previews: PreviewCache) -> Self {
         Self {
+            stats: ServeStats::default(),
             blobs,
             previews,
             budget: Budget::new(BYTE_BUDGET, MAX_CONCURRENT),
@@ -81,6 +92,10 @@ pub fn handle(
     serve: &ServeState,
     request: &UnnoRequest<'_>,
 ) -> ServeResponse {
+    serve.stats.requests.fetch_add(1, Ordering::Relaxed);
+    if request.range.is_some() {
+        serve.stats.ranged.fetch_add(1, Ordering::Relaxed);
+    }
     let head = match request.method {
         "GET" => false,
         "HEAD" => true,

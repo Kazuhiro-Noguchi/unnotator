@@ -3,6 +3,7 @@
 pub mod asset_commands;
 pub mod commands;
 pub mod project_commands;
+pub mod selftest;
 pub mod settings_commands;
 pub mod unno_protocol;
 
@@ -30,6 +31,7 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
         .commands(collect_commands![
             commands::app_info,
             commands::report_ready,
+            selftest::report_selftest,
             project_commands::project_open,
             project_commands::project_close,
             project_commands::project_save,
@@ -105,6 +107,11 @@ pub fn run() {
     }
 
     let result = unno_protocol::register(tauri::Builder::default())
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                selftest::on_page_loaded(webview);
+            }
+        })
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
@@ -118,6 +125,7 @@ pub fn run() {
                 project_commands::ProjectState::new(recovery_root)
                     .with_user_settings_dir(user_settings),
             );
+            app.manage(selftest::SelfTest::default());
             // `unno://` の配信（ブロブの置き場は、起動のたびに空にする）
             let paths = app_paths(app)?;
             let blobs = unnotator_core::serve::BlobStore::open(paths.blobs_dir())?;

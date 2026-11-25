@@ -307,3 +307,106 @@ fn take_in_ten_thousand_changes() {
     assert_eq!(summary.added, 10_000);
     assert!(count <= 100);
 }
+
+// ---- 005: unno:// の配信（SC-007・SC-009） ----
+
+use unnotator_core::serve::{Budget, ResponseContext, respond_file};
+
+fn sparse_file(dir: &TempDir, len: u64) -> std::path::PathBuf {
+    let path = dir.path().join("big.bin");
+    let file = std::fs::File::create(&path).unwrap();
+    file.set_len(len).unwrap();
+    path
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn serve_ranges_of_a_one_gigabyte_file() {
+    let dir = TempDir::new();
+    let path = sparse_file(&dir, 1 << 30);
+    let before = rss_kib();
+    let mut worst_first_byte = 0;
+    for header in [
+        "bytes=0-1048575",
+        "bytes=536870912-537919487",
+        "bytes=-1048576",
+        "bytes=0-",
+    ] {
+        let mut ctx = ResponseContext::new("application/x-test");
+        ctx.range = Some(header);
+        let started = Instant::now();
+        let response = respond_file(&path, &ctx);
+        let took = ms(started);
+        worst_first_byte = worst_first_byte.max(took);
+        assert_eq!(response.status, 206, "{header}");
+        println!(
+            "SC-007 {header}: {took} ms / {} バイト",
+            response.body.len()
+        );
+    }
+    let after = rss_kib();
+    println!(
+        "SC-007 メモリ {before:?} → {after:?} KiB（基準: 増加 64 MiB 以内）、最大の応答時間 {worst_first_byte} ms（基準 200 ms）"
+    );
+    assert!(worst_first_byte < 200);
+    if let (Some(b), Some(a)) = (before, after) {
+        assert!(
+            a.saturating_sub(b) < 64 * 1024,
+            "増加 {} KiB",
+            a.saturating_sub(b)
+        );
+    }
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn eight_concurrent_range_readers_do_not_stall_another_thread() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let dir = TempDir::new();
+    let path = Arc::new(sparse_file(&dir, 1 << 30));
+    let budget = Arc::new(Budget::new(unnotator_core::serve::BYTE_BUDGET, 8));
+    let running = Arc::new(AtomicBool::new(true));
+
+    // 別のスレッドが、5 ms ごとに起きる。遅れが、停止の目安（UI のスレッドの代わり）
+    let probe = {
+        let running = Arc::clone(&running);
+        std::thread::spawn(move || {
+            let mut worst = 0u128;
+            while running.load(Ordering::SeqCst) {
+                let started = Instant::now();
+                std::thread::sleep(std::time::Duration::from_millis(5));
+                worst = worst.max(ms(started).saturating_sub(5));
+            }
+            worst
+        })
+    };
+    let started = Instant::now();
+    let readers: Vec<_> = (0..8)
+        .map(|n| {
+            let path = Arc::clone(&path);
+            let budget = Arc::clone(&budget);
+            std::thread::spawn(move || {
+                for i in 0..50u64 {
+                    let start = (n * 50 + i) * 4 * 1024 * 1024 % (1 << 30);
+                    let header = format!("bytes={start}-{}", start + 4 * 1024 * 1024 - 1);
+                    let mut ctx = ResponseContext::new("application/x-test");
+                    ctx.range = Some(&header);
+                    ctx.budget = Some(&budget);
+                    assert_eq!(respond_file(&path, &ctx).status, 206);
+                }
+            })
+        })
+        .collect();
+    for r in readers {
+        r.join().unwrap();
+    }
+    let total = ms(started);
+    running.store(false, Ordering::SeqCst);
+    let worst = probe.join().unwrap();
+    println!(
+        "SC-009 8 本 × 50 回（4 MiB）: {total} ms、別スレッドの最大の遅れ {worst} ms（基準 50 ms）"
+    );
+    assert!(worst < 50, "遅れ {worst} ms");
+}

@@ -115,40 +115,46 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// テスト用の絶対パス。Windows ではドライブ付きにする（`/a` は、ドライブの無いパスで、絶対パスにならない）。
+    fn root(path: &str) -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(format!("C:{path}"))
+        } else {
+            PathBuf::from(path)
+        }
+    }
+
     #[test]
     fn relativize_between_siblings_children_and_equal_paths() {
         assert_eq!(
-            relativize(Path::new("/a/b/p"), Path::new("/a/b/raw")),
+            relativize(&root("/a/b/p"), &root("/a/b/raw")),
             Some(PathBuf::from("../raw"))
         );
         assert_eq!(
-            relativize(Path::new("/a"), Path::new("/a/b/c")),
+            relativize(&root("/a"), &root("/a/b/c")),
             Some(PathBuf::from("b/c"))
         );
         assert_eq!(
-            relativize(Path::new("/a"), Path::new("/a")),
+            relativize(&root("/a"), &root("/a")),
             Some(PathBuf::from("."))
         );
-        assert_eq!(relativize(Path::new("a"), Path::new("/a")), None);
+        assert_eq!(relativize(Path::new("a"), &root("/a")), None);
     }
 
     #[test]
     fn resolve_folds_dots_and_trailing_slashes() {
-        let folder = Path::new("/nonexistent-root/p");
-        assert_eq!(
-            resolve(folder, "../raw/"),
-            PathBuf::from("/nonexistent-root/raw")
-        );
-        assert_eq!(
-            resolve(folder, "./x/../y"),
-            PathBuf::from("/nonexistent-root/p/y")
-        );
-        assert_eq!(resolve(folder, "/abs/dir"), PathBuf::from("/abs/dir"));
+        let folder = root("/nonexistent-root/p");
+        let folder = folder.as_path();
+        assert_eq!(resolve(folder, "../raw/"), root("/nonexistent-root/raw"));
+        assert_eq!(resolve(folder, "./x/../y"), root("/nonexistent-root/p/y"));
+        let abs = root("/abs/dir");
+        assert_eq!(resolve(folder, &abs.to_string_lossy()), abs);
     }
 
     #[test]
     fn validate_rejects_overlaps_and_specs_skips_them() {
-        let folder = Path::new("/nonexistent-root/p");
+        let folder = root("/nonexistent-root/p");
+        let folder = folder.as_path();
         assert!(validate(folder, &json!({"a": "../raw", "b": "../other"})).is_ok());
         assert!(validate(folder, &json!({"a": "."})).is_err());
         assert!(validate(folder, &json!({"a": "sub"})).is_err());

@@ -26,12 +26,18 @@ export const commands = {
 	redo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("redo", undefined, options),
 	undoState: (options?: InvokeOptions) => __TAURI_INVOKE<UndoState>("undo_state", undefined, options),
 	labelUsage: (labelId: string, options?: InvokeOptions) => __TAURI_INVOKE<LabelUsage>("label_usage", { labelId }, options),
+	assetList: (filter: AssetFilter_Deserialize, page: Page_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AssetPage_Serialize>("asset_list", { filter, page }, options),
+	assetScan: (scope: ScanScope | null, options?: InvokeOptions) => __TAURI_INVOKE<ScanSummary>("asset_scan", { scope }, options),
+	assetScanCancel: (options?: InvokeOptions) => __TAURI_INVOKE<void>("asset_scan_cancel", undefined, options),
+	assetSetMediaRules: (rules: MediaRules_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("asset_set_media_rules", { rules }, options),
 };
 
 /** Events */
 export const events = {
+	assetsChanged: makeEvent<AssetsChanged, AssetsChanged>("assets-changed"),
 	projectChanged: makeEvent<ProjectChanged, ProjectChanged>("project-changed"),
 	projectStateChanged: makeEvent<ProjectStateChanged_Serialize, ProjectStateChanged_Deserialize>("project-state-changed"),
+	scanProgressEvent: makeEvent<ScanProgressEvent, ScanProgressEvent>("scan-progress-event"),
 };
 
 /* Types */
@@ -61,9 +67,49 @@ export type AppInfo = {
 	version: string,
 };
 
+/**  一覧の続き。`(root_key, rel_path)` の順の、この行の次から。 */
+export type AssetCursor = {
+	root_key: string,
+	rel_path: string,
+};
+
+export type AssetFilter = AssetFilter_Serialize | AssetFilter_Deserialize;
+
+export type AssetFilter_Deserialize = {
+	root_key?: string | null,
+	/**  ルートからの相対パスの前方一致（フォルダなら末尾を `/` にする）。 */
+	path_prefix?: string | null,
+	media_type?: MediaFilter,
+	status?: Status | null,
+	missing?: boolean | null,
+};
+
+export type AssetFilter_Serialize = {
+	root_key: string | null,
+	/**  ルートからの相対パスの前方一致（フォルダなら末尾を `/` にする）。 */
+	path_prefix: string | null,
+	media_type: MediaFilter,
+	status: Status | null,
+	missing: boolean | null,
+};
+
 export type AssetMiss = {
 	asset_id: string,
 	base: AssetStamp,
+};
+
+export type AssetPage = AssetPage_Serialize | AssetPage_Deserialize;
+
+export type AssetPage_Deserialize = {
+	items: AssetRow_Deserialize[],
+	/**  まだ続きがあるときだけ。 */
+	next?: AssetCursor | null,
+};
+
+export type AssetPage_Serialize = {
+	items: AssetRow_Serialize[],
+	/**  まだ続きがあるときだけ。 */
+	next: AssetCursor | null,
 };
 
 export type AssetReclass = AssetReclass_Serialize | AssetReclass_Deserialize;
@@ -78,6 +124,35 @@ export type AssetReclass_Serialize = {
 	media_type: string | null,
 };
 
+/**  アセットの 1 行（`Asset`（plugin-api）の、コアが持つ部分）。 */
+export type AssetRow = AssetRow_Serialize | AssetRow_Deserialize;
+
+/**  アセットの 1 行（`Asset`（plugin-api）の、コアが持つ部分）。 */
+export type AssetRow_Deserialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type?: string | null,
+	/**  2^53 未満なので、TS の `number` で欠けない。 */
+	file_size: number | null,
+	mtime_ms: number | null,
+	status: Status,
+	missing: boolean,
+};
+
+/**  アセットの 1 行（`Asset`（plugin-api）の、コアが持つ部分）。 */
+export type AssetRow_Serialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type: string | null,
+	/**  2^53 未満なので、TS の `number` で欠けない。 */
+	file_size: number | null,
+	mtime_ms: number | null,
+	status: Status,
+	missing: boolean,
+};
+
 /**  サイズと更新時刻。走査が写しを取った時点の値と、いまの行を比べて、食い違うものを飛ばすために使う。 */
 export type AssetStamp = {
 	/**  2^53 未満なので、TS の `number` で欠けない。 */
@@ -90,6 +165,17 @@ export type AssetUpdate = {
 	/**  走査が見た、更新前の値。いまの行と違えば飛ばす。 */
 	base: AssetStamp,
 	now: AssetStamp,
+};
+
+/**  アセットの変化の通知（件数にまとめる）。 */
+export type AssetsChanged = {
+	added: number,
+	updated: number,
+	went_missing: number,
+	restored: number,
+	reclassified: number,
+	/**  `sync` / `relink` / `delete` */
+	origin: string,
 };
 
 export type AttributeScope = "global" | "label" | "annotation_type" | "relation_type" | "group_type" | "asset" | "item";
@@ -217,6 +303,48 @@ export type LabelUsage = {
 	attribute_schemas: number,
 };
 
+export type MediaFilter = { kind: "any" } | 
+/**  媒体種別が判定できない（「不明」）もの。 */
+{ kind: "unknown" } | { kind: "is"; value: string };
+
+export type MediaRule = MediaRule_Serialize | MediaRule_Deserialize;
+
+export type MediaRule_Deserialize = {
+	/**  契約の CHECK（`media_type GLOB '*\/*'`）を満たす ID。 */
+	media_type: string,
+	/**  拡張子（ドット無し。`tar.gz` のように複数のドットも可）。大文字小文字は区別しない。 */
+	extensions?: string[],
+	mime_types?: string[],
+};
+
+export type MediaRule_Serialize = {
+	/**  契約の CHECK（`media_type GLOB '*\/*'`）を満たす ID。 */
+	media_type: string,
+	/**  拡張子（ドット無し。`tar.gz` のように複数のドットも可）。大文字小文字は区別しない。 */
+	extensions: string[],
+	mime_types: string[],
+};
+
+/**  規則の集合。先に宣言されたものが勝つ。 */
+export type MediaRules = MediaRules_Serialize | MediaRules_Deserialize;
+
+/**  規則の集合。先に宣言されたものが勝つ。 */
+export type MediaRules_Deserialize = {
+	rules: MediaRule_Deserialize[],
+};
+
+/**  規則の集合。先に宣言されたものが勝つ。 */
+export type MediaRules_Serialize = {
+	rules: MediaRule_Serialize[],
+};
+
+/**  リンク切れにした理由。 */
+export type MissReason = {
+	asset_id: string,
+	/**  `file_not_found` / `root_not_found` / `root_not_configured` */
+	reason: string,
+};
+
 export type NewAsset = NewAsset_Serialize | NewAsset_Deserialize;
 
 export type NewAsset_Deserialize = {
@@ -253,6 +381,18 @@ export type OpenResult_Serialize = { kind: "opened"; info: ProjectInfo_Serialize
 export type Origin = "apply" | "undo" | "redo" | 
 /**  走査・見張りの反映（Undo の対象外）。 */
 "sync";
+
+export type Page = Page_Serialize | Page_Deserialize;
+
+export type Page_Deserialize = {
+	after?: AssetCursor | null,
+	limit: number,
+};
+
+export type Page_Serialize = {
+	after: AssetCursor | null,
+	limit: number,
+};
 
 /**  変更の差分。`apply_command`・`undo`・`redo` がコミットされたあとに通知する。 */
 export type ProjectChanged = ChangeSet;
@@ -403,6 +543,53 @@ export type SaveState_Serialize = {
 	last_change_at: number | null,
 	/**  保存の実行中か。 */
 	saving: boolean,
+};
+
+export type ScanPath = {
+	root_key: string,
+	/**  ルートからの相対パス。空ならルート全体。 */
+	rel_path: string,
+};
+
+export type ScanPhase = "walking" | "applying";
+
+export type ScanProgress = {
+	/**  これまでに見つけたファイルの数。 */
+	found: number,
+	phase: ScanPhase,
+};
+
+/**  走査の進み具合の通知。 */
+export type ScanProgressEvent = ScanProgress;
+
+export type ScanScope = 
+/**  すべてのルート。 */
+{ kind: "full" } | 
+/**  見張りが報せた場所だけ。 */
+{ kind: "paths"; value: ScanPath[] };
+
+/**  走査 1 回の結果の要約。 */
+export type ScanSummary = {
+	added: number,
+	updated: number,
+	went_missing: number,
+	restored: number,
+	reclassified: number,
+	/**  適用の直前に、行が変わっていたため飛ばした数。 */
+	skipped_rows: number,
+	/**  歩けなかった場所。 */
+	skipped: Skipped[],
+	miss_reasons: MissReason[],
+	/**  最後まで歩いた。 */
+	complete: boolean,
+};
+
+/**  歩けなかった場所。 */
+export type Skipped = {
+	root_key: string,
+	rel_path: string,
+	/**  `permission_denied` / `io_error` / `invalid_path` */
+	reason: string,
 };
 
 export type Status = "todo" | "in_progress" | "done" | "review";

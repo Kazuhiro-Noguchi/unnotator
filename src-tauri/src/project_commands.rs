@@ -46,6 +46,8 @@ pub struct ProjectState {
     slot: Mutex<Slot>,
     /// 作業用データの置き場（`<app_data_dir>/recovery`）。
     recovery_root: PathBuf,
+    /// 走査の中断の指示（`asset_scan_cancel` が立てる）。
+    scan_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ProjectState {
@@ -53,7 +55,12 @@ impl ProjectState {
         Self {
             slot: Mutex::new(Slot::Empty),
             recovery_root,
+            scan_cancel: std::sync::Arc::default(),
         }
+    }
+
+    pub(crate) fn scan_cancel(&self) -> &std::sync::atomic::AtomicBool {
+        &self.scan_cancel
     }
 
     pub fn recovery_root(&self) -> &Path {
@@ -257,7 +264,7 @@ pub fn close_project(state: &ProjectState, action: Option<CloseChoice>) -> Resul
     Ok(())
 }
 
-fn with_store<T>(
+pub(crate) fn with_store<T>(
     state: &ProjectState,
     f: impl FnOnce(&mut ProjectStore) -> Result<T, StoreError>,
 ) -> Result<T, IpcError> {
@@ -375,19 +382,33 @@ pub fn project_open(
     folder: String,
     create: bool,
 ) -> Result<OpenResult, IpcError> {
-    open_project(&state, Path::new(&folder), create, hooks_for(&app))
+    let result = open_project(&state, Path::new(&folder), create, hooks_for(&app))?;
+    if matches!(result, OpenResult::Opened { .. }) {
+        crate::asset_commands::start_auto_scan(&app);
+    }
+    Ok(result)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn recovery_restore(state: tauri::State<'_, ProjectState>) -> Result<ProjectInfo, IpcError> {
-    restore_recovery(&state)
+pub fn recovery_restore(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<ProjectInfo, IpcError> {
+    let info = restore_recovery(&state)?;
+    crate::asset_commands::start_auto_scan(&app);
+    Ok(info)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn recovery_discard(state: tauri::State<'_, ProjectState>) -> Result<ProjectInfo, IpcError> {
-    discard_recovery(&state)
+pub fn recovery_discard(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<ProjectInfo, IpcError> {
+    let info = discard_recovery(&state)?;
+    crate::asset_commands::start_auto_scan(&app);
+    Ok(info)
 }
 
 #[tauri::command(async)]

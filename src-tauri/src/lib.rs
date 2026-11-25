@@ -1,5 +1,6 @@
 //! unnotator アプリ本体（Tauri）。
 
+pub mod asset_commands;
 pub mod commands;
 pub mod project_commands;
 
@@ -39,11 +40,17 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::undo,
             project_commands::redo,
             project_commands::undo_state,
-            project_commands::label_usage
+            project_commands::label_usage,
+            asset_commands::asset_list,
+            asset_commands::asset_scan,
+            asset_commands::asset_scan_cancel,
+            asset_commands::asset_set_media_rules
         ])
         .events(collect_events![
             project_commands::ProjectChanged,
-            project_commands::ProjectStateChanged
+            project_commands::ProjectStateChanged,
+            asset_commands::ScanProgressEvent,
+            asset_commands::AssetsChanged
         ])
 }
 

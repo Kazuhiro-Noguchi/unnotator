@@ -11,7 +11,8 @@ use crate::command::asset::{AssetMiss, AssetReclass, AssetUpdate, NewAsset};
 use crate::error::StoreError;
 
 /// 走査 1 回の結果の要約。
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ScanSummary {
     pub added: u32,
     pub updated: u32,

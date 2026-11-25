@@ -75,7 +75,7 @@ fn the_project_directory_and_excluded_files_are_not_assets() {
         ("note.tmp", "5"),
     ]);
     store.set_scan_options(ScanOptions {
-        exclude: vec!["*.bak".to_owned(), "/drafts/".to_owned(), ".*".to_owned()],
+        exclude: vec!["*.bak".to_owned(), "/drafts/".to_owned()],
         ..ScanOptions::default()
     });
     store.scan(ScanScope::Full).unwrap();
@@ -83,8 +83,8 @@ fn the_project_directory_and_excluded_files_are_not_assets() {
         .into_iter()
         .map(|a| a.rel_path)
         .collect();
-    // `.unnotator/`（project.db・lock）は、設定に関わらず対象外。`note.tmp` は、この設定には含まれない。
-    assert_eq!(paths, ["keep.txt", "note.tmp"]);
+    // `.unnotator/`（project.db・lock）は、設定に関わらず対象外。隠しファイルと `note.tmp` は、この設定には含まれない。
+    assert_eq!(paths, [".hidden.txt", "keep.txt", "note.tmp"]);
 }
 
 #[test]

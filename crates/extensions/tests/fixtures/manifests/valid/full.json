@@ -1,0 +1,21 @@
+{
+  "id": "com.example.text",
+  "version": "1.2.3-beta.1+build.5",
+  "displayName": "Example text",
+  "description": "A sample extension that exercises many manifest fields.",
+  "publisher": "example",
+  "license": "MIT",
+  "repository": "https://example.com/repo",
+  "engines": { "unnotator": "^1.0.0" },
+  "main": "dist/index.js",
+  "activationEvents": [
+    "onStartup",
+    "onMediaType:text",
+    "onCommand:com.example.text/hello"
+  ],
+  "permissions": ["assets.read", "annotations.read", "annotations.write"],
+  "contributes": {
+    "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
+    "commands": [{ "id": "hello", "title": "Hello" }]
+  }
+}

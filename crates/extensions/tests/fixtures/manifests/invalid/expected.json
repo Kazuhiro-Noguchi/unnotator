@@ -1,0 +1,7 @@
+{
+  "missing-id.json": "required",
+  "bad-id-pattern.json": "pattern",
+  "reserved-core-id.json": "pattern",
+  "unknown-property.json": "additionalProperties",
+  "bad-version.json": "pattern"
+}

@@ -1,11 +1,39 @@
 // 契約の検査の実行役。工程を登録して順に実行し、失敗しても残りを続け、最後にまとめて結果を出す。
-// 工程の登録は US3 の課題（T034）で行う。
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+/** コマンドを実行し、失敗したら例外を投げる。出力はそのまま表示する。 */
+function sh(command, args) {
+  return () => {
+    const result = spawnSync(command, args, { stdio: "inherit" });
+    if (result.status !== 0) {
+      throw new Error(
+        `${command} ${args.join(" ")} が終了コード ${result.status} で失敗した`,
+      );
+    }
+  };
+}
+
 /** 登録する工程。`{ name, run }`。`run` は失敗したら例外を投げる。 */
-export const steps = [];
+export const steps = [
+  {
+    name: "DB スキーマの適用",
+    run: sh("cargo", ["test", "-p", "unnotator-core", "--test", "contracts"]),
+  },
+  {
+    name: "マニフェストの見本",
+    run: sh("node", ["scripts/schema-check/manifests.mjs"]),
+  },
+  {
+    name: "ワーカープロトコルの型検査",
+    run: sh("pnpm", ["exec", "tsc", "-p", "crates/worker"]),
+  },
+  {
+    name: "拡張 API の型検査",
+    run: sh("pnpm", ["exec", "tsc", "-p", "packages/plugin-api"]),
+  },
+];
 
 /** 前提が欠けていれば、足りないものを名指しした文のリストを返す。 */
 export function checkPrerequisites({ hasCommand, exists }) {

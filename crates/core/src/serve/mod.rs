@@ -92,6 +92,7 @@ fn reason(status: u16) -> &'static str {
         400 => "Bad Request",
         403 => "Forbidden",
         404 => "Not Found",
+        405 => "Method Not Allowed",
         413 => "Payload Too Large",
         416 => "Range Not Satisfiable",
         503 => "Service Unavailable",
@@ -107,7 +108,30 @@ fn common_headers() -> Vec<(String, String)> {
             "cross-origin".to_owned(),
         ),
         ("Access-Control-Allow-Origin".to_owned(), "*".to_owned()),
+        (
+            "Access-Control-Expose-Headers".to_owned(),
+            "Content-Range, Content-Length, Accept-Ranges, ETag".to_owned(),
+        ),
     ]
+}
+
+/// CORS の事前確認（`OPTIONS`）への応答。
+pub fn preflight_response() -> ServeResponse {
+    let mut headers = common_headers();
+    headers.push((
+        "Access-Control-Allow-Methods".to_owned(),
+        "GET, HEAD, OPTIONS".to_owned(),
+    ));
+    headers.push((
+        "Access-Control-Allow-Headers".to_owned(),
+        "Range, If-None-Match".to_owned(),
+    ));
+    headers.push(("Content-Length".to_owned(), "0".to_owned()));
+    ServeResponse {
+        status: 204,
+        headers,
+        body: Vec::new(),
+    }
 }
 
 /// 状態だけの短い応答。内部のパスや他のデータを含まない。

@@ -4,6 +4,7 @@ pub mod asset_commands;
 pub mod commands;
 pub mod project_commands;
 pub mod settings_commands;
+pub mod unno_protocol;
 
 #[cfg(test)]
 mod bindings_test;
@@ -72,6 +73,21 @@ pub fn export_bindings(path: &Path) -> Result<(), specta_typescript::Error> {
     ipc_builder().export(Typescript::default(), path)
 }
 
+/// アプリの領域の置き場。実行ファイルの隣に `data/` があれば、ポータブル版として、その下にすべてを置く。
+pub fn app_paths(app: &tauri::App) -> Result<unnotator_extensions::paths::AppPaths, tauri::Error> {
+    use unnotator_extensions::paths::AppPaths;
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    if let Some(dir) = exe_dir.filter(|dir| dir.join("data").is_dir()) {
+        return Ok(AppPaths::portable(&dir));
+    }
+    Ok(AppPaths::new(
+        &app.path().app_data_dir()?,
+        &app.path().app_cache_dir()?,
+    ))
+}
+
 /// アプリを起動する。
 pub fn run() {
     process_start();
@@ -88,7 +104,7 @@ pub fn run() {
         }
     }
 
-    let result = tauri::Builder::default()
+    let result = unno_protocol::register(tauri::Builder::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
@@ -102,6 +118,16 @@ pub fn run() {
                 project_commands::ProjectState::new(recovery_root)
                     .with_user_settings_dir(user_settings),
             );
+            // `unno://` の配信（ブロブの置き場は、起動のたびに空にする）
+            let paths = app_paths(app)?;
+            let blobs = unnotator_core::serve::BlobStore::open(paths.blobs_dir())?;
+            if let Err(error) = blobs.clear() {
+                tracing::warn!(%error, "ブロブの置き場を空にできなかった");
+            }
+            app.manage(unno_protocol::ServeState::new(
+                blobs,
+                unnotator_core::serve::PreviewCache::new(paths.previews_dir()),
+            ));
             Ok(())
         })
         .run(tauri::generate_context!());

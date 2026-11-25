@@ -86,6 +86,23 @@ fn a_preview_is_found_by_asset_id_or_is_absent() {
     ));
 }
 
+#[test]
+fn a_preview_content_type_comes_from_its_side_file() {
+    let tmp = TempDir::new();
+    let dir = tmp.path().join("previews");
+    std::fs::create_dir_all(&dir).unwrap();
+    let cache = PreviewCache::new(dir.clone());
+    assert_eq!(cache.content_type("a1"), None);
+    std::fs::write(dir.join("a1.type"), "application/x-thumb\n").unwrap();
+    assert_eq!(
+        cache.content_type("a1").as_deref(),
+        Some("application/x-thumb")
+    );
+    std::fs::write(dir.join("a2.type"), "not a type").unwrap();
+    assert_eq!(cache.content_type("a2"), None);
+    assert_eq!(cache.content_type("../a1"), None);
+}
+
 // ---- アセットの実パス ----
 
 fn first_asset_id(store: &unnotator_core::project::ProjectStore) -> String {

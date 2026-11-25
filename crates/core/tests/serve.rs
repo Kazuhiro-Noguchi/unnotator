@@ -324,6 +324,12 @@ fn the_whole_file_is_returned_with_standard_headers() {
         Some("cross-origin")
     );
     assert_eq!(response.header("access-control-allow-origin"), Some("*"));
+    assert!(
+        response
+            .header("access-control-expose-headers")
+            .unwrap()
+            .contains("Content-Range")
+    );
     assert_eq!(response.header("cache-control"), Some("no-cache"));
     assert!(response.header("etag").unwrap().starts_with('"'));
 }

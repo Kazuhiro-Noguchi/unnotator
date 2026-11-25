@@ -20,8 +20,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
-      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost ws://localhost:1420; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+      "csp": "default-src 'self'; script-src 'self' unno: http://unno.localhost; style-src 'self'; img-src 'self' data: unno: http://unno.localhost; media-src 'self' unno: http://unno.localhost; frame-src unno: http://unno.localhost; connect-src ipc: http://ipc.localhost unno: http://unno.localhost; font-src 'self' unno: http://unno.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' unno: http://unno.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data: unno: http://unno.localhost; media-src 'self' unno: http://unno.localhost; frame-src unno: http://unno.localhost; connect-src ipc: http://ipc.localhost unno: http://unno.localhost ws://localhost:1420; font-src 'self' unno: http://unno.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     }
   },
   "bundle": {

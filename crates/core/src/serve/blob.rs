@@ -76,4 +76,15 @@ impl PreviewCache {
     pub fn resolve(&self, asset_id: &str) -> Result<PathBuf, ServeError> {
         resolve_direct(&self.dir, asset_id)
     }
+
+    /// 添え書き（`<アセット ID>.type`）に書かれた `Content-Type`。無ければ `None`。
+    /// 形式の判断は、サムネイルを書いた側の責務で、コアは書かれた文字列をそのまま返す。
+    pub fn content_type(&self, asset_id: &str) -> Option<String> {
+        check_name(asset_id).ok()?;
+        let text = std::fs::read_to_string(self.dir.join(format!("{asset_id}.type"))).ok()?;
+        let line = text.lines().next()?.trim();
+        let plausible =
+            line.len() <= 100 && line.contains('/') && !line.chars().any(char::is_control);
+        plausible.then(|| line.to_owned())
+    }
 }

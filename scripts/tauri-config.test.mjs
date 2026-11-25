@@ -13,11 +13,44 @@ describe("tauri.conf.json", () => {
 
   it.each(["csp", "devCsp"])("%s に外部の接続先が無い", (key) => {
     const csp = conf.app.security[key];
-    const withoutIpc = csp.replaceAll("http://ipc.localhost", "");
+    // アプリ自身の通り道（ipc と unno://）だけは、localhost の別名として許す
+    const withoutIpc = csp
+      .replaceAll("http://ipc.localhost", "")
+      .replaceAll("http://unno.localhost", "");
     expect(withoutIpc).not.toMatch(/\bhttps?:/);
     expect(withoutIpc).not.toMatch(/\bwss?:\/\/(?!localhost:1420)/);
     expect(csp).not.toMatch(/\*/);
   });
+
+  it.each(["csp", "devCsp"])(
+    "%s は unno:// を、読み込み系の指示にだけ足している",
+    (key) => {
+      const csp = conf.app.security[key];
+      const directive = (name) =>
+        csp
+          .split(";")
+          .map((d) => d.trim())
+          .find((d) => d.startsWith(`${name} `)) ?? "";
+      for (const name of [
+        "script-src",
+        "img-src",
+        "media-src",
+        "font-src",
+        "frame-src",
+        "connect-src",
+      ]) {
+        expect(directive(name), name).toMatch(/\bunno:/);
+        expect(directive(name), name).toMatch(/http:\/\/unno\.localhost/);
+      }
+      // 実行の許可は広げない
+      expect(csp).not.toMatch(/unsafe-eval/);
+      expect(directive("script-src")).not.toMatch(/unsafe-inline/);
+      expect(directive("style-src")).not.toMatch(/unno:/);
+      expect(csp).toMatch(/default-src 'self'/);
+      expect(csp).toMatch(/object-src 'none'/);
+      expect(csp).toMatch(/frame-ancestors 'none'/);
+    },
+  );
 
   it("本番の csp に ws: が無い", () => {
     expect(conf.app.security.csp).not.toMatch(/\bws:/);

@@ -23,6 +23,9 @@
     "vitest": "^5.1.1"
   },
   "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check . && node scripts/check-deps.mjs",
     "schema:check": "node scripts/schema-check/index.mjs"
   }
 }

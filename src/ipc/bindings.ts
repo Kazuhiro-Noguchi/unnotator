@@ -40,6 +40,7 @@ export const commands = {
 	settingsLayer: (layer: Layer, options?: InvokeOptions) => __TAURI_INVOKE<string>("settings_layer", { layer }, options),
 	settingsWarnings: (options?: InvokeOptions) => __TAURI_INVOKE<SettingsIssue[]>("settings_warnings", undefined, options),
 	settingsReload: (options?: InvokeOptions) => __TAURI_INVOKE<string[]>("settings_reload", undefined, options),
+	extensionsCheck: (installed: InstalledExtension[], options?: InvokeOptions) => __TAURI_INVOKE<ExtensionCheck>("extensions_check", { installed }, options),
 };
 
 /** Events */
@@ -264,6 +265,17 @@ export type EffectiveSetting = {
 
 export type Entity = "annotation" | "relation" | "group" | "group_member" | "label" | "attribute_schema" | "asset" | "item";
 
+export type ExtensionCheck = {
+	missing: RequiredExtension[],
+	version_mismatch: VersionMismatch[],
+	warnings: ExtensionsWarning[],
+};
+
+/**  読めなかった行・ファイルの理由。 */
+export type ExtensionsWarning = {
+	why: string,
+};
+
 /**
  *  項目ごとの「変えない / 値にする / 空にする」。更新のパッチで使う。
  *  `Clear` は空にできる（NULL を許す）項目にだけ使える。
@@ -282,6 +294,12 @@ export type GroupPatch_Serialize = {
 	ordered: Field<boolean>,
 	label_id: Field<string>,
 	attributes_json: Field<string>,
+};
+
+/**  導入済みの拡張機能（呼び出し側が渡す）。 */
+export type InstalledExtension = {
+	id: string,
+	version: string,
 };
 
 /**  IPC のエラー。`code` は安定した識別子で、文言は画面側が i18n で決める。 */
@@ -555,6 +573,13 @@ export type RelinkCandidate = {
 	file_size: number | null,
 };
 
+/**  `extensions.json` に書かれた、必要な拡張機能。 */
+export type RequiredExtension = {
+	id: string,
+	/**  必要な版の範囲（`1.2.3`・`^1.2.3`・`~1.2.3`・`>=1.2.3`・`*`）。 */
+	version: string,
+};
+
 /**  開いているプロジェクトの、未保存の状態。画面が●を切り替えるのに使う。 */
 export type SaveState = SaveState_Serialize | SaveState_Deserialize;
 
@@ -681,6 +706,12 @@ export type ValueKind =
 "string_list" | "bool" | 
 /**  キー → 文字列のオブジェクト。 */
 "string_map";
+
+export type VersionMismatch = {
+	id: string,
+	required: string,
+	installed: string,
+};
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;

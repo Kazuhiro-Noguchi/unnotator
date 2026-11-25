@@ -347,3 +347,18 @@ impl ProjectStore {
         self.scan_options.roots = roots;
     }
 }
+
+// ---- 拡張機能の一覧（extensions.json） ----
+
+use crate::extensions_list::{self, ExtensionCheck, InstalledExtension};
+
+impl ProjectStore {
+    /// `.unnotator/extensions.json` と、導入済みの拡張機能（呼び出し側が渡す）を突き合わせる。読み取りだけ。
+    pub fn check_extensions(
+        &self,
+        installed: &[InstalledExtension],
+    ) -> Result<ExtensionCheck, StoreError> {
+        let (required, warnings) = extensions_list::read(&self.layout.dir.join("extensions.json"));
+        Ok(extensions_list::check(&required, installed, warnings))
+    }
+}

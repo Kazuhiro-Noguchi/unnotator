@@ -55,7 +55,8 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             settings_commands::settings_keys,
             settings_commands::settings_layer,
             settings_commands::settings_warnings,
-            settings_commands::settings_reload
+            settings_commands::settings_reload,
+            settings_commands::extensions_check
         ])
         .events(collect_events![
             project_commands::ProjectChanged,

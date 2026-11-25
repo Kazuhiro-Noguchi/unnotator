@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri_specta::Event;
 use unnotator_core::error::StoreError;
+use unnotator_core::extensions_list::{ExtensionCheck, InstalledExtension};
 use unnotator_core::settings::keys::{CORE_KEYS, CoreKey};
 use unnotator_core::settings::{Layer, Settings, SettingsChanged, SettingsIssue, Source};
 
@@ -109,6 +110,14 @@ pub fn reload(state: &ProjectState) -> Result<Vec<String>, IpcError> {
     with_store(state, |store| store.settings_reload())
 }
 
+/// `.unnotator/extensions.json` と、導入済みの拡張機能を突き合わせる（読み取りだけ）。
+pub fn check_extensions(
+    state: &ProjectState,
+    installed: &[InstalledExtension],
+) -> Result<ExtensionCheck, IpcError> {
+    with_store(state, |store| store.check_extensions(installed))
+}
+
 /// 設定の変更の通知。
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct SettingsChangedEvent(pub SettingsChanged);
@@ -186,6 +195,15 @@ pub fn settings_warnings(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<Vec<SettingsIssue>, IpcError> {
     warnings(&state)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn extensions_check(
+    state: tauri::State<'_, ProjectState>,
+    installed: Vec<InstalledExtension>,
+) -> Result<ExtensionCheck, IpcError> {
+    check_extensions(&state, &installed)
 }
 
 #[tauri::command(async)]
@@ -269,6 +287,31 @@ mod tests {
             get(&state, "assets.watch").expect("読める").source,
             Source::Default
         );
+    }
+
+    #[test]
+    fn extensions_are_checked_against_the_installed_list() {
+        let temp = Temp::new();
+        let state = temp.state();
+        let installed = vec![InstalledExtension {
+            id: "com.example.a".to_owned(),
+            version: "1.0.0".to_owned(),
+        }];
+        assert_eq!(
+            check_extensions(&state, &installed).unwrap_err().code,
+            "not_open"
+        );
+        open_project(&state, &temp.project(), true, Hooks::default()).expect("作れる");
+        std::fs::write(
+            temp.project().join(".unnotator/extensions.json"),
+            r#"{"version":1,"extensions":[{"id":"com.example.a","version":"^2.0.0"},{"id":"com.example.b","version":"*"}]}"#,
+        )
+        .expect("書ける");
+        let check = check_extensions(&state, &installed).expect("突き合わせられる");
+        assert_eq!(check.missing.len(), 1);
+        assert_eq!(check.missing[0].id, "com.example.b");
+        assert_eq!(check.version_mismatch.len(), 1);
+        assert!(check.warnings.is_empty());
     }
 
     #[test]

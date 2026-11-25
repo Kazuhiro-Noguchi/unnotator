@@ -65,6 +65,8 @@ A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so y
 
 - `.unnotator/project.db` is the project database. `.unnotator/lock` stops a second app (or window) from opening the same project at the same time; if the app crashes, the operating system releases the lock, so there is nothing to clean up. The lock is reliable on local disks; on network drives the operating system may not guarantee it, so keep projects on a local disk.
 - When an update changes the database format, the project is migrated automatically when you open it, and the previous contents are kept as `.unnotator/project.db.bak`. A project from a newer app is refused (and left untouched) rather than opened.
+- While a project is open, your edits go to a working copy that the app keeps in its own data folder (`recovery/`), together with a change journal; `project.db` changes only when you save, and a save writes a new file next to it and swaps it in, so a crash or power loss in the middle of a save cannot leave a half-written project. You can keep editing while a save is running.
+- When you close a project with unsaved changes you choose between saving and discarding (or you do not close it). If the app crashes, the next time you open the project it offers to restore the unsaved work (with the number of changes and the time of the last one) or discard it; nothing is deleted until you choose, and the undo history is rebuilt (up to 500 steps). Working data whose project no longer exists is deleted automatically after 30 days; it can also be listed and deleted by hand.
 
 ## Development
 

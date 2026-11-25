@@ -157,3 +157,49 @@ fn five_hundred_large_transactions_in_the_history() {
     );
     assert_eq!(store.undo_state().undo_depth, 500);
 }
+
+// ---- 003: 保存と開く（SC-003、research.md R6・R7） ----
+
+fn project_with(count: usize) -> TempDir {
+    let dir = TempDir::new();
+    ProjectStore::create(dir.path(), support::system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .unwrap();
+    let conn = Connection::open(db_path(&dir)).unwrap();
+    insert_asset(&conn, "a1", "a.bin");
+    bulk_annotations(&conn, count);
+    drop(conn);
+    dir
+}
+
+/// 開く（作業用の複製の作成を含む）→ 1 件編集 → 保存、の時間を測る。
+fn measure_open_and_save(count: usize) -> (u128, u128) {
+    let dir = project_with(count);
+    let start = Instant::now();
+    let mut store = support::open_store(dir.path());
+    let open = ms(start);
+    store.apply_command(create_annotation("a1", "{}")).unwrap();
+    let start = Instant::now();
+    store.save().unwrap();
+    let save = ms(start);
+    println!("SC-003: {count} 件: 開く {open} ms / 保存 {save} ms");
+    store.close(None).unwrap();
+    (open, save)
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn save_a_project_with_a_hundred_thousand_annotations() {
+    let (_open, save) = measure_open_and_save(100_000);
+    assert!(save < 3_000, "3 秒以内のはずが {save} ms");
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn open_and_save_a_project_with_a_million_annotations() {
+    let (open, save) = measure_open_and_save(1_000_000);
+    // 起動の目標（2 秒）と、保存の目標（3 秒。10 万件の基準を、100 万件でも守れるか）を観察する
+    assert!(open < 2_000, "開くのに {open} ms");
+    assert!(save < 3_000, "保存に {save} ms");
+}

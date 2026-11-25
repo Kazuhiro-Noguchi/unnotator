@@ -1,0 +1,3 @@
+# clippy の設定をルートに置かず config/ にまとめる。
+[env]
+CLIPPY_CONF_DIR = { value = "config", relative = true }

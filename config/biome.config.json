@@ -3,16 +3,18 @@
   "vcs": {
     "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": true
+    "useIgnoreFile": true,
+    "root": "."
   },
   "files": {
     "includes": [
       "*.json",
-      "*.ts",
       "src/**",
       "scripts/**",
       "packages/**",
       "crates/**/tests/**",
+      "config/*.ts",
+      "*.ts",
       "!**/src/ipc/bindings.ts",
       "!crates/extensions/schema",
       "!crates/worker/protocol",

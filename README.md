@@ -2,7 +2,7 @@
 
 **A general-purpose annotation tool that supports any media type through extensions.**
 
-[日本語](README.ja.md) · [License: MIT](LICENSE)
+[日本語](docs/README.ja.md) · [License: MIT](LICENSE)
 
 unnotator is a desktop app built with Tauri v2 (Rust) and SolidJS/TypeScript. It runs entirely on your machine: no accounts, no servers.
 
@@ -27,6 +27,9 @@ The core knows nothing about media. Images, text, audio and anything else are ha
 | `src-tauri` | The Tauri application |
 | `src/` | SolidJS shell. Talks to Rust through `src/ipc/` |
 | `packages/plugin-api` | `@unnotator/plugin-api`: TypeScript types for extension authors |
+| `config/` | Tool configuration (Vite, Vitest, Biome, Clippy) |
+| `scripts/` | Repository scripts (checks, measurements) |
+| `docs/` | Documentation, including the Japanese README |
 
 Dependencies point one way: `src-tauri → crates/*`, and `worker → extensions → core`.
 

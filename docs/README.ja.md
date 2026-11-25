@@ -2,7 +2,7 @@
 
 **拡張機能であらゆる形式に対応できる、汎用のアノテーションツール。**
 
-[English](README.md) · [ライセンス: MIT](LICENSE)
+[English](../README.md) · [ライセンス: MIT](../LICENSE)
 
 unnotator は Tauri v2（Rust）と SolidJS/TypeScript で作るデスクトップアプリです。アカウントもサーバーも要らず、すべて手元のマシンだけで動きます。
 
@@ -27,6 +27,9 @@ unnotator は Tauri v2（Rust）と SolidJS/TypeScript で作るデスクトッ�
 | `src-tauri` | Tauri アプリ本体 |
 | `src/` | SolidJS のシェル。Rust との通信は `src/ipc/` を経由する |
 | `packages/plugin-api` | `@unnotator/plugin-api`: 拡張機能の作者向けの TypeScript の型定義 |
+| `config/` | ツールの設定（Vite・Vitest・Biome・Clippy） |
+| `scripts/` | リポジトリ用のスクリプト（検査・計測） |
+| `docs/` | 文書（日本語の README を含む） |
 
 依存の向きは一方向です。`src-tauri → crates/*`、`worker → extensions → core`。
 
@@ -97,8 +100,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 - TypeScript: `any` を使わない。画面の文字列は i18n（日英）を通し、色はテーマの CSS 変数で指定する。
 - コミットは [Conventional Commits](https://www.conventionalcommits.org/ja/) に従う。
 
-貢献者・エージェント向けの作業手順は [CLAUDE.md](CLAUDE.md) にあります。
+貢献者・エージェント向けの作業手順は [CLAUDE.md](../CLAUDE.md) にあります。
 
 ## ライセンス
 
-[MIT](LICENSE)
+[MIT](../LICENSE)

@@ -2,6 +2,7 @@
 
 pub mod asset_commands;
 pub mod commands;
+pub mod extension_commands;
 pub mod project_commands;
 pub mod selftest;
 pub mod settings_commands;
@@ -32,6 +33,23 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             commands::app_info,
             commands::report_ready,
             selftest::report_selftest,
+            extension_commands::extension_install,
+            extension_commands::extension_remove,
+            extension_commands::extension_list,
+            extension_commands::extension_problems,
+            extension_commands::extension_get,
+            extension_commands::extension_set_enabled,
+            extension_commands::extension_pin,
+            extension_commands::extension_permissions,
+            extension_commands::extension_consent,
+            extension_commands::extension_revoke,
+            extension_commands::extension_check_permission,
+            extension_commands::devmode_get,
+            extension_commands::devmode_set,
+            extension_commands::devmode_add_folder,
+            extension_commands::devmode_remove_folder,
+            extension_commands::media_rules_override,
+            extension_commands::blob_dir,
             project_commands::project_open,
             project_commands::project_close,
             project_commands::project_save,
@@ -66,7 +84,10 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::ProjectStateChanged,
             asset_commands::ScanProgressEvent,
             asset_commands::AssetsChanged,
-            settings_commands::SettingsChangedEvent
+            settings_commands::SettingsChangedEvent,
+            extension_commands::ExtensionsChanged,
+            extension_commands::PermissionsChanged,
+            extension_commands::DevExtensionChanged
         ])
 }
 
@@ -132,10 +153,14 @@ pub fn run() {
             if let Err(error) = blobs.clear() {
                 tracing::warn!(%error, "ブロブの置き場を空にできなかった");
             }
-            app.manage(unno_protocol::ServeState::new(
+            let serve = unno_protocol::ServeState::new(
                 blobs,
                 unnotator_core::serve::PreviewCache::new(paths.previews_dir()),
-            ));
+            );
+            let runtime = extension_commands::ExtensionRuntime::new(paths, &serve);
+            app.manage(serve);
+            app.manage(runtime);
+            extension_commands::start_dev_watch(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!());

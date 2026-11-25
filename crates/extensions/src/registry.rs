@@ -176,6 +176,18 @@ impl Registry {
         &self.problems
     }
 
+    /// 登録簿の外で見つかった問題（読めない導入済みのフォルダなど）を足す。
+    pub fn add_problems(&mut self, extra: impl IntoIterator<Item = Problem>) {
+        self.problems.extend(extra);
+        self.problems.sort_by(|a, b| {
+            (&a.extension_id, &a.pointer, &a.message).cmp(&(
+                &b.extension_id,
+                &b.pointer,
+                &b.message,
+            ))
+        });
+    }
+
     pub fn contribution(&self, kind: ContributionKind, qualified: &str) -> Option<&Contribution> {
         self.contributions.get(&(kind, qualified.to_owned()))
     }

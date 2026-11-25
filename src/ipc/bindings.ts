@@ -15,6 +15,23 @@ export const commands = {
 	reportReady: (options?: InvokeOptions) => __TAURI_INVOKE<void>("report_ready", undefined, options),
 	/**  診断の結果を受け取る（診断を求められたときだけ受け付ける）。 */
 	reportSelftest: (report: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("report_selftest", { report }, options),
+	extensionInstall: (path: string, options?: InvokeOptions) => __TAURI_INVOKE<InstallOutcomeDto>("extension_install", { path }, options),
+	extensionRemove: (id: string, version: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_remove", { id, version }, options),
+	extensionList: (language: string | null, options?: InvokeOptions) => __TAURI_INVOKE<ExtensionEntryDto_Serialize[]>("extension_list", { language }, options),
+	extensionProblems: (options?: InvokeOptions) => __TAURI_INVOKE<ProblemDto_Serialize[]>("extension_problems", undefined, options),
+	extensionGet: (id: string, language: string | null, options?: InvokeOptions) => __TAURI_INVOKE<ExtensionDetailDto_Serialize>("extension_get", { id, language }, options),
+	extensionSetEnabled: (id: string, enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_set_enabled", { id, enabled }, options),
+	extensionPin: (id: string, version: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_pin", { id, version }, options),
+	extensionPermissions: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<PermissionStateDto>("extension_permissions", { id }, options),
+	extensionConsent: (id: string, permissions: string[], options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_consent", { id, permissions }, options),
+	extensionRevoke: (id: string, permissions: string[], options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_revoke", { id, permissions }, options),
+	extensionCheckPermission: (id: string, permission: string, options?: InvokeOptions) => __TAURI_INVOKE<PermissionVerdictDto>("extension_check_permission", { id, permission }, options),
+	devmodeGet: (options?: InvokeOptions) => __TAURI_INVOKE<DevModeDto>("devmode_get", undefined, options),
+	devmodeSet: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_set", { enabled }, options),
+	devmodeAddFolder: (path: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_add_folder", { path }, options),
+	devmodeRemoveFolder: (path: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_remove_folder", { path }, options),
+	mediaRulesOverride: (extension: string, mediaType: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("media_rules_override", { extension, mediaType }, options),
+	blobDir: (options?: InvokeOptions) => __TAURI_INVOKE<string>("blob_dir", undefined, options),
 	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<OpenResult_Serialize>("project_open", { folder, create }, options),
 	projectClose: (action: CloseChoice | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", { action }, options),
 	projectSave: (options?: InvokeOptions) => __TAURI_INVOKE<SaveState_Serialize>("project_save", undefined, options),
@@ -48,6 +65,9 @@ export const commands = {
 /** Events */
 export const events = {
 	assetsChanged: makeEvent<AssetsChanged, AssetsChanged>("assets-changed"),
+	devExtensionChanged: makeEvent<DevExtensionChanged, DevExtensionChanged>("dev-extension-changed"),
+	extensionsChanged: makeEvent<ExtensionsChanged, ExtensionsChanged>("extensions-changed"),
+	permissionsChanged: makeEvent<PermissionsChanged, PermissionsChanged>("permissions-changed"),
 	projectChanged: makeEvent<ProjectChanged, ProjectChanged>("project-changed"),
 	projectStateChanged: makeEvent<ProjectStateChanged_Serialize, ProjectStateChanged_Deserialize>("project-state-changed"),
 	scanProgressEvent: makeEvent<ScanProgressEvent, ScanProgressEvent>("scan-progress-event"),
@@ -259,6 +279,15 @@ export type CoreKey = {
 	default_json: string,
 };
 
+export type DevExtensionChanged = {
+	id: string,
+};
+
+export type DevModeDto = {
+	enabled: boolean,
+	folders: string[],
+};
+
 /**  設定の実効値と、どの段のものか。 */
 export type EffectiveSetting = {
 	value_json: string,
@@ -271,6 +300,57 @@ export type ExtensionCheck = {
 	missing: RequiredExtension[],
 	version_mismatch: VersionMismatch[],
 	warnings: ExtensionsWarning[],
+};
+
+export type ExtensionDetailDto = ExtensionDetailDto_Serialize | ExtensionDetailDto_Deserialize;
+
+export type ExtensionDetailDto_Deserialize = {
+	entry: ExtensionEntryDto_Deserialize,
+	/**  参照を解決したマニフェスト（有効なものだけ。JSON の文字列）。 */
+	manifest?: string | null,
+};
+
+export type ExtensionDetailDto_Serialize = {
+	entry: ExtensionEntryDto_Serialize,
+	/**  参照を解決したマニフェスト（有効なものだけ。JSON の文字列）。 */
+	manifest: string | null,
+};
+
+export type ExtensionEntryDto = ExtensionEntryDto_Serialize | ExtensionEntryDto_Deserialize;
+
+export type ExtensionEntryDto_Deserialize = {
+	id: string,
+	version: string,
+	/**  `installed` / `dev` */
+	origin: string,
+	/**  `enabled` / `disabled` / `invalid` */
+	status: string,
+	/**  `user_disabled` / `dependency_disabled`（`status` が `disabled` のとき） */
+	disabled_reason?: string | null,
+	order?: number | null,
+	display_name?: string | null,
+	installed_versions: string[],
+	problems: ProblemDto_Deserialize[],
+};
+
+export type ExtensionEntryDto_Serialize = {
+	id: string,
+	version: string,
+	/**  `installed` / `dev` */
+	origin: string,
+	/**  `enabled` / `disabled` / `invalid` */
+	status: string,
+	/**  `user_disabled` / `dependency_disabled`（`status` が `disabled` のとき） */
+	disabled_reason: string | null,
+	order: number | null,
+	display_name: string | null,
+	installed_versions: string[],
+	problems: ProblemDto_Serialize[],
+};
+
+export type ExtensionsChanged = {
+	/**  `install` / `remove` / `state` / `dev` / `startup` */
+	reason: string,
 };
 
 /**  読めなかった行・ファイルの理由。 */
@@ -296,6 +376,12 @@ export type GroupPatch_Serialize = {
 	ordered: Field<boolean>,
 	label_id: Field<string>,
 	attributes_json: Field<string>,
+};
+
+export type InstallOutcomeDto = {
+	id: string,
+	version: string,
+	already_installed: boolean,
 };
 
 /**  導入済みの拡張機能（呼び出し側が渡す）。 */
@@ -446,6 +532,48 @@ export type Page_Deserialize = {
 export type Page_Serialize = {
 	after: AssetCursor | null,
 	limit: number,
+};
+
+export type PendingPermissionDto = {
+	permission: string,
+	warning: boolean,
+};
+
+export type PermissionStateDto = {
+	declared: string[],
+	pending: PendingPermissionDto[],
+};
+
+export type PermissionVerdictDto = {
+	/**  `allowed` / `needs_consent` / `denied` */
+	verdict: string,
+	warning: boolean,
+};
+
+export type PermissionsChanged = {
+	id: string,
+};
+
+export type ProblemDto = ProblemDto_Serialize | ProblemDto_Deserialize;
+
+export type ProblemDto_Deserialize = {
+	extension_id: string,
+	version?: string | null,
+	kind: string,
+	pointer: string,
+	message: string,
+	/**  構造化した詳細（JSON の文字列）。 */
+	detail?: string | null,
+};
+
+export type ProblemDto_Serialize = {
+	extension_id: string,
+	version: string | null,
+	kind: string,
+	pointer: string,
+	message: string,
+	/**  構造化した詳細（JSON の文字列）。 */
+	detail: string | null,
 };
 
 /**  変更の差分。`apply_command`・`undo`・`redo` がコミットされたあとに通知する。 */

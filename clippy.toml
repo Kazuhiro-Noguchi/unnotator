@@ -1,0 +1,2 @@
+# テストでは unwrap を許可する（CLAUDE.md）
+allow-unwrap-in-tests = true

@@ -122,8 +122,26 @@ fn pending(folder: &Path) -> PendingRecovery {
     pending_with(folder, support::test_config(folder))
 }
 
+/// 終了させた子プロセスのロックが、OS で解放されるまでに、わずかに時間がかかることがある。
+/// `InUse` の間だけ、短く待って再試行する（CI の macOS で、まれに開き直しが早すぎた）。
+fn open_waiting_for_release(folder: &Path, mut config: impl FnMut() -> StoreConfig) -> OpenOutcome {
+    for _ in 0..50 {
+        match ProjectStore::open(folder, config()) {
+            Err(unnotator_core::error::StoreError::InUse) => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            other => return other.unwrap(),
+        }
+    }
+    ProjectStore::open(folder, config()).unwrap()
+}
+
 fn pending_with(folder: &Path, config: StoreConfig) -> PendingRecovery {
-    match ProjectStore::open(folder, config).unwrap() {
+    let mut once = Some(config);
+    let outcome = open_waiting_for_release(folder, || {
+        once.take().unwrap_or_else(|| support::test_config(folder))
+    });
+    match outcome {
         OpenOutcome::RecoveryAvailable(pending) => pending,
         OpenOutcome::Opened { .. } => panic!("復元の候補が出るはず"),
     }

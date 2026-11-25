@@ -1,0 +1,14 @@
+[package]
+name = "unnotator-worker"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+unnotator-core = { path = "../core" }
+unnotator-extensions = { path = "../extensions" }
+
+[lints]
+workspace = true

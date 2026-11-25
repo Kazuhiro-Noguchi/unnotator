@@ -23,14 +23,3 @@ Thumbs.db
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
-
-# 開発の仕組み（ローカルだけ。公開しない）
-/.agent/
-/.agents/
-/.beads/
-/.codex/
-/.cursor/
-/.specify/
-/specs/
-/CLAUDE.md
-/.claude/

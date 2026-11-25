@@ -1,5 +1,7 @@
 //! US1: プロジェクトのフォルダのファイルが、走査でアセットになる（spec.md US1、FR-001〜FR-010）。
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 mod support;
 
 use std::sync::atomic::{AtomicBool, Ordering};

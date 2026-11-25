@@ -5,8 +5,11 @@
 use serde::{Deserialize, Serialize};
 
 use super::Command;
+use super::annotation::delete_cascade;
 use super::apply::Ctx;
-use super::rows::{RowBuilder, boolean, int, mismatch, opt_text, query_optional, text};
+use super::rows::{
+    RowBuilder, boolean, int, mismatch, opt_text, query_ids, query_optional, require, text,
+};
 use crate::assets::path::normalize_rel;
 use crate::db::tables::ASSETS;
 use crate::error::StoreError;
@@ -67,6 +70,12 @@ pub fn handle(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
             restored,
             reclassified,
         } => sync(ctx, added, updated, went_missing, restored, reclassified),
+        Command::RelinkAsset {
+            asset_id,
+            root_key,
+            rel_path,
+        } => relink(ctx, asset_id, root_key, rel_path),
+        Command::DeleteAsset { asset_id } => delete(ctx, asset_id),
         _ => Err(mismatch()),
     }
 }
@@ -224,4 +233,89 @@ fn sync(
         }
     }
     Ok(())
+}
+
+/// 手つかず（作業状態が未着手で、アノテーション・アイテム・属性・メタ情報・メモが無い）か。
+pub(crate) const PRISTINE_SQL: &str = "status = 'todo' AND attributes_json = '{}' AND metadata_json = '{}' \
+     AND note IS NULL \
+     AND NOT EXISTS (SELECT 1 FROM annotations WHERE annotations.asset_id = assets.id) \
+     AND NOT EXISTS (SELECT 1 FROM items WHERE items.asset_id = assets.id)";
+
+/// 付け替える。新しい場所に手つかずのアセットがあれば、同じ適用の中で取り除く（Undo で戻る）。
+fn relink(
+    ctx: &mut Ctx<'_>,
+    asset_id: &str,
+    root_key: &str,
+    rel_path: &str,
+) -> Result<(), StoreError> {
+    require(ctx.rec.conn(), "assets", asset_id, "アセット")?;
+    let rel =
+        normalize_rel(rel_path).map_err(|error| StoreError::InvalidCommand(error.to_string()))?;
+    let (old_root, old_rel): (String, String) = ctx.rec.conn().query_row(
+        "SELECT root_key, rel_path FROM assets WHERE id = ?1",
+        [asset_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    if old_root == root_key && old_rel == rel {
+        return Err(StoreError::InvalidCommand(
+            "付け替え先が、いまの場所と同じ".to_owned(),
+        ));
+    }
+    let occupant: Option<String> = query_optional(
+        ctx.rec.conn(),
+        "SELECT id FROM assets WHERE root_key = ?1 AND rel_path = ?2",
+        [root_key, rel.as_str()],
+    )?;
+    let mut stamp: Option<(i64, i64)> = None;
+    if let Some(other) = occupant {
+        let pristine: Option<i64> = query_optional(
+            ctx.rec.conn(),
+            &format!("SELECT 1 FROM assets WHERE id = ?1 AND {PRISTINE_SQL}"),
+            [other.as_str()],
+        )?;
+        if pristine.is_none() {
+            return Err(StoreError::InvalidCommand(format!(
+                "付け替え先に、何かが付いたアセットがある: {rel}"
+            )));
+        }
+        stamp = Some(ctx.rec.conn().query_row(
+            "SELECT file_size, mtime_ms FROM assets WHERE id = ?1",
+            [other.as_str()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?);
+        ctx.rec.delete("assets", &[text(&other)])?;
+    }
+    let now = ctx.now;
+    let mut changes = vec![
+        ("root_key", text(root_key)),
+        ("rel_path", text(&rel)),
+        ("missing", boolean(false)),
+        ("updated_at", int(now)),
+    ];
+    if let Some((size, mtime)) = stamp {
+        changes.push(("file_size", int(size)));
+        changes.push(("mtime_ms", int(mtime)));
+    }
+    ctx.rec
+        .update_columns("assets", &[text(asset_id)], &changes)
+}
+
+/// アセットを削除する。子（アノテーション・関係・所属・アイテム）を先に削除する。
+fn delete(ctx: &mut Ctx<'_>, asset_id: &str) -> Result<(), StoreError> {
+    require(ctx.rec.conn(), "assets", asset_id, "アセット")?;
+    for annotation in query_ids(
+        ctx.rec.conn(),
+        "SELECT id FROM annotations WHERE asset_id = ?1 ORDER BY id",
+        [asset_id],
+    )? {
+        delete_cascade(ctx, &annotation)?;
+    }
+    for item in query_ids(
+        ctx.rec.conn(),
+        "SELECT id FROM items WHERE asset_id = ?1 ORDER BY id",
+        [asset_id],
+    )? {
+        ctx.rec.delete("items", &[text(&item)])?;
+    }
+    ctx.rec.delete("assets", &[text(asset_id)])
 }

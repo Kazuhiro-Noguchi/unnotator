@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri_specta::Event;
 use unnotator_core::assets::media::MediaRules;
+use unnotator_core::assets::relink::RelinkCandidate;
 use unnotator_core::assets::scan::{ScanProgress, ScanScope};
 use unnotator_core::assets::{AssetFilter, AssetPage, Page};
+use unnotator_core::command::Command;
+use unnotator_core::event::ChangeSet;
 use unnotator_core::project::assets::ScanSummary;
 
 use crate::project_commands::{IpcError, ProjectState, with_store};
@@ -47,6 +50,39 @@ pub fn set_rules(state: &ProjectState, rules: MediaRules) -> Result<u32, IpcErro
     })
 }
 
+/// リンク切れのアセットの、再接続の候補。
+pub fn relink_candidates(
+    state: &ProjectState,
+    asset_id: &str,
+) -> Result<Vec<RelinkCandidate>, IpcError> {
+    with_store(state, |store| store.relink_candidates(asset_id))
+}
+
+/// 再接続を確定する（Undo できる）。
+pub fn relink(
+    state: &ProjectState,
+    asset_id: &str,
+    root_key: &str,
+    rel_path: &str,
+) -> Result<ChangeSet, IpcError> {
+    with_store(state, |store| {
+        store.apply_command(Command::RelinkAsset {
+            asset_id: asset_id.to_owned(),
+            root_key: root_key.to_owned(),
+            rel_path: rel_path.to_owned(),
+        })
+    })
+}
+
+/// アセットを、アノテーションごと削除する（Undo できる）。
+pub fn delete(state: &ProjectState, asset_id: &str) -> Result<ChangeSet, IpcError> {
+    with_store(state, |store| {
+        store.apply_command(Command::DeleteAsset {
+            asset_id: asset_id.to_owned(),
+        })
+    })
+}
+
 /// 走査の進み具合の通知。
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct ScanProgressEvent(pub ScanProgress);
@@ -64,6 +100,18 @@ pub struct AssetsChanged {
 }
 
 impl AssetsChanged {
+    /// 利用者の操作（再接続・削除）の通知。`origin` は `relink` / `delete`。
+    fn one(origin: &str, updated: u32, added: u32) -> Self {
+        Self {
+            added,
+            updated,
+            went_missing: 0,
+            restored: 0,
+            reclassified: 0,
+            origin: origin.to_owned(),
+        }
+    }
+
     /// 走査の要約から作る。何も変わらなければ `None`（通知しない）。
     pub fn from_summary(summary: &ScanSummary) -> Option<Self> {
         let changed = summary.added
@@ -142,6 +190,47 @@ pub fn asset_scan_cancel(state: tauri::State<'_, ProjectState>) {
 
 #[tauri::command(async)]
 #[specta::specta]
+pub fn asset_relink_candidates(
+    state: tauri::State<'_, ProjectState>,
+    asset_id: String,
+) -> Result<Vec<RelinkCandidate>, IpcError> {
+    relink_candidates(&state, &asset_id)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn asset_relink(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, ProjectState>,
+    asset_id: String,
+    root_key: String,
+    rel_path: String,
+) -> Result<ChangeSet, IpcError> {
+    let set = relink(&state, &asset_id, &root_key, &rel_path)?;
+    emit_changed(&app, AssetsChanged::one("relink", 1, 0));
+    Ok(set)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn asset_delete(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, ProjectState>,
+    asset_id: String,
+) -> Result<ChangeSet, IpcError> {
+    let set = delete(&state, &asset_id)?;
+    emit_changed(&app, AssetsChanged::one("delete", 0, 0));
+    Ok(set)
+}
+
+fn emit_changed(app: &tauri::AppHandle, changed: AssetsChanged) {
+    if let Err(error) = changed.emit(app) {
+        tracing::warn!(%error, "assets-changed を送れなかった");
+    }
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub fn asset_set_media_rules(
     state: tauri::State<'_, ProjectState>,
     rules: MediaRules,
@@ -159,8 +248,10 @@ mod tests {
     struct Temp(std::path::PathBuf);
     impl Temp {
         fn new() -> Self {
+            static COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let path = std::env::temp_dir().join(format!(
-                "unnotator-asset-ipc-{}-{}",
+                "unnotator-asset-ipc-{}-{}-{n}",
                 std::process::id(),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -246,6 +337,66 @@ mod tests {
         let changed = AssetsChanged::from_summary(&summary).expect("変化がある");
         assert_eq!((changed.added, changed.origin.as_str()), (2, "sync"));
         assert!(AssetsChanged::from_summary(&again).is_none());
+    }
+
+    #[test]
+    fn missing_files_offer_candidates_and_relink_and_delete_are_undoable() {
+        let temp = Temp::new();
+        std::fs::write(temp.project().join("a.txt"), b"abc").expect("書ける");
+        let state = temp.state();
+        open_project(&state, &temp.project(), true, Hooks::default()).expect("作れる");
+        scan(&state, ScanScope::Full, &|_| {}).expect("走査できる");
+        let id = list(&state, &AssetFilter::default(), &Page::first(10))
+            .expect("一覧")
+            .items[0]
+            .id
+            .clone();
+
+        std::fs::create_dir_all(temp.project().join("moved")).expect("作れる");
+        std::fs::rename(
+            temp.project().join("a.txt"),
+            temp.project().join("moved/a.txt"),
+        )
+        .expect("動かせる");
+        let summary = scan(&state, ScanScope::Full, &|_| {}).expect("走査できる");
+        assert_eq!((summary.added, summary.went_missing), (1, 1));
+
+        let candidates = relink_candidates(&state, &id).expect("候補");
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].rel_path, "moved/a.txt");
+
+        relink(&state, &id, "", "moved/a.txt").expect("付け替えられる");
+        let items = list(&state, &AssetFilter::default(), &Page::first(10))
+            .expect("一覧")
+            .items;
+        assert_eq!(items.len(), 1);
+        assert_eq!(
+            (items[0].id.as_str(), items[0].missing),
+            (id.as_str(), false)
+        );
+
+        delete(&state, &id).expect("削除できる");
+        assert!(
+            list(&state, &AssetFilter::default(), &Page::first(10))
+                .expect("一覧")
+                .items
+                .is_empty()
+        );
+        crate::project_commands::undo_project(&state)
+            .expect("戻せる")
+            .expect("操作がある");
+        assert_eq!(
+            list(&state, &AssetFilter::default(), &Page::first(10))
+                .expect("一覧")
+                .items
+                .len(),
+            1
+        );
+        assert_eq!(delete(&state, "nope").unwrap_err().code, "not_found");
+        assert_eq!(
+            relink_candidates(&state, "nope").unwrap_err().code,
+            "not_found"
+        );
     }
 
     #[test]

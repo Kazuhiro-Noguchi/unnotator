@@ -312,6 +312,16 @@ pub enum Command {
         #[serde(default)]
         reclassified: Vec<asset::AssetReclass>,
     },
+    /// 利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。
+    RelinkAsset {
+        asset_id: String,
+        root_key: String,
+        rel_path: String,
+    },
+    /// アセットの削除。アノテーション・関係・グループの所属・アイテムも一緒に削除する。
+    DeleteAsset {
+        asset_id: String,
+    },
     /// 全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。
     Transaction {
         commands: Vec<Command>,
@@ -340,6 +350,8 @@ pub const COMMAND_NAMES: &[&str] = &[
     "set_asset_status",
     "set_item_status",
     "sync_assets",
+    "relink_asset",
+    "delete_asset",
     "transaction",
 ];
 
@@ -367,6 +379,8 @@ impl Command {
             Self::SetAssetStatus { .. } => "set_asset_status",
             Self::SetItemStatus { .. } => "set_item_status",
             Self::SyncAssets { .. } => "sync_assets",
+            Self::RelinkAsset { .. } => "relink_asset",
+            Self::DeleteAsset { .. } => "delete_asset",
             Self::Transaction { .. } => "transaction",
         }
     }
@@ -575,6 +589,14 @@ mod tests {
                 went_missing: vec![],
                 restored: vec![],
                 reclassified: vec![],
+            },
+            Command::RelinkAsset {
+                asset_id: "a".into(),
+                root_key: String::new(),
+                rel_path: "x".into(),
+            },
+            Command::DeleteAsset {
+                asset_id: "a".into(),
             },
             Command::Transaction { commands: vec![] },
         ];

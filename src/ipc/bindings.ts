@@ -29,6 +29,9 @@ export const commands = {
 	assetList: (filter: AssetFilter_Deserialize, page: Page_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AssetPage_Serialize>("asset_list", { filter, page }, options),
 	assetScan: (scope: ScanScope | null, options?: InvokeOptions) => __TAURI_INVOKE<ScanSummary>("asset_scan", { scope }, options),
 	assetScanCancel: (options?: InvokeOptions) => __TAURI_INVOKE<void>("asset_scan_cancel", undefined, options),
+	assetRelinkCandidates: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<RelinkCandidate[]>("asset_relink_candidates", { assetId }, options),
+	assetRelink: (assetId: string, rootKey: string, relPath: string, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("asset_relink", { assetId, rootKey, relPath }, options),
+	assetDelete: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("asset_delete", { assetId }, options),
 	assetSetMediaRules: (rules: MediaRules_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("asset_set_media_rules", { rules }, options),
 	settingsGet: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<EffectiveSetting>("settings_get", { key }, options),
 	settingsSet: (layer: Layer, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_set", { layer, key, valueJson }, options),
@@ -221,6 +224,10 @@ id?: string | null; type: string; ordered?: boolean | null; label_id?: string | 
 id?: string | null; name: string; name_i18n_json?: string | null; color: string; hotkey?: number | null; sort_order?: number | null; hidden?: boolean | null; applies_to_json?: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Deserialize } | { kind: "delete_label"; id: string; disposition?: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
+/**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
+{ kind: "relink_asset"; asset_id: string; root_key: string; rel_path: string } | 
+/**  アセットの削除。アノテーション・関係・グループの所属・アイテムも一緒に削除する。 */
+{ kind: "delete_asset"; asset_id: string } | 
 /**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
 { kind: "transaction"; commands: Command_Deserialize[] };
 
@@ -235,6 +242,10 @@ id: string | null; type: string; ordered: boolean | null; label_id: string | nul
 id: string | null; name: string; name_i18n_json: string | null; color: string; hotkey: number | null; sort_order: number | null; hidden: boolean | null; applies_to_json: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Serialize } | { kind: "delete_label"; id: string; disposition: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
+/**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
+{ kind: "relink_asset"; asset_id: string; root_key: string; rel_path: string } | 
+/**  アセットの削除。アノテーション・関係・グループの所属・アイテムも一緒に削除する。 */
+{ kind: "delete_asset"; asset_id: string } | 
 /**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
 { kind: "transaction"; commands: Command_Serialize[] };
 
@@ -533,6 +544,15 @@ export type RelationPatch_Serialize = {
 	directed: Field<boolean>,
 	label_id: Field<string>,
 	attributes_json: Field<string>,
+};
+
+export type RelinkCandidate = {
+	missing_asset_id: string,
+	/**  新しい場所に、いまあるアセット。受け入れると取り除かれる。 */
+	found_asset_id: string,
+	root_key: string,
+	rel_path: string,
+	file_size: number | null,
 };
 
 /**  開いているプロジェクトの、未保存の状態。画面が●を切り替えるのに使う。 */

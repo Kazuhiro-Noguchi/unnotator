@@ -41,6 +41,7 @@ export {
   type RecoveryCandidate,
   type RecoveryEntry,
   type RecoveryUnusableInfo,
+  type RelinkCandidate,
   type SaveState,
   type ScanPath,
   type ScanPhase,

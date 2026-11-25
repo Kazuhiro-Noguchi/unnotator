@@ -141,6 +141,32 @@ struct Scenario {
 fn scenarios() -> Vec<Scenario> {
     vec![
         Scenario {
+            command: "relink_asset",
+            prepare: |_| Command::RelinkAsset {
+                asset_id: "a1".into(),
+                root_key: String::new(),
+                rel_path: "moved/a1.bin".into(),
+            },
+        },
+        Scenario {
+            // 付け替え先に、手つかずのアセット（a2）があるときは、同じ適用の中で取り除かれる
+            command: "relink_asset",
+            prepare: |_| Command::RelinkAsset {
+                asset_id: "a1".into(),
+                root_key: String::new(),
+                rel_path: "a2.bin".into(),
+            },
+        },
+        Scenario {
+            command: "delete_asset",
+            prepare: |store| {
+                setup(store, vec![annotation(1, "a1"), annotation(2, "a2")]);
+                Command::DeleteAsset {
+                    asset_id: "a1".into(),
+                }
+            },
+        },
+        Scenario {
             command: "create_annotation",
             prepare: |_| annotation(1, "a1"),
         },

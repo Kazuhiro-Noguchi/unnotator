@@ -1,5 +1,7 @@
 //! US5: 設定がユーザーとプロジェクトの 2 段で効き、プロジェクトが優先される（spec.md US5、FR-027〜FR-036）。
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 mod support;
 
 use std::sync::{Arc, Mutex};

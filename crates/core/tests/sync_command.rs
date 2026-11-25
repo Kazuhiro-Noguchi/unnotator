@@ -1,5 +1,7 @@
 //! `SyncAssets`: 走査・見張りの結果の反映。Undo に積まない書き込み（research.md R9）。
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 mod support;
 
 use support::{create_annotation, read_assets};

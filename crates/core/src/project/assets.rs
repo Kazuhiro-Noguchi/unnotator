@@ -162,6 +162,14 @@ impl ProjectStore {
         Ok(total)
     }
 
+    /// リンク切れのアセットの、再接続の候補。
+    pub fn relink_candidates(
+        &self,
+        asset_id: &str,
+    ) -> Result<Vec<crate::assets::relink::RelinkCandidate>, StoreError> {
+        crate::assets::relink::candidates(&self.conn, asset_id)
+    }
+
     /// 一覧（読み取り）。
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)

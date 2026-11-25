@@ -519,8 +519,10 @@ mod tests {
     struct Temp(std::path::PathBuf);
     impl Temp {
         fn new() -> Self {
+            static COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let path = std::env::temp_dir().join(format!(
-                "unnotator-ipc-{}-{}",
+                "unnotator-ipc-{}-{}-{n}",
                 std::process::id(),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)

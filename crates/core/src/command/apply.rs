@@ -77,6 +77,8 @@ pub fn run(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
         Command::SetAssetStatus { .. } | Command::SetItemStatus { .. } => {
             status::handle(ctx, command)
         }
-        Command::SyncAssets { .. } => asset::handle(ctx, command),
+        Command::SyncAssets { .. } | Command::RelinkAsset { .. } | Command::DeleteAsset { .. } => {
+            asset::handle(ctx, command)
+        }
     }
 }

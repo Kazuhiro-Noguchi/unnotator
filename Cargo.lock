@@ -4016,6 +4016,7 @@ version = "0.0.1"
 name = "unnotator-extensions"
 version = "0.0.1"
 dependencies = [
+ "serde_json",
  "unnotator-core",
 ]
 

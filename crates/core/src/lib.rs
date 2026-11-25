@@ -1,5 +1,9 @@
 //! unnotator-core
 
+pub mod clock;
+pub mod error;
+pub mod id;
+
 /// DB スキーマ（契約の正本の SQL をそのまま埋め込む）。
 pub mod migrations {
     /// プロジェクト DB（`project.db`・作業用コピー）の v1。

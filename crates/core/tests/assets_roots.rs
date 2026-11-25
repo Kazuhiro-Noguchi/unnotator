@@ -182,20 +182,28 @@ fn invalid_root_settings_are_rejected_with_a_reason() {
 #[test]
 fn relativize_computes_paths_between_folders() {
     use unnotator_core::assets::roots::relativize;
+    // Windows では、ドライブの無いパス（`/a`）は絶対パスにならないので、ドライブ付きにする
+    let root = |path: &str| -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(format!("C:{path}"))
+        } else {
+            PathBuf::from(path)
+        }
+    };
     assert_eq!(
-        relativize(Path::new("/a/b/project"), Path::new("/a/b/raw")),
+        relativize(&root("/a/b/project"), &root("/a/b/raw")),
         Some(PathBuf::from("../raw"))
     );
     assert_eq!(
-        relativize(Path::new("/a/b"), Path::new("/a/b/c/d")),
+        relativize(&root("/a/b"), &root("/a/b/c/d")),
         Some(PathBuf::from("c/d"))
     );
     assert_eq!(
-        relativize(Path::new("/a/b"), Path::new("/a/b")),
+        relativize(&root("/a/b"), &root("/a/b")),
         Some(PathBuf::from("."))
     );
     assert_eq!(
-        relativize(Path::new("/a/b"), Path::new("relative")),
+        relativize(&root("/a/b"), Path::new("relative")),
         None,
         "絶対でないものは相対化できない"
     );

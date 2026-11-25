@@ -118,9 +118,10 @@ fn edits_are_not_blocked_while_a_large_project_is_being_saved() {
     assert!(edits >= 1, "保存の間に、編集できていない");
     // 編集 1 回の待ちが、保存の時間より十分に短い（保存の終わりを待っていない）。
     // 塞がれていれば、待ちは保存の時間そのものに近づく。共有の CI の 2 コアでは、保存のスレッドと CPU を取り合って
-    // 1 回の編集が数十 ms かかることがあるので、基準は「保存の半分未満」にする（実測: 保存 190 ms に対し最大 70 ms）。
+    // 1 回の編集が数十 ms かかることがあるので、基準は「保存の時間の 3/4 未満」にする
+    // （実測: 保存 180〜190 ms に対し、最大 70〜90 ms。手元の macOS では、編集の待ちは 20 ms 未満）。
     assert!(
-        worst * 2 < save_time || worst < Duration::from_millis(50),
+        worst * 4 < save_time * 3 || worst < Duration::from_millis(50),
         "編集が保存に待たされた: 最大 {worst:?}、保存 {save_time:?}"
     );
     assert!(store.save_state().dirty);

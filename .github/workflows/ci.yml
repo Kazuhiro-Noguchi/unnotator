@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# CI のビルドを速く・キャッシュを小さくする（増分ビルドの情報とデバッグ情報は、CI では使わない）
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

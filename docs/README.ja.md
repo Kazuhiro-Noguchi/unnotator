@@ -100,7 +100,6 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 - TypeScript: `any` を使わない。画面の文字列は i18n（日英）を通し、色はテーマの CSS 変数で指定する。
 - コミットは [Conventional Commits](https://www.conventionalcommits.org/ja/) に従う。
 
-貢献者・エージェント向けの作業手順は [CLAUDE.md](../CLAUDE.md) にあります。
 
 ## ライセンス
 

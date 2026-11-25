@@ -32,3 +32,5 @@ Thumbs.db
 /.cursor/
 /.specify/
 /specs/
+/CLAUDE.md
+/.claude/

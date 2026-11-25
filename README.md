@@ -100,7 +100,6 @@ Five files are the source of truth for the interfaces between parts of the syste
 - TypeScript: no `any`; user-facing strings go through i18n (Japanese and English); colors come from theme CSS variables.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-Contributor and agent workflow details are in [CLAUDE.md](CLAUDE.md).
 
 ## License
 

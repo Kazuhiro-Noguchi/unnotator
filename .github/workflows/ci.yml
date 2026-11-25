@@ -23,6 +23,10 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
     steps:
+      # Windows のチェックアウトで、改行が LF から CRLF に変わらないようにする（Biome の検査が通らなくなる）
+      - name: 改行を変換しない
+        shell: bash
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
       - name: Linux の依存（Tauri）
@@ -61,6 +65,10 @@ jobs:
     env:
       UNNOTATOR_SELFTEST: unno
     steps:
+      # Windows のチェックアウトで、改行が LF から CRLF に変わらないようにする（Biome の検査が通らなくなる）
+      - name: 改行を変換しない
+        shell: bash
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
       - name: Linux の依存（Tauri・画面なし）

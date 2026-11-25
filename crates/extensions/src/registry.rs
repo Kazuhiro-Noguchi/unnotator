@@ -8,13 +8,13 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use unnotator_core::extensions_list::compare_versions;
 
 use crate::manifest::Manifest;
 use crate::manifest::text::Locales;
 use crate::names::{
     ContributionKind, RefContext, RefError, normalize_pointer, qualify, ref_place, resolve_ref,
 };
+use crate::resolve::{Candidate, Reason, newest_first, resolve};
 use crate::state::ExtensionsState;
 
 /// 導入の経路。
@@ -141,6 +141,8 @@ pub struct ExtensionEntry {
     pub origin: Origin,
     pub manifest: Manifest,
     pub status: ExtensionStatus,
+    /// 入っている版（新しい順）。
+    pub installed_versions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -199,10 +201,106 @@ impl Registry {
 
     pub fn build(input: RegistryInput<'_>) -> Registry {
         let mut registry = Registry::default();
-        let chosen = choose(input.installed);
-        for (order, raw) in chosen.iter().enumerate() {
-            registry.add(raw, order);
+        // 1. 版ごとの、他に依らない確認（重複・予約 ID）。通らない版は、解決の対象から外す
+        let mut local_problems: BTreeMap<(String, String), Vec<Problem>> = BTreeMap::new();
+        let mut candidates: Vec<Candidate> = Vec::new();
+        for raw in input.installed {
+            let found = local_checks(raw);
+            if found.is_empty() {
+                candidates.push(Candidate {
+                    id: raw.id.clone(),
+                    version: raw.version.clone(),
+                    engine_range: raw.manifest.engine_range.clone(),
+                    dependencies: raw.manifest.dependencies.clone(),
+                });
+            } else {
+                local_problems.insert((raw.id.clone(), raw.version.clone()), found);
+            }
         }
+
+        // 2. 依存の解決
+        let resolution = resolve(
+            &candidates,
+            input.state.disabled(),
+            input.state.pins(),
+            input.app_api_version,
+        );
+
+        let find = |id: &str, version: &str| -> Option<&RawExtension> {
+            input
+                .installed
+                .iter()
+                .find(|r| r.id == id && r.version == version)
+        };
+
+        // 3. 有効化の順に、参照を解決して登録する（依存先が先に済んでいる）
+        let mut order = 0;
+        for (id, version) in &resolution.chosen {
+            let Some(raw) = find(id, version) else {
+                continue;
+            };
+            registry.add(raw, &mut order, input.installed);
+        }
+
+        // 4. 有効にならない ID
+        for (id, (version, reason)) in &resolution.rejected {
+            let versions = versions_of(input.installed, id);
+            // 代表の版が、確認の段階で外れたものなら、その問題を出す
+            let broken = local_problems
+                .iter()
+                .find(|((i, _), _)| i == id)
+                .map(|(_, p)| p.clone());
+            let shown = versions.first().cloned().unwrap_or_else(|| version.clone());
+            let Some(raw) = find(id, &shown).or_else(|| find(id, version)) else {
+                continue;
+            };
+            let status = match (&broken, reason.is_user_choice()) {
+                (Some(_), _) => ExtensionStatus::Invalid,
+                (None, true) => ExtensionStatus::Disabled(match reason {
+                    Reason::UserDisabled => DisabledReason::UserDisabled,
+                    _ => DisabledReason::DependencyDisabled,
+                }),
+                (None, false) => ExtensionStatus::Invalid,
+            };
+            if let Some(problems) = broken {
+                registry.problems.extend(problems);
+            } else if !reason.is_user_choice() {
+                registry.problems.push(reason_problem(raw, reason));
+            }
+            registry.push_entry(raw, status, versions);
+        }
+
+        // 5. 版の確認で外れ、他の版が有効になった ID の、外れた版の問題
+        for ((id, version), problems) in &local_problems {
+            if registry
+                .entries
+                .iter()
+                .any(|e| &e.id == id && &e.version == version)
+            {
+                continue;
+            }
+            if resolution.rejected.contains_key(id) {
+                continue; // 4 で出した
+            }
+            registry.problems.extend(problems.iter().cloned());
+        }
+
+        // 6. 確認で外れた版しかない ID
+        let known: BTreeSet<&str> = registry.entries.iter().map(|e| e.id.as_str()).collect();
+        let mut only_broken: BTreeMap<&str, &RawExtension> = BTreeMap::new();
+        for raw in input.installed {
+            if !known.contains(raw.id.as_str())
+                && local_problems.contains_key(&(raw.id.clone(), raw.version.clone()))
+            {
+                only_broken.entry(raw.id.as_str()).or_insert(raw);
+            }
+        }
+        for (id, raw) in only_broken {
+            let versions = versions_of(input.installed, id);
+            registry.push_entry(raw, ExtensionStatus::Invalid, versions);
+        }
+
+        registry.entries.sort_by(|a, b| a.id.cmp(&b.id));
         registry.problems.sort_by(|a, b| {
             (&a.extension_id, &a.pointer, &a.message).cmp(&(
                 &b.extension_id,
@@ -213,10 +311,46 @@ impl Registry {
         registry
     }
 
-    fn add(&mut self, raw: &RawExtension, order: usize) {
+    fn push_entry(
+        &mut self,
+        raw: &RawExtension,
+        status: ExtensionStatus,
+        installed_versions: Vec<String>,
+    ) {
+        self.locales.insert(raw.id.clone(), raw.locales.clone());
+        self.entries.push(ExtensionEntry {
+            id: raw.id.clone(),
+            version: raw.version.clone(),
+            dir: raw.dir.clone(),
+            origin: raw.origin,
+            manifest: raw.manifest.clone(),
+            status,
+            installed_versions,
+        });
+    }
+
+    /// 解決の済んだ拡張機能の、参照の解決と登録。依存先のどれかが有効でなければ、無効にする。
+    fn add(&mut self, raw: &RawExtension, order: &mut usize, installed: &[RawExtension]) {
         let manifest = &raw.manifest;
-        let mut problems = local_checks(raw);
+        let mut problems = Vec::new();
         let mut resolved = manifest.raw.clone();
+
+        // 依存先が、参照の解決の段階で無効になっていないか
+        for dep in manifest.dependencies.keys() {
+            let enabled = self
+                .entries
+                .iter()
+                .any(|e| &e.id == dep && matches!(e.status, ExtensionStatus::Enabled { .. }));
+            if !enabled {
+                problems.push(problem(
+                    raw,
+                    ProblemKind::DependencyInvalid,
+                    "",
+                    format!("依存先が有効になりません: {dep}"),
+                    Some(json!({ "dependency": dep })),
+                ));
+            }
+        }
         if problems.is_empty() {
             let own = own_declarations(manifest);
             let dependencies: BTreeSet<String> = manifest.dependencies.keys().cloned().collect();
@@ -239,28 +373,20 @@ impl Registry {
             resolve_refs(&mut resolved, &mut String::new(), &ctx, raw, &mut problems);
         }
         let status = if problems.is_empty() {
-            ExtensionStatus::Enabled { order }
+            let status = ExtensionStatus::Enabled { order: *order };
+            *order += 1;
+            self.register(raw, &resolved);
+            self.order.push(raw.id.clone());
+            status
         } else {
             ExtensionStatus::Invalid
         };
-        if problems.is_empty() {
-            self.register(raw, &resolved);
-            self.order.push(raw.id.clone());
-        }
         for warning in &raw.locale_warnings {
             problems.push(problem(raw, ProblemKind::Locale, "", warning.clone(), None));
         }
         self.problems.extend(problems);
-        self.locales.insert(raw.id.clone(), raw.locales.clone());
-        self.entries.push(ExtensionEntry {
-            id: raw.id.clone(),
-            version: raw.version.clone(),
-            dir: raw.dir.clone(),
-            origin: raw.origin,
-            manifest: manifest.clone(),
-            status,
-        });
-        self.entries.sort_by(|a, b| a.id.cmp(&b.id));
+        let versions = versions_of(installed, &raw.id);
+        self.push_entry(raw, status, versions);
     }
 
     /// 解決済みの宣言を、種類ごとに登録する。
@@ -305,44 +431,70 @@ fn problem(
     }
 }
 
-/// ID ごとに、最も新しい版を選ぶ（依存の解決は `resolve.rs`）。
-fn choose(installed: &[RawExtension]) -> Vec<&RawExtension> {
-    let mut latest: BTreeMap<&str, &RawExtension> = BTreeMap::new();
-    for raw in installed {
-        let newer = match latest.get(raw.id.as_str()) {
-            None => true,
-            Some(current) => {
-                compare_versions(&raw.version, &current.version)
-                    .unwrap_or_else(|| raw.version.cmp(&current.version))
-                    == std::cmp::Ordering::Greater
-            }
-        };
-        if newer {
-            latest.insert(raw.id.as_str(), raw);
-        }
-    }
-    // 依存先が先になるように並べる（簡易。循環・欠落は resolve.rs が扱う）
-    let mut ordered: Vec<&RawExtension> = Vec::new();
-    let mut visiting = BTreeSet::new();
-    fn visit<'a>(
-        id: &str,
-        latest: &BTreeMap<&str, &'a RawExtension>,
-        ordered: &mut Vec<&'a RawExtension>,
-        visiting: &mut BTreeSet<String>,
-    ) {
-        let Some(raw) = latest.get(id) else { return };
-        if ordered.iter().any(|r| r.id == id) || !visiting.insert(id.to_owned()) {
-            return;
-        }
-        for dep in raw.manifest.dependencies.keys() {
-            visit(dep, latest, ordered, visiting);
-        }
-        ordered.push(raw);
-    }
-    for id in latest.keys() {
-        visit(id, &latest, &mut ordered, &mut visiting);
-    }
-    ordered
+/// ID の、入っている版（新しい順）。
+fn versions_of(installed: &[RawExtension], id: &str) -> Vec<String> {
+    let mut versions: Vec<String> = installed
+        .iter()
+        .filter(|r| r.id == id)
+        .map(|r| r.version.clone())
+        .collect();
+    newest_first(&mut versions);
+    versions
+}
+
+/// 有効にならない理由を、`Problem` にする。
+fn reason_problem(raw: &RawExtension, reason: &Reason) -> Problem {
+    use ProblemKind as K;
+    let (kind, message, detail) = match reason {
+        Reason::UserDisabled => (
+            K::DependencyDisabled,
+            "利用者が無効にしました".to_owned(),
+            None,
+        ),
+        Reason::PinnedVersionMissing { pinned, installed } => (
+            K::PinnedVersionMissing,
+            format!("固定した版 {pinned} が入っていません"),
+            Some(json!({ "pinned": pinned, "installed": installed })),
+        ),
+        Reason::Engine { required, app } => (
+            K::Engine,
+            format!("アプリの拡張 API {app} は、必要な範囲 {required} を満たしません"),
+            Some(json!({ "required": required, "app": app })),
+        ),
+        Reason::MissingDependency {
+            dependency,
+            required,
+        } => (
+            K::MissingDependency,
+            format!("依存する拡張機能 {dependency}（{required}）が入っていません"),
+            Some(json!({ "dependency": dependency, "required": required })),
+        ),
+        Reason::DependencyVersion {
+            dependency,
+            required,
+            installed,
+        } => (
+            K::DependencyVersion,
+            format!("依存する拡張機能 {dependency} の版が、必要な範囲 {required} を満たしません"),
+            Some(json!({ "dependency": dependency, "required": required, "installed": installed })),
+        ),
+        Reason::DependencyDisabled { dependency } => (
+            K::DependencyDisabled,
+            format!("依存する拡張機能 {dependency} が無効です"),
+            Some(json!({ "dependency": dependency })),
+        ),
+        Reason::DependencyInvalid { dependency } => (
+            K::DependencyInvalid,
+            format!("依存する拡張機能 {dependency} が有効になりません"),
+            Some(json!({ "dependency": dependency })),
+        ),
+        Reason::Cycle { path } => (
+            K::Cycle,
+            format!("依存が輪になっています: {}", path.join(" → ")),
+            Some(json!({ "path": path })),
+        ),
+    };
+    problem(raw, kind, "", message, detail)
 }
 
 /// 自分の宣言（種類と局所名）。

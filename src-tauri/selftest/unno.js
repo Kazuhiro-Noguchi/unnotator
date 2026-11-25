@@ -165,7 +165,8 @@
     const started = now();
     const reads = [];
     for (let i = 0; i < 8; i += 1) {
-      const start = i * 64 * 1024 * 1024;
+      // 大きなファイルの大きさ（OS で違う）の中に収まる位置に、均等に散らす
+      const start = Math.floor((cfg.bigSize - 4 * 1024 * 1024) / 8) * i;
       reads.push(
         ranged(`${base}/asset/${cfg.bigId}`, `bytes=${start}-${start + 4 * 1024 * 1024 - 1}`).then((r) => r.arrayBuffer()),
       );

@@ -53,52 +53,27 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm schema:check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # clippy の指摘は OS で変わらないので、Linux だけで実行する（macOS・Windows のビルドの時間を省く）
+      - name: cargo clippy
+        if: runner.os == 'Linux'
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  # 実機の WebView での `unno://` の診断（S-01）。結果は標準出力の UNNO_SELFTEST_RESULT。
-  # 新しい仕組みなので、3 OS で安定して動くと分かるまでは、失敗しても全体を止めない（continue-on-error）。
-  selftest:
-    name: unno:// self-test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
-    env:
-      UNNOTATOR_SELFTEST: unno
-    steps:
-      # Windows のチェックアウトで、改行が LF から CRLF に変わらないようにする（Biome の検査が通らなくなる）
-      - name: 改行を変換しない
+      # 実機の WebView での `unno://` の診断（S-01）。同じジョブで続けて動かし、ビルドの成果物を使い回す。
+      # 結果は標準出力の UNNO_SELFTEST_RESULT。失敗は、ジョブの失敗になる（終了コードが 0 でなければ）。
+      - name: unno:// 自己診断（Linux・画面なし）
+        if: runner.os == 'Linux'
         shell: bash
-        run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
-
-      - name: Linux の依存（Tauri・画面なし）
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libsoup-3.0-dev xvfb
-
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - uses: Swatinem/rust-cache@v2
-      - run: pnpm install --frozen-lockfile
-
-      - name: 自己診断（Linux）
-        if: runner.os == 'Linux'
+        env:
+          UNNOTATOR_SELFTEST: unno
         run: xvfb-run -a pnpm exec tauri dev 2>&1 | tee selftest.log
-      - name: 自己診断（macOS・Windows）
+      - name: unno:// 自己診断（macOS・Windows）
         if: runner.os != 'Linux'
         shell: bash
+        env:
+          UNNOTATOR_SELFTEST: unno
         run: pnpm exec tauri dev 2>&1 | tee selftest.log
-
-      - name: 結果
+      - name: 自己診断の結果
         if: always()
         shell: bash
         run: grep "UNNO_SELFTEST_RESULT" selftest.log || echo "結果の行が出ていない"

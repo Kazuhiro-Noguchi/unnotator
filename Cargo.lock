@@ -4082,6 +4082,11 @@ name = "unnotator-core"
 version = "0.0.1"
 dependencies = [
  "rusqlite",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]

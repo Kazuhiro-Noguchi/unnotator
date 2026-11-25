@@ -6,10 +6,17 @@ license.workspace = true
 rust-version.workspace = true
 publish = false
 
-[dependencies]
+[features]
+# 型付き IPC に載せる型に specta::Type を derive する（src-tauri が有効にする）。
+specta = ["dep:specta"]
 
-[dev-dependencies]
+[dependencies]
 rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

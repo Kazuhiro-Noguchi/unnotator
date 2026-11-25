@@ -78,7 +78,7 @@ pub fn open_project(
         project_id: store.project_id().to_owned(),
         folder: folder.to_string_lossy().into_owned(),
         schema_version: store.schema_version(),
-        migrated_from: None,
+        migrated_from: store.migrated_from(),
     };
     *guard = Some(store);
     Ok(info)

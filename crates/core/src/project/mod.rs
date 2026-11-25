@@ -11,7 +11,7 @@ use crate::clock::{Clock, SystemClock};
 use crate::command::Command;
 use crate::command::apply::{Ctx, run};
 use crate::command::label::{self, LabelUsage};
-use crate::db::migrate::{PROJECT_MIGRATIONS, apply_all, latest_version};
+use crate::db::migrate::{Migration, PROJECT_MIGRATIONS, apply_all, latest_version, migrate};
 use crate::db::open_connection;
 use crate::error::StoreError;
 use crate::event::{ChangeObserver, ChangeSet, EventHub, Origin};
@@ -25,6 +25,8 @@ use lock::ProjectLock;
 pub struct StoreConfig {
     pub clock: Box<dyn Clock>,
     pub ids: Box<dyn IdGenerator>,
+    /// 移行の列。既定は契約の `PROJECT_MIGRATIONS`。テストで版を足した列に差し替える。
+    pub migrations: &'static [Migration],
 }
 
 impl Default for StoreConfig {
@@ -32,6 +34,7 @@ impl Default for StoreConfig {
         Self {
             clock: Box::new(SystemClock),
             ids: Box::new(UuidV7Generator::default()),
+            migrations: PROJECT_MIGRATIONS,
         }
     }
 }
@@ -43,6 +46,8 @@ pub struct ProjectStore {
     lock: ProjectLock,
     layout: ProjectLayout,
     project_id: String,
+    migrations: &'static [Migration],
+    migrated_from: Option<u32>,
     clock: Box<dyn Clock>,
     ids: Box<dyn IdGenerator>,
     undo: UndoStack,
@@ -106,7 +111,11 @@ impl ProjectStore {
     }
 
     pub fn create_with(folder: &Path, config: StoreConfig) -> Result<Self, StoreError> {
-        let StoreConfig { clock, mut ids } = config;
+        let StoreConfig {
+            clock,
+            mut ids,
+            migrations,
+        } = config;
         check_folder(folder)?;
         let layout = ProjectLayout::new(folder);
         std::fs::create_dir_all(&layout.dir)?;
@@ -116,8 +125,10 @@ impl ProjectStore {
         }
 
         let conn = open_connection(&layout.db)?;
-        match Self::initialize(&conn, clock.as_ref(), ids.as_mut()) {
-            Ok(project_id) => Ok(Self::assemble(conn, lock, layout, project_id, clock, ids)),
+        match Self::initialize(&conn, clock.as_ref(), ids.as_mut(), migrations) {
+            Ok(project_id) => Ok(Self::assemble(
+                conn, lock, layout, project_id, migrations, None, clock, ids,
+            )),
             Err(error) => {
                 // 作りかけのファイルを残さない。
                 drop(conn);
@@ -132,10 +143,11 @@ impl ProjectStore {
         conn: &Connection,
         clock: &dyn Clock,
         ids: &mut dyn IdGenerator,
+        migrations: &[Migration],
     ) -> Result<String, StoreError> {
         let now = clock.now_ms();
         let project_id = ids.next_id(conn, now)?;
-        apply_all(conn, PROJECT_MIGRATIONS)?;
+        apply_all(conn, migrations)?;
         let tx = conn.unchecked_transaction()?;
         for (key, value) in [
             (
@@ -155,11 +167,14 @@ impl ProjectStore {
         Ok(project_id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn assemble(
         conn: Connection,
         lock: ProjectLock,
         layout: ProjectLayout,
         project_id: String,
+        migrations: &'static [Migration],
+        migrated_from: Option<u32>,
         clock: Box<dyn Clock>,
         ids: Box<dyn IdGenerator>,
     ) -> Self {
@@ -168,6 +183,8 @@ impl ProjectStore {
             lock,
             layout,
             project_id,
+            migrations,
+            migrated_from,
             clock,
             ids,
             undo: UndoStack::default(),
@@ -205,28 +222,16 @@ impl ProjectStore {
         }
         let project_id = meta_value(&conn, "project_id")?.ok_or(StoreError::NotAProject)?;
 
-        let version: i64 = conn
-            .query_row("PRAGMA user_version", [], |row| row.get(0))
-            .map_err(classify)?;
-        let latest = i64::from(latest_version(PROJECT_MIGRATIONS));
-        if version > latest {
-            return Err(StoreError::TooNew {
-                found: version,
-                supported: latest,
-            });
-        }
-        if version < latest {
-            // 古い版の移行は US5（db/migrate.rs）で実装する。版 1 が最古なので、いまは起こらない。
-            return Err(StoreError::MigrationFailed(format!(
-                "版 {version} からの移行は未実装"
-            )));
-        }
+        // 版を確かめ、古ければ移行する（新しすぎる版は、何も書き換えずに拒否する）。
+        let migrated_from = migrate(&conn, &layout.backup, config.migrations)?;
 
         Ok(Self::assemble(
             conn,
             lock,
             layout,
             project_id,
+            config.migrations,
+            migrated_from,
             config.clock,
             config.ids,
         ))
@@ -238,7 +243,12 @@ impl ProjectStore {
 
     /// このアプリが扱う、プロジェクトデータベースの最新の版。
     pub fn schema_version(&self) -> u32 {
-        latest_version(PROJECT_MIGRATIONS)
+        latest_version(self.migrations)
+    }
+
+    /// 開くときに移行した場合、移行前の版。
+    pub fn migrated_from(&self) -> Option<u32> {
+        self.migrated_from
     }
 
     pub fn folder(&self) -> &Path {

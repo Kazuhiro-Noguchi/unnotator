@@ -32,6 +32,7 @@ fn config() -> StoreConfig {
     StoreConfig {
         clock: Box::new(ManualClock::new(1_700_000_000_000)),
         ids: Box::new(SequentialIds::default()),
+        ..StoreConfig::default()
     }
 }
 

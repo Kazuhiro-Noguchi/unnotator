@@ -139,6 +139,7 @@ pub fn new_project(assets: &[&str]) -> (TempDir, ProjectStore) {
         StoreConfig {
             clock: Box::new(ManualClock::new(1_700_000_000_000)),
             ids: Box::new(SequentialIds::starting_after(1_000)),
+            ..StoreConfig::default()
         },
     )
     .unwrap();

@@ -1,0 +1,31 @@
+[package]
+name = "unnotator"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "unnotator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+unnotator-core = { path = "../crates/core" }
+unnotator-extensions = { path = "../crates/extensions" }
+unnotator-worker = { path = "../crates/worker" }
+tauri = { workspace = true }
+tauri-specta = { workspace = true }
+specta = { workspace = true }
+specta-typescript = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

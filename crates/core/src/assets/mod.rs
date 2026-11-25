@@ -6,6 +6,7 @@ pub mod exclude;
 pub mod media;
 pub mod path;
 pub mod relink;
+pub mod roots;
 pub mod scan;
 pub mod watch;
 

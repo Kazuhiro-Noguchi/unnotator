@@ -211,7 +211,6 @@ impl Chunk {
 
 // ---- 設定の窓口（プロジェクトの設定を含む） ----
 
-use crate::assets::scan::RootSpec;
 use crate::settings::{Effective, Layer, SettingsChanged, SettingsIssue};
 
 impl ProjectStore {
@@ -235,9 +234,48 @@ impl ProjectStore {
         key: &str,
         value: serde_json::Value,
     ) -> Result<(), StoreError> {
+        if key == "assets.externalRoots" {
+            crate::assets::roots::validate(&self.layout.folder, &value).map_err(|why| {
+                StoreError::InvalidSetting {
+                    key: key.to_owned(),
+                    why,
+                }
+            })?;
+        }
         self.settings.set(layer, key, value)?;
         self.refresh_scan_options();
         Ok(())
+    }
+
+    /// 外部ルートを足す（プロジェクトの設定へ）。相対化できるときは相対パスで書く。`path` は絶対パス。
+    pub fn set_external_root(
+        &mut self,
+        key: &str,
+        path: &std::path::Path,
+    ) -> Result<(), StoreError> {
+        if !path.is_absolute() {
+            return Err(StoreError::InvalidSetting {
+                key: "assets.externalRoots".to_owned(),
+                why: "フォルダは絶対パスで指定する".to_owned(),
+            });
+        }
+        let stored = crate::assets::roots::relativize(&self.layout.folder, path)
+            .unwrap_or_else(|| path.to_path_buf());
+        let mut roots = self
+            .settings
+            .layer(Layer::Project)
+            .and_then(|map| map.get("assets.externalRoots"))
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        roots.insert(
+            key.to_owned(),
+            serde_json::Value::String(stored.to_string_lossy().replace('\\', "/")),
+        );
+        self.settings_set(
+            Layer::Project,
+            "assets.externalRoots",
+            serde_json::Value::Object(roots),
+        )
     }
 
     pub fn settings_unset(&mut self, layer: Layer, key: &str) -> Result<(), StoreError> {
@@ -282,22 +320,7 @@ impl ProjectStore {
             .effective("assets.externalRoots")
             .ok()
             .and_then(|e| e.value.as_object().cloned())
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(key, value)| {
-                        let path = std::path::PathBuf::from(value.as_str()?);
-                        let path = if path.is_absolute() {
-                            path
-                        } else {
-                            self.layout.folder.join(path)
-                        };
-                        Some(RootSpec {
-                            key: key.clone(),
-                            path,
-                        })
-                    })
-                    .collect::<Vec<_>>()
-            })
+            .map(|map| crate::assets::roots::specs(&self.layout.folder, &map))
             .unwrap_or_default();
         self.scan_options.exclude = exclude;
         self.scan_options.roots = roots;

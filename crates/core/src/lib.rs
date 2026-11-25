@@ -7,6 +7,7 @@ pub mod error;
 pub mod event;
 pub mod history;
 pub mod id;
+pub mod project;
 
 /// DB スキーマ（契約の正本の SQL をそのまま埋め込む）。
 pub mod migrations {

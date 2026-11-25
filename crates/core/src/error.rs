@@ -25,6 +25,9 @@ pub enum StoreError {
     /// 契約に反する値・入れ子の transaction など。
     #[error("コマンドが不正です: {0}")]
     InvalidCommand(String),
+    /// 作成しようとした場所に、すでにプロジェクトがある。
+    #[error("すでにプロジェクトがあります")]
+    AlreadyExists,
     /// 使用中のラベルを、付け替えも一緒に削除も指定せずに削除しようとした。
     #[error(
         "ラベルが使われています（アノテーション {annotations}・関係 {relations}・グループ {groups}）"
@@ -52,6 +55,7 @@ impl StoreError {
         match self {
             Self::InUse => "in_use",
             Self::NotFound(_) => "not_found",
+            Self::AlreadyExists => "already_exists",
             Self::NotAProject => "not_a_project",
             Self::Corrupt(_) => "corrupt",
             Self::TooNew { .. } => "too_new",
@@ -75,6 +79,7 @@ mod tests {
         let cases: Vec<(StoreError, &str)> = vec![
             (StoreError::InUse, "in_use"),
             (StoreError::NotFound("x".into()), "not_found"),
+            (StoreError::AlreadyExists, "already_exists"),
             (StoreError::NotAProject, "not_a_project"),
             (StoreError::Corrupt("x".into()), "corrupt"),
             (

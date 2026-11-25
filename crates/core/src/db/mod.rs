@@ -1,5 +1,6 @@
 //! データベース接続とテーブルの定義。
 
+pub mod migrate;
 pub mod tables;
 
 use std::path::Path;

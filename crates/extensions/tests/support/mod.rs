@@ -105,7 +105,7 @@ impl ManifestBuilder {
     }
 
     /// 媒体種別を 1 つ足す。
-    pub fn media_type(mut self, local: &str, extensions: &[&str], mime_types: &[&str]) -> Self {
+    pub fn media_type(self, local: &str, extensions: &[&str], mime_types: &[&str]) -> Self {
         let mut item = json!({ "id": local, "title": local });
         if !extensions.is_empty() {
             item["extensions"] = json!(extensions);
@@ -179,7 +179,11 @@ pub fn write_extension(root: &Path, manifest: &Value, files: &[(&str, &[u8])]) -
         serde_json::to_vec_pretty(manifest).expect("JSON にできる"),
     )
     .expect("書ける");
-    std::fs::write(dir.join("dist/index.js"), b"export function activate() {}\n").expect("書ける");
+    std::fs::write(
+        dir.join("dist/index.js"),
+        b"export function activate() {}\n",
+    )
+    .expect("書ける");
     for (rel, bytes) in files {
         let path = dir.join(rel);
         if let Some(parent) = path.parent() {

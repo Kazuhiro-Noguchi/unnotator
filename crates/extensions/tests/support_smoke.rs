@@ -45,6 +45,10 @@ fn a_zip_starts_with_the_local_header_and_ends_with_the_end_record() {
 #[test]
 fn the_bomb_is_tiny_compared_with_what_it_declares() {
     let entry = RawEntry::zeros_bomb("big.bin", 10 * 1024 * 1024, None);
-    assert!(entry.data.len() < 100 * 1024, "圧縮後 {} バイト", entry.data.len());
+    assert!(
+        entry.data.len() < 100 * 1024,
+        "圧縮後 {} バイト",
+        entry.data.len()
+    );
     assert_eq!(entry.declared_size, Some(10 * 1024 * 1024));
 }

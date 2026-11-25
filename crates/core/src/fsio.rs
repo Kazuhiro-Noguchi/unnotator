@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::error::StoreError;
 
 /// ファイルの内容をディスクへ書き切る。
-pub(crate) fn sync_file(path: &Path) -> Result<(), StoreError> {
+pub fn sync_file(path: &Path) -> Result<(), StoreError> {
     // Windows では、書き込みの権限が要る
     let file = OpenOptions::new().write(true).open(path)?;
     file.sync_all()?;
@@ -15,14 +15,14 @@ pub(crate) fn sync_file(path: &Path) -> Result<(), StoreError> {
 
 /// ディレクトリの変更（名前の置き換え）をディスクへ書き切る。Unix のみ。
 #[cfg(unix)]
-pub(crate) fn sync_directory(path: &Path) -> Result<(), StoreError> {
+pub fn sync_directory(path: &Path) -> Result<(), StoreError> {
     let directory = std::fs::File::open(path)?;
     directory.sync_all()?;
     Ok(())
 }
 
 #[cfg(not(unix))]
-pub(crate) fn sync_directory(_path: &Path) -> Result<(), StoreError> {
+pub fn sync_directory(_path: &Path) -> Result<(), StoreError> {
     Ok(())
 }
 
@@ -40,11 +40,7 @@ pub enum WriteStage {
 
 /// `path` を、一時ファイル → `fsync` → 名前の置き換え → フォルダの `fsync` で書く。
 /// 途中で落ちても、元の内容か新しい完全な内容のどちらかが残る。`stop` の段階の直後で `Aborted` を返す（テスト用）。
-pub(crate) fn atomic_write(
-    path: &Path,
-    bytes: &[u8],
-    stop: Option<WriteStage>,
-) -> Result<(), StoreError> {
+pub fn atomic_write(path: &Path, bytes: &[u8], stop: Option<WriteStage>) -> Result<(), StoreError> {
     let parent = path.parent().ok_or_else(|| {
         StoreError::NotFound(format!(
             "書き込み先のフォルダがありません: {}",

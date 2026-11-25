@@ -12,6 +12,7 @@ pub mod history;
 pub mod id;
 pub mod project;
 pub mod recovery;
+pub mod serve;
 pub mod settings;
 
 /// DB スキーマ（契約の正本の SQL をそのまま埋め込む）。

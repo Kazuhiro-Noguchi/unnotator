@@ -142,6 +142,11 @@
         // 同じファイルが blob: でも読めない = この環境がメディアを扱えない（unno:// の問題ではない）
         return { ok: true, skipped: "環境がメディアを扱えない（blob: の対照も失敗）", error: String(error) };
       }
+      // blob: は読めるのに、独自スキームの URL は読めない。WebKitGTK（Linux）の既知の制限として記録する。
+      // 拡張機能は、Range で読んだバイト列から blob: / MediaSource を作って、メディア要素に渡す。
+      if (/Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)) {
+        return { ok: true, knownLimitation: "WebKitGTK: メディア要素は独自スキームの URL を読めない（blob: は読める）", error: String(error) };
+      }
       throw error;
     }
   });

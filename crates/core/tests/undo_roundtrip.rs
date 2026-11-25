@@ -591,7 +591,7 @@ fn operations_outside_the_command_path_are_not_in_the_history() {
     store.apply_command(annotation(1, "a1")).unwrap();
     // アセットの追加と拡張機能専用のデータは、Undo の対象外（コアのコマンドを通らない）
     {
-        let conn = Connection::open(dir.path().join(".unnotator/project.db")).unwrap();
+        let conn = Connection::open(support::working_db_path(dir.path())).unwrap();
         support::insert_asset(&conn, "a9", "later.bin");
         conn.execute(
             "INSERT INTO plugin_data (plugin_id, scope, scope_id, key, value_json, updated_at) \

@@ -13,8 +13,14 @@ export const commands = {
 	 *  計測用の出力が書けなくてもアプリは止めない。
 	 */
 	reportReady: (options?: InvokeOptions) => __TAURI_INVOKE<void>("report_ready", undefined, options),
-	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<ProjectInfo_Serialize>("project_open", { folder, create }, options),
-	projectClose: (options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", undefined, options),
+	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<OpenResult_Serialize>("project_open", { folder, create }, options),
+	projectClose: (action: CloseChoice | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", { action }, options),
+	projectSave: (options?: InvokeOptions) => __TAURI_INVOKE<SaveState_Serialize>("project_save", undefined, options),
+	saveState: (options?: InvokeOptions) => __TAURI_INVOKE<SaveState_Serialize>("save_state", undefined, options),
+	recoveryRestore: (options?: InvokeOptions) => __TAURI_INVOKE<ProjectInfo_Serialize>("recovery_restore", undefined, options),
+	recoveryDiscard: (options?: InvokeOptions) => __TAURI_INVOKE<ProjectInfo_Serialize>("recovery_discard", undefined, options),
+	recoveryList: (options?: InvokeOptions) => __TAURI_INVOKE<RecoveryEntry_Serialize[]>("recovery_list", undefined, options),
+	recoveryDelete: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("recovery_delete", { id }, options),
 	applyCommand: (command: Command_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("apply_command", { command }, options),
 	undo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("undo", undefined, options),
 	redo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("redo", undefined, options),
@@ -25,6 +31,7 @@ export const commands = {
 /** Events */
 export const events = {
 	projectChanged: makeEvent<ProjectChanged, ProjectChanged>("project-changed"),
+	projectStateChanged: makeEvent<ProjectStateChanged_Serialize, ProjectStateChanged_Deserialize>("project-state-changed"),
 };
 
 /* Types */
@@ -72,6 +79,9 @@ export type ChangeSet = {
 	/**  この変更が属するアセット（重複なし）。 */
 	asset_ids: string[],
 };
+
+/**  閉じるときの、未保存の変更の扱い。 */
+export type CloseChoice = "save" | "discard";
 
 export type Command = Command_Serialize | Command_Deserialize;
 
@@ -172,6 +182,19 @@ export type LabelUsage = {
 	attribute_schemas: number,
 };
 
+/**  `project_open` の結果。 */
+export type OpenResult = OpenResult_Serialize | OpenResult_Deserialize;
+
+/**  `project_open` の結果。 */
+export type OpenResult_Deserialize = { kind: "opened"; info: ProjectInfo_Deserialize; recovery_unusable?: RecoveryUnusableInfo | null } | 
+/**  前回の作業用データが残っている。`recovery_restore` か `recovery_discard` で選ぶ。 */
+{ kind: "recovery_available"; candidate: RecoveryCandidate_Deserialize };
+
+/**  `project_open` の結果。 */
+export type OpenResult_Serialize = { kind: "opened"; info: ProjectInfo_Serialize; recovery_unusable: RecoveryUnusableInfo | null } | 
+/**  前回の作業用データが残っている。`recovery_restore` か `recovery_discard` で選ぶ。 */
+{ kind: "recovery_available"; candidate: RecoveryCandidate_Serialize };
+
 export type Origin = "apply" | "undo" | "redo";
 
 /**  変更の差分。`apply_command`・`undo`・`redo` がコミットされたあとに通知する。 */
@@ -195,6 +218,89 @@ export type ProjectInfo_Serialize = {
 	migrated_from: number | null,
 };
 
+/**  未保存の状態。適用・Undo・Redo・保存の開始と終了のあとに通知する。 */
+export type ProjectStateChanged = ProjectStateChanged_Serialize | ProjectStateChanged_Deserialize;
+
+/**  未保存の状態。適用・Undo・Redo・保存の開始と終了のあとに通知する。 */
+export type ProjectStateChanged_Deserialize = SaveState_Deserialize;
+
+/**  未保存の状態。適用・Undo・Redo・保存の開始と終了のあとに通知する。 */
+export type ProjectStateChanged_Serialize = SaveState_Serialize;
+
+/**  復元の候補の情報（確認の表示に使う）。 */
+export type RecoveryCandidate = RecoveryCandidate_Serialize | RecoveryCandidate_Deserialize;
+
+/**  復元の候補の情報（確認の表示に使う）。 */
+export type RecoveryCandidate_Deserialize = {
+	/**  前回のセッションが開いていたプロジェクトのフォルダ。 */
+	project_root: string,
+	/**  未保存の変更の件数（`entries` の件数）。 */
+	entry_count: number,
+	/**  最後に編集が確定した時刻（ミリ秒）。画面側では `number`。 */
+	last_change_at?: number | null,
+	/**  作業の開始後に、`project.db` が外から変更されたか。 */
+	base_changed: boolean,
+	/**  前回のセッションのアプリの版。 */
+	app_version: string,
+};
+
+/**  復元の候補の情報（確認の表示に使う）。 */
+export type RecoveryCandidate_Serialize = {
+	/**  前回のセッションが開いていたプロジェクトのフォルダ。 */
+	project_root: string,
+	/**  未保存の変更の件数（`entries` の件数）。 */
+	entry_count: number,
+	/**  最後に編集が確定した時刻（ミリ秒）。画面側では `number`。 */
+	last_change_at: number | null,
+	/**  作業の開始後に、`project.db` が外から変更されたか。 */
+	base_changed: boolean,
+	/**  前回のセッションのアプリの版。 */
+	app_version: string,
+};
+
+/**  一覧の 1 件。 */
+export type RecoveryEntry = RecoveryEntry_Serialize | RecoveryEntry_Deserialize;
+
+/**  一覧の 1 件。 */
+export type RecoveryEntry_Deserialize = {
+	/**  ディレクトリ名（`<hash>` または `<hash>.corrupt-<時刻>`）。 */
+	id: string,
+	/**  紐づくプロジェクトのフォルダ（読めなければ `None`）。 */
+	project_root?: string | null,
+	entry_count?: number | null,
+	/**  最後に変更した時刻（ミリ秒。画面側では `number`）。 */
+	last_change_at?: number | null,
+	/**  ディレクトリ内のファイルの合計の大きさ。画面側では `number`。 */
+	size_bytes: number | null,
+	/**  紐づくプロジェクトが存在するか（存在すれば、自動では削除しない）。 */
+	project_exists: boolean,
+	/**  読めなかったものか。 */
+	corrupt: boolean,
+};
+
+/**  一覧の 1 件。 */
+export type RecoveryEntry_Serialize = {
+	/**  ディレクトリ名（`<hash>` または `<hash>.corrupt-<時刻>`）。 */
+	id: string,
+	/**  紐づくプロジェクトのフォルダ（読めなければ `None`）。 */
+	project_root: string | null,
+	entry_count: number | null,
+	/**  最後に変更した時刻（ミリ秒。画面側では `number`）。 */
+	last_change_at: number | null,
+	/**  ディレクトリ内のファイルの合計の大きさ。画面側では `number`。 */
+	size_bytes: number | null,
+	/**  紐づくプロジェクトが存在するか（存在すれば、自動では削除しない）。 */
+	project_exists: boolean,
+	/**  読めなかったものか。 */
+	corrupt: boolean,
+};
+
+/**  読めない作業用データを退避したことの知らせ。 */
+export type RecoveryUnusableInfo = {
+	moved_to: string,
+	reason: string,
+};
+
 export type RelationPatch = RelationPatch_Serialize | RelationPatch_Deserialize;
 
 export type RelationPatch_Deserialize = {
@@ -207,6 +313,39 @@ export type RelationPatch_Serialize = {
 	directed: Field<boolean>,
 	label_id: Field<string>,
 	attributes_json: Field<string>,
+};
+
+/**  開いているプロジェクトの、未保存の状態。画面が●を切り替えるのに使う。 */
+export type SaveState = SaveState_Serialize | SaveState_Deserialize;
+
+/**  開いているプロジェクトの、未保存の状態。画面が●を切り替えるのに使う。 */
+export type SaveState_Deserialize = {
+	/**  `unsaved_count > 0` */
+	dirty: boolean,
+	/**  `journal.db` の `entries` の件数（Undo / Redo も 1 件として数える）。 */
+	unsaved_count: number,
+	/**
+	 *  最後に編集が確定した時刻（ミリ秒）。未保存が無ければ `None`。
+	 *  画面側では `number`（ミリ秒の時刻は 2^53 未満で、欠けない）。
+	 */
+	last_change_at?: number | null,
+	/**  保存の実行中か。 */
+	saving: boolean,
+};
+
+/**  開いているプロジェクトの、未保存の状態。画面が●を切り替えるのに使う。 */
+export type SaveState_Serialize = {
+	/**  `unsaved_count > 0` */
+	dirty: boolean,
+	/**  `journal.db` の `entries` の件数（Undo / Redo も 1 件として数える）。 */
+	unsaved_count: number,
+	/**
+	 *  最後に編集が確定した時刻（ミリ秒）。未保存が無ければ `None`。
+	 *  画面側では `number`（ミリ秒の時刻は 2^53 未満で、欠けない）。
+	 */
+	last_change_at: number | null,
+	/**  保存の実行中か。 */
+	saving: boolean,
 };
 
 export type Status = "todo" | "in_progress" | "done" | "review";

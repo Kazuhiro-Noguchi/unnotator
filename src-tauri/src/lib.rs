@@ -11,6 +11,7 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use specta_typescript::Typescript;
+use tauri::Manager;
 use tauri_specta::{Builder, collect_commands, collect_events};
 
 static PROCESS_START: OnceLock<Instant> = OnceLock::new();
@@ -28,13 +29,22 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             commands::report_ready,
             project_commands::project_open,
             project_commands::project_close,
+            project_commands::project_save,
+            project_commands::save_state,
+            project_commands::recovery_restore,
+            project_commands::recovery_discard,
+            project_commands::recovery_list,
+            project_commands::recovery_delete,
             project_commands::apply_command,
             project_commands::undo,
             project_commands::redo,
             project_commands::undo_state,
             project_commands::label_usage
         ])
-        .events(collect_events![project_commands::ProjectChanged])
+        .events(collect_events![
+            project_commands::ProjectChanged,
+            project_commands::ProjectStateChanged
+        ])
 }
 
 /// TypeScript の型と呼び出し関数を書き出す。
@@ -59,10 +69,15 @@ pub fn run() {
     }
 
     let result = tauri::Builder::default()
-        .manage(project_commands::ProjectState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+            // 作業用データの置き場は、アプリのデータフォルダの下
+            let recovery_root = app.path().app_data_dir()?.join("recovery");
+            // 30 日を超えた孤立の作業用データを、背景で片付ける（開く処理を待たせない）
+            let cleanup_root = recovery_root.clone();
+            std::thread::spawn(move || project_commands::cleanup_recovery(&cleanup_root));
+            app.manage(project_commands::ProjectState::new(recovery_root));
             Ok(())
         })
         .run(tauri::generate_context!());

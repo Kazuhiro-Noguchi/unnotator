@@ -44,7 +44,7 @@ fn project_with_unknown_data() -> (TempDir, ProjectStore) {
         })
         .unwrap();
     {
-        let conn = Connection::open(dir.path().join(".unnotator/project.db")).unwrap();
+        let conn = Connection::open(support::working_db_path(dir.path())).unwrap();
         conn.execute_batch(
             "INSERT INTO plugin_data (plugin_id, scope, scope_id, key, value_json, updated_at) VALUES
                ('com.example.future', 'project', '', 'config', '{ \"a\":  1 }', 1),
@@ -145,8 +145,8 @@ fn label_attribute_and_status_edits_leave_the_unknown_parts_alone() {
 fn close_and_reopen_keeps_everything() {
     let (dir, store) = project_with_unknown_data();
     let before = snapshot(&read_conn(dir.path()));
-    store.close().unwrap();
-    ProjectStore::open(dir.path()).unwrap().close().unwrap();
+    support::save_and_close(store);
+    support::open_store(dir.path()).close(None).unwrap();
     assert_eq!(snapshot(&read_conn(dir.path())), before);
 }
 
@@ -182,18 +182,17 @@ fn migration_keeps_unknown_data_and_plugin_data() {
     let (dir, store) = project_with_unknown_data();
     let before = untouchable(&dir);
     let plugin_before = plugin_data(&dir);
-    store.close().unwrap();
+    support::save_and_close(store);
 
-    let migrated = ProjectStore::open_with(
+    let migrated = support::open_store_with(
         dir.path(),
         StoreConfig {
             migrations: WITH_V2,
-            ..StoreConfig::default()
+            ..support::system_config(dir.path())
         },
-    )
-    .unwrap();
+    );
     assert_eq!(migrated.migrated_from(), Some(1));
-    migrated.close().unwrap();
+    support::save_and_close(migrated);
 
     assert_eq!(untouchable(&dir), before);
     assert_eq!(plugin_data(&dir), plugin_before);

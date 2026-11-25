@@ -44,17 +44,20 @@ fn bulk_annotations(conn: &Connection, count: usize) {
 #[ignore = "性能の計測。--ignored で実行する"]
 fn open_a_project_with_ten_thousand_annotations() {
     let dir = TempDir::new();
-    ProjectStore::create(dir.path()).unwrap().close().unwrap();
+    ProjectStore::create(dir.path(), support::system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .unwrap();
     {
         let conn = Connection::open(db_path(&dir)).unwrap();
         insert_asset(&conn, "a1", "a.bin");
         bulk_annotations(&conn, 10_000);
     }
     let start = Instant::now();
-    let store = ProjectStore::open(dir.path()).unwrap();
+    let store = support::open_store(dir.path());
     let elapsed = ms(start);
     println!("SC-007: 1 万件のプロジェクトを開く: {elapsed} ms");
-    store.close().unwrap();
+    store.close(None).unwrap();
     assert!(elapsed < 5_000, "5 秒以内のはずが {elapsed} ms");
 }
 
@@ -62,7 +65,10 @@ fn open_a_project_with_ten_thousand_annotations() {
 #[ignore = "性能の計測。--ignored で実行する"]
 fn delete_and_undo_an_annotation_with_a_thousand_relations_and_memberships() {
     let dir = TempDir::new();
-    ProjectStore::create(dir.path()).unwrap().close().unwrap();
+    ProjectStore::create(dir.path(), support::system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .unwrap();
     {
         let conn = Connection::open(db_path(&dir)).unwrap();
         insert_asset(&conn, "a1", "a.bin");
@@ -90,7 +96,7 @@ fn delete_and_undo_an_annotation_with_a_thousand_relations_and_memberships() {
         tx.commit().unwrap();
     }
 
-    let mut store = ProjectStore::open(dir.path()).unwrap();
+    let mut store = support::open_store(dir.path());
     let start = Instant::now();
     store
         .apply_command(Command::DeleteAnnotation {
@@ -123,12 +129,15 @@ fn rss_kib() -> Option<u64> {
 #[ignore = "性能の計測。--ignored で実行する"]
 fn five_hundred_large_transactions_in_the_history() {
     let dir = TempDir::new();
-    ProjectStore::create(dir.path()).unwrap().close().unwrap();
+    ProjectStore::create(dir.path(), support::system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .unwrap();
     {
         let conn = Connection::open(db_path(&dir)).unwrap();
         insert_asset(&conn, "a1", "a.bin");
     }
-    let mut store = ProjectStore::open(dir.path()).unwrap();
+    let mut store = support::open_store(dir.path());
     let before = rss_kib();
     let start = Instant::now();
     for _ in 0..500 {

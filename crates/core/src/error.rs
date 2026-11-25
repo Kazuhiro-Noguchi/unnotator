@@ -43,6 +43,15 @@ pub enum StoreError {
     /// プロジェクトを開いていない（IPC の状態）。
     #[error("プロジェクトを開いていません")]
     NotOpen,
+    /// 未保存の変更があるのに、保存も破棄も指定せずに閉じようとした。
+    #[error("未保存の変更があります")]
+    UnsavedChanges,
+    /// 保存中に、もう一度保存・閉じるを指示した。
+    #[error("保存中です")]
+    AlreadySaving,
+    /// テスト用の停止点で、保存を途中で打ち切った。
+    #[error("保存を途中で打ち切りました（テスト用）")]
+    Aborted,
     #[error("ファイル操作に失敗しました: {0}")]
     Io(#[from] std::io::Error),
     #[error("データベースの操作に失敗しました: {0}")]
@@ -64,6 +73,9 @@ impl StoreError {
             Self::LabelInUse { .. } => "label_in_use",
             Self::AlreadyOpen => "already_open",
             Self::NotOpen => "not_open",
+            Self::UnsavedChanges => "unsaved_changes",
+            Self::AlreadySaving => "already_saving",
+            Self::Aborted => "aborted",
             Self::Io(_) => "io",
             Self::Sqlite(_) => "internal",
         }
@@ -101,6 +113,9 @@ mod tests {
             ),
             (StoreError::AlreadyOpen, "already_open"),
             (StoreError::NotOpen, "not_open"),
+            (StoreError::UnsavedChanges, "unsaved_changes"),
+            (StoreError::AlreadySaving, "already_saving"),
+            (StoreError::Aborted, "aborted"),
             (StoreError::Io(std::io::Error::other("x")), "io"),
             (
                 StoreError::Sqlite(rusqlite::Error::InvalidQuery),

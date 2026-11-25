@@ -12,10 +12,13 @@ use unnotator_core::clock::ManualClock;
 use unnotator_core::command::{Command, Target};
 use unnotator_core::id::SequentialIds;
 use unnotator_core::migrations::PROJECT_V1;
-use unnotator_core::project::{ProjectStore, StoreConfig};
+use unnotator_core::project::{CloseAction, OpenOutcome, ProjectStore, StoreConfig};
+use unnotator_core::recovery::recovery_dir_for;
 
 /// 一時フォルダ。破棄すると中身ごと消える。
+/// 中に `project/`（プロジェクトのフォルダ）と `recovery/`（作業用データの置き場）を持つ。
 pub struct TempDir {
+    root: PathBuf,
     path: PathBuf,
 }
 
@@ -23,7 +26,7 @@ impl TempDir {
     pub fn new() -> Self {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let path = std::env::temp_dir().join(format!(
+        let root = std::env::temp_dir().join(format!(
             "unnotator-test-{}-{}-{n}",
             std::process::id(),
             std::time::SystemTime::now()
@@ -31,12 +34,20 @@ impl TempDir {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         ));
+        let path = root.join("project");
         std::fs::create_dir_all(&path).expect("一時フォルダを作れる");
-        Self { path }
+        std::fs::create_dir_all(root.join("recovery")).expect("一時フォルダを作れる");
+        Self { root, path }
     }
 
+    /// プロジェクトのフォルダ。
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// 作業用データの置き場（`StoreConfig::new` に渡す）。
+    pub fn recovery_root(&self) -> PathBuf {
+        self.root.join("recovery")
     }
 }
 
@@ -48,7 +59,7 @@ impl Default for TempDir {
 
 impl Drop for TempDir {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.path);
+        let _ = std::fs::remove_dir_all(&self.root);
     }
 }
 
@@ -114,8 +125,68 @@ pub fn snapshot(conn: &Connection) -> Snapshot {
         .collect()
 }
 
-/// 読み取り専用の接続（開いているプロジェクトの中身を、ストアを通さずに確かめる）。
+/// `TempDir::path()` のフォルダに対応する、作業用データの置き場（`<root>/recovery`）。
+pub fn recovery_root_of(folder: &Path) -> PathBuf {
+    folder
+        .parent()
+        .expect("TempDir のフォルダには親がある")
+        .join("recovery")
+}
+
+/// 固定の時刻と連番の ID にした設定。
+pub fn test_config(folder: &Path) -> StoreConfig {
+    StoreConfig {
+        clock: Box::new(ManualClock::new(1_700_000_000_000)),
+        ids: Box::new(SequentialIds::starting_after(1_000)),
+        ..StoreConfig::new(recovery_root_of(folder))
+    }
+}
+
+/// 既定の設定（実際の時刻と UUID）で、置き場だけをテスト用にした設定。
+pub fn system_config(folder: &Path) -> StoreConfig {
+    StoreConfig::new(recovery_root_of(folder))
+}
+
+/// 開く。復元の候補が出たら、テストの失敗にする。
+pub fn open_store(folder: &Path) -> ProjectStore {
+    open_store_with(folder, test_config(folder))
+}
+
+pub fn open_store_with(folder: &Path, config: StoreConfig) -> ProjectStore {
+    match ProjectStore::open(folder, config).expect("開ける") {
+        OpenOutcome::Opened { store, .. } => store,
+        OpenOutcome::RecoveryAvailable(_) => panic!("復元の候補が出てはいけない"),
+    }
+}
+
+/// 未保存の変更を保存して閉じる。
+pub fn save_and_close(store: ProjectStore) {
+    store
+        .close(Some(CloseAction::Save))
+        .map_err(|failed| failed.error)
+        .expect("保存して閉じられる");
+}
+
+/// 作業用の複製（`working.db`）の場所。
+pub fn working_db_path(folder: &Path) -> PathBuf {
+    recovery_dir_for(&recovery_root_of(folder), folder).join("working.db")
+}
+
+/// 作業用の複製（`working.db`）を、読み取り専用で開く。無ければ（閉じたあとなど）`project.db`。
+/// 開いているプロジェクトの中身を、ストアを通さずに確かめる。
 pub fn read_conn(folder: &Path) -> Connection {
+    let working = working_db_path(folder);
+    let path = if working.is_file() {
+        working
+    } else {
+        folder.join(".unnotator/project.db")
+    };
+    Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .expect("読み取りで開ける")
+}
+
+/// 保存済みの `project.db` を、読み取り専用で開く。
+pub fn read_saved_conn(folder: &Path) -> Connection {
     Connection::open_with_flags(
         folder.join(".unnotator/project.db"),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
@@ -127,22 +198,18 @@ pub fn read_conn(folder: &Path) -> Connection {
 /// アセットの登録は 004 の範囲なので、閉じた状態で行を直接入れて準備する。
 pub fn new_project(assets: &[&str]) -> (TempDir, ProjectStore) {
     let dir = TempDir::new();
-    ProjectStore::create(dir.path()).unwrap().close().unwrap();
+    ProjectStore::create(dir.path(), system_config(dir.path()))
+        .unwrap()
+        .close(None)
+        .map_err(|failed| failed.error)
+        .unwrap();
     {
         let conn = Connection::open(dir.path().join(".unnotator/project.db")).unwrap();
         for id in assets {
             insert_asset(&conn, id, &format!("{id}.bin"));
         }
     }
-    let store = ProjectStore::open_with(
-        dir.path(),
-        StoreConfig {
-            clock: Box::new(ManualClock::new(1_700_000_000_000)),
-            ids: Box::new(SequentialIds::starting_after(1_000)),
-            ..StoreConfig::default()
-        },
-    )
-    .unwrap();
+    let store = open_store(dir.path());
     (dir, store)
 }
 
@@ -207,5 +274,31 @@ pub fn text(s: &str) -> Value {
 
 pub fn count(conn: &Connection, table: &str) -> i64 {
     conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+        .unwrap()
+}
+
+/// `journal.db` の場所。
+pub fn journal_db_path(folder: &Path) -> PathBuf {
+    recovery_dir_for(&recovery_root_of(folder), folder).join("journal.db")
+}
+
+/// `journal.db` を、読み取り専用で開く。
+pub fn journal_conn(folder: &Path) -> Connection {
+    Connection::open_with_flags(
+        journal_db_path(folder),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .expect("journal.db を読み取りで開ける")
+}
+
+/// `journal.db` の `entries` を、古い順に `(label, source, asset_id, inverse_json)` で返す。
+pub fn journal_entries(folder: &Path) -> Vec<(String, String, Option<String>, String)> {
+    let conn = journal_conn(folder);
+    let mut stmt = conn
+        .prepare("SELECT label, source, asset_id, inverse_json FROM entries ORDER BY seq")
+        .unwrap();
+    stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
         .unwrap()
 }

@@ -343,6 +343,17 @@ impl Command {
             Self::Transaction { .. } => "transaction",
         }
     }
+
+    /// 作成元（拡張機能の ID など）。変更履歴の `source` に使う。指定が無ければ `None`（利用者の操作）。
+    pub fn source(&self) -> Option<&str> {
+        match self {
+            Self::CreateAnnotation { source, .. }
+            | Self::CreateRelation { source, .. }
+            | Self::CreateGroup { source, .. } => source.as_deref(),
+            Self::Transaction { commands } => commands.iter().find_map(Command::source),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

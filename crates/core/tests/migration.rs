@@ -34,10 +34,10 @@ static BROKEN_V2: &[Migration] = &[
     },
 ];
 
-fn config(migrations: &'static [Migration]) -> StoreConfig {
+fn config(folder: &std::path::Path, migrations: &'static [Migration]) -> StoreConfig {
     StoreConfig {
         migrations,
-        ..StoreConfig::default()
+        ..support::system_config(folder)
     }
 }
 
@@ -54,10 +54,10 @@ fn meta(conn: &Connection, key: &str) -> Option<String> {
 /// 版 1 のプロジェクトを作り、データを入れて閉じる。
 fn version_one_project() -> TempDir {
     let dir = TempDir::new();
-    let mut store = ProjectStore::create(dir.path()).unwrap();
+    let mut store = ProjectStore::create(dir.path(), support::system_config(dir.path())).unwrap();
     store.apply_command(create_label("person")).unwrap();
     store.apply_command(create_label("car")).unwrap();
-    store.close().unwrap();
+    support::save_and_close(store);
     dir
 }
 
@@ -74,10 +74,10 @@ fn an_older_project_is_migrated_with_a_backup_and_keeps_its_data() {
     let dir = version_one_project();
     let before = snapshot(&read_conn(dir.path()));
 
-    let store = ProjectStore::open_with(dir.path(), config(WITH_V2)).unwrap();
+    let store = support::open_store_with(dir.path(), config(dir.path(), WITH_V2));
     assert_eq!(store.migrated_from(), Some(1));
     assert_eq!(store.schema_version(), 2);
-    store.close().unwrap();
+    store.close(None).unwrap();
 
     let conn = read_conn(dir.path());
     assert_eq!(user_version(&conn), 2);
@@ -108,7 +108,7 @@ fn an_older_project_is_migrated_with_a_backup_and_keeps_its_data() {
 #[test]
 fn a_migrated_project_is_usable_afterwards() {
     let dir = version_one_project();
-    let mut store = ProjectStore::open_with(dir.path(), config(WITH_V2)).unwrap();
+    let mut store = support::open_store_with(dir.path(), config(dir.path(), WITH_V2));
     store.apply_command(create_label("bike")).unwrap();
     assert!(matches!(
         store.apply_command(Command::DeleteLabel {
@@ -117,26 +117,25 @@ fn a_migrated_project_is_usable_afterwards() {
         }),
         Err(e) if e.code() == "not_found"
     ));
-    store.close().unwrap();
+    support::save_and_close(store);
 }
 
 #[test]
 fn a_current_project_is_not_migrated_and_leaves_no_backup() {
     let dir = version_one_project();
-    let store = ProjectStore::open(dir.path()).unwrap();
+    let store = support::open_store(dir.path());
     assert_eq!(store.migrated_from(), None);
-    store.close().unwrap();
+    store.close(None).unwrap();
     assert!(!bak_path(&dir).exists());
 
     // 移行済みのものを、もう一度開いても、移行も退避の作り直しもしない
-    ProjectStore::open_with(dir.path(), config(WITH_V2))
-        .unwrap()
-        .close()
+    support::open_store_with(dir.path(), config(dir.path(), WITH_V2))
+        .close(None)
         .unwrap();
     let backup_bytes = std::fs::read(bak_path(&dir)).unwrap();
-    let again = ProjectStore::open_with(dir.path(), config(WITH_V2)).unwrap();
+    let again = support::open_store_with(dir.path(), config(dir.path(), WITH_V2));
     assert_eq!(again.migrated_from(), None);
-    again.close().unwrap();
+    again.close(None).unwrap();
     assert_eq!(std::fs::read(bak_path(&dir)).unwrap(), backup_bytes);
 }
 
@@ -145,7 +144,7 @@ fn a_failing_migration_leaves_the_original_usable() {
     let dir = version_one_project();
     let before = snapshot(&read_conn(dir.path()));
 
-    let err = ProjectStore::open_with(dir.path(), config(BROKEN_V2)).unwrap_err();
+    let err = ProjectStore::open(dir.path(), config(dir.path(), BROKEN_V2)).unwrap_err();
     assert_eq!(err.code(), "migration_failed");
 
     // 元のプロジェクトは版 1 のまま、内容も変わらず、もう一度（通常のアプリで）開ける
@@ -154,9 +153,9 @@ fn a_failing_migration_leaves_the_original_usable() {
     assert_eq!(snapshot(&conn), before);
     assert!(conn.prepare("SELECT x FROM test_extra").is_err());
     drop(conn);
-    let store = ProjectStore::open(dir.path()).unwrap();
+    let store = support::open_store(dir.path());
     assert_eq!(store.migrated_from(), None);
-    store.close().unwrap();
+    store.close(None).unwrap();
 }
 
 #[test]
@@ -168,7 +167,7 @@ fn a_project_newer_than_the_app_is_refused_without_touching_files() {
     }
     let bytes = db_bytes(&dir);
 
-    let err = ProjectStore::open(dir.path()).unwrap_err();
+    let err = ProjectStore::open(dir.path(), support::system_config(dir.path())).unwrap_err();
     assert_eq!(err.code(), "too_new");
     assert!(err.to_string().contains('7'));
     assert_eq!(db_bytes(&dir), bytes);

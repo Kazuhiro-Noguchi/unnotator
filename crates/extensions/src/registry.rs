@@ -292,7 +292,17 @@ impl Registry {
         // 1. 版ごとの、他に依らない確認（重複・予約 ID）。通らない版は、解決の対象から外す
         let mut local_problems: BTreeMap<(String, String), Vec<Problem>> = BTreeMap::new();
         let mut candidates: Vec<Candidate> = Vec::new();
+        // 開発中のものがある ID は、導入済みを解決の対象から外す（導入済みは消えない）
+        let dev_ids: BTreeSet<&str> = input
+            .installed
+            .iter()
+            .filter(|r| r.origin == Origin::Dev)
+            .map(|r| r.id.as_str())
+            .collect();
         for raw in input.installed {
+            if raw.origin == Origin::Installed && dev_ids.contains(raw.id.as_str()) {
+                continue;
+            }
             let found = local_checks(raw);
             if found.is_empty() {
                 candidates.push(Candidate {

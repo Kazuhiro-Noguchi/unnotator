@@ -4184,6 +4184,7 @@ dependencies = [
 name = "unnotator-extensions"
 version = "0.0.1"
 dependencies = [
+ "notify",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

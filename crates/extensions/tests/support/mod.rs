@@ -152,6 +152,12 @@ impl ManifestBuilder {
         self
     }
 
+    /// `contributes.<key>` に、配列でない値（`ribbon` など）をそのまま書く。
+    pub fn contrib(mut self, key: &str, value: Value) -> Self {
+        self.value["contributes"][key] = value;
+        self
+    }
+
     /// 任意の項目を、トップレベルに書く。
     pub fn set(mut self, key: &str, value: Value) -> Self {
         self.value[key] = value;

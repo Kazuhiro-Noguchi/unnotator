@@ -1,69 +1,104 @@
 # unnotator
 
-様々な形式に拡張機能で対応できる汎用アノテーションツール。Tauri v2（Rust）+ SolidJS/TypeScript で、完全ローカルで動く。
-媒体（画像・テキスト・音声…）の扱いはすべて別リポジトリの拡張機能が担う。開発の規則は [CLAUDE.md](CLAUDE.md)。
+**A general-purpose annotation tool that supports any media type through extensions.**
 
-## 必要な道具
+[日本語](README.ja.md) · [License: MIT](LICENSE)
 
-| 道具 | 版 | 備考 |
-| --- | --- | --- |
-| Rust | `rust-toolchain.toml` の版（1.99.1） | rustup があれば自動で入る（clippy・rustfmt を含む） |
-| Node.js | 24 以上 | `engines` と `.npmrc` の `engine-strict` で版を強制する |
-| pnpm | 10 系（`packageManager` で固定） | Node 同梱の corepack で有効にする |
-| Python | 3.10 以上 | Beads と Spec Kit の補助スクリプト用（アプリのビルドには不要） |
+unnotator is a desktop app built with Tauri v2 (Rust) and SolidJS/TypeScript. It runs entirely on your machine: no accounts, no servers.
 
-### OS ごとの前提（Tauri）
+The core knows nothing about media. Images, text, audio and anything else are handled by extensions that live in their own repositories. The core only manages projects, annotations, relations, labels and undo/redo.
 
-- **macOS**: Xcode の Command Line Tools（`xcode-select --install`）。
-- **Linux**: WebKitGTK などの開発用パッケージ（例: Debian/Ubuntu では
-  `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev`）。
-- **Windows**: Microsoft C++ Build Tools（MSVC）と WebView2。
+> **Status: early development.** Only the repository foundation exists today (workspace, build, typed IPC, contract checks). The app opens an empty window. There is nothing to annotate with yet, and no releases.
 
-## 取得してから
+## Design principles
+
+- **Media-agnostic core.** Coordinates, pixels, timestamps and character offsets never appear in the core. The test is: "would this still make sense for an audio file?"
+- **Extensions do the media work.** An extension is described by a manifest (`unnotator-plugin.json`, validated by a JSON Schema) and written against the typed `@unnotator/plugin-api`.
+- **One write path.** Project data changes only through a single Rust command layer. Extensions, in JavaScript or Python, never touch the database directly.
+- **Local only.** The app makes no external network requests. The Content Security Policy is locked down and `withGlobalTauri` is off.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `crates/core` | Project data and database schema (Rust library, no Tauri dependency) |
+| `crates/extensions` | Extension manifest schema (Rust library) |
+| `crates/worker` | Worker protocol for extension processes (Rust library) |
+| `src-tauri` | The Tauri application |
+| `src/` | SolidJS shell. Talks to Rust through `src/ipc/` |
+| `packages/plugin-api` | `@unnotator/plugin-api`: TypeScript types for extension authors |
+
+Dependencies point one way: `src-tauri → crates/*`, and `worker → extensions → core`.
+
+## Getting started
+
+### Prerequisites
+
+| Tool | Version |
+| --- | --- |
+| Rust | pinned by `rust-toolchain.toml` (installed automatically by rustup) |
+| Node.js | 24 or later |
+| pnpm | 10.x, enabled through `corepack` |
+
+Tauri needs a few OS packages:
+
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`)
+- **Linux:** WebKitGTK and friends, e.g. on Debian/Ubuntu: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev`
+- **Windows:** Microsoft C++ Build Tools (MSVC) and WebView2
+
+### Install and run
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
+pnpm tauri dev
 ```
 
-`corepack enable` が権限で失敗するときは、`corepack enable --install-directory <PATH 上の書き込める場所> pnpm` を使う。
+If `corepack enable` fails with a permissions error, use `corepack enable --install-directory <writable dir on your PATH> pnpm`.
 
-## 確認コマンド（各機能の完了条件）
+## Development
 
-6 つがすべて成功するまで、作業は完了にしない。
+Run all six checks before considering any change done:
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm schema:check
 cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 ```
 
-| コマンド | 検査する内容 |
+| Command | What it checks |
 | --- | --- |
-| `pnpm lint` | Biome と、依存の向き・版の書き方（`scripts/check-deps.mjs`） |
-| `pnpm typecheck` | シェルと契約の TS ファイルの型検査 |
+| `pnpm lint` | Biome, plus dependency direction and workspace-level dependency versions |
+| `pnpm typecheck` | The shell and the contract TypeScript files, in strict mode |
 | `pnpm test` | Vitest |
-| `pnpm schema:check` | 契約の検査（DB スキーマ・マニフェストの見本・契約の型・plugin-api のパッケージ） |
-| `cargo clippy ...` | Rust の静的解析（警告はすべてエラー） |
-| `cargo test --workspace` | Rust のテスト（IPC の型の差分検出を含む） |
+| `pnpm schema:check` | Contracts: DB schemas apply to an empty database, manifest fixtures validate, contract types compile, `@unnotator/plugin-api` packs and works for a consumer |
+| `cargo clippy ...` | Rust static analysis; warnings are errors |
+| `cargo test --workspace` | Rust tests, including a check that `src/ipc/bindings.ts` is up to date |
 
-## 起動と計測
+Other commands:
 
-| コマンド | 内容 |
+| Command | What it does |
 | --- | --- |
-| `pnpm tauri dev` | 開発用に起動し、空のウィンドウを開く |
-| `pnpm tauri build --no-bundle` | アプリのバイナリをビルドする |
-| `pnpm measure:startup` | ビルド済みのアプリを 5 回起動し、起動時間の中央値と最大値を出す |
-| `pnpm ipc:gen` | `src/ipc/bindings.ts` を生成し直す（Rust のコマンドを変えたあと） |
+| `pnpm tauri build --no-bundle` | Build the app binary |
+| `pnpm measure:startup` | Launch the built app five times and report median and max startup time |
+| `pnpm ipc:gen` | Regenerate `src/ipc/bindings.ts` after changing Rust commands |
 
-## 構成
+### Contracts
 
-- `crates/core`・`crates/extensions`・`crates/worker`: Rust のライブラリ（Tauri に依存しない）。依存の向きは `worker → extensions → core`。
-- `src-tauri`: Tauri アプリ。`crates/*` に依存する。
-- `src/`: SolidJS のシェル。Rust との通信は `src/ipc/`、拡張機能の呼び出しは `src/host/` を経由する。
-- `packages/plugin-api`: 拡張機能の作者向けの型定義 `@unnotator/plugin-api`。
-- 契約の正本（変えずに済まないときは止まって提案する）: `crates/core/migrations/{project,recovery}/*.sql`・
-  `crates/extensions/schema/unnotator-plugin.schema.json`・`crates/worker/protocol/protocol.ts`・`packages/plugin-api/index.d.ts`。
+Five files are the source of truth for the interfaces between parts of the system. Changes to them need a deliberate proposal, not a drive-by edit:
 
-## ライセンス
+- `crates/core/migrations/{project,recovery}/*.sql`
+- `crates/extensions/schema/unnotator-plugin.schema.json`
+- `crates/worker/protocol/protocol.ts`
+- `packages/plugin-api/index.d.ts`
+
+### Conventions
+
+- Rust: no `unwrap()` outside tests, errors with `thiserror`, logging with `tracing`.
+- TypeScript: no `any`; user-facing strings go through i18n (Japanese and English); colors come from theme CSS variables.
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+Contributor and agent workflow details are in [CLAUDE.md](CLAUDE.md).
+
+## License
 
 [MIT](LICENSE)

@@ -1,0 +1,25 @@
+{
+  "name": "unnotator-shell",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.5",
+    "solid-js": "^2.0.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.9",
+    "@tauri-apps/cli": "^2.12.6",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-solid": "^2.11.17",
+    "vitest": "^5.1.1"
+  }
+}

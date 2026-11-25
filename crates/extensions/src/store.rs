@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use crate::error::ExtensionError;
-use crate::manifest::Manifest;
+use crate::manifest::parse_manifest;
 use crate::manifest::text::Locales;
 use crate::paths::{AppPaths, check_id, check_version};
 use crate::registry::{Origin, Problem, ProblemKind, RawExtension};
@@ -28,13 +28,21 @@ fn package_problem(id: &str, version: &str, kind: ProblemKind, message: String) 
     }
 }
 
-/// フォルダ 1 つを読む。マニフェストの検証は、`manifest::parse` の段階（スキーマ）で行う。
-pub fn read_extension_dir(dir: &Path, origin: Origin) -> Result<RawExtension, String> {
+/// フォルダ 1 つを読む。マニフェストは契約のスキーマで検証する。違反は、位置つきの `Problem` で返す。
+pub fn read_extension_dir(dir: &Path, origin: Origin) -> Result<RawExtension, Vec<Problem>> {
+    let folder_problem = |message: String| {
+        vec![Problem {
+            extension_id: String::new(),
+            version: None,
+            kind: ProblemKind::Package,
+            pointer: String::new(),
+            message: format!("{}: {message}", dir.display()),
+            detail: None,
+        }]
+    };
     let bytes = std::fs::read(dir.join(MANIFEST_FILE))
-        .map_err(|e| format!("{MANIFEST_FILE} を読めません: {e}"))?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes)
-        .map_err(|e| format!("{MANIFEST_FILE} が JSON ではありません: {e}"))?;
-    let manifest = Manifest::from_value(value)?;
+        .map_err(|e| folder_problem(format!("{MANIFEST_FILE} を読めません: {e}")))?;
+    let manifest = parse_manifest(&bytes)?;
     let (locales, warnings) = Locales::load(dir);
     Ok(RawExtension::new(dir.to_owned(), origin, manifest).with_locales(locales, warnings))
 }
@@ -59,12 +67,13 @@ pub fn scan_installed(paths: &AppPaths) -> ScanInstalled {
     for (id, id_dir) in subdirs(&paths.extensions_dir()) {
         for (version, dir) in subdirs(&id_dir) {
             match read_extension_dir(&dir, Origin::Installed) {
-                Err(message) => scanned.problems.push(package_problem(
-                    &id,
-                    &version,
-                    ProblemKind::Package,
-                    message,
-                )),
+                Err(problems) => scanned.problems.extend(problems.into_iter().map(|mut p| {
+                    if p.extension_id.is_empty() {
+                        p.extension_id.clone_from(&id);
+                        p.version = Some(version.clone());
+                    }
+                    p
+                })),
                 Ok(raw) if raw.id != id || raw.version != version => {
                     scanned.problems.push(package_problem(
                         &id,

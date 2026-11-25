@@ -3,7 +3,12 @@
 //! 型は、解決と登録に必要な項目だけを持つ。マニフェストの正本は、契約のスキーマ
 //! （`crates/extensions/schema/unnotator-plugin.schema.json`）で、ここでは再定義しない。
 
+pub mod schema;
 pub mod text;
+
+pub use schema::validate_selector_schema;
+
+use crate::registry::{Problem, ProblemKind};
 
 use std::collections::BTreeMap;
 
@@ -85,4 +90,83 @@ impl Manifest {
             raw,
         })
     }
+}
+
+fn problem(
+    id: &str,
+    version: Option<String>,
+    kind: ProblemKind,
+    pointer: String,
+    message: String,
+) -> Problem {
+    Problem {
+        extension_id: id.to_owned(),
+        version,
+        kind,
+        pointer,
+        message,
+        detail: None,
+    }
+}
+
+/// マニフェストを、契約のスキーマで検証して読む。違反は、位置（JSON ポインター）と理由つきで、すべて返す。
+/// スキーマで書けない確認（参照・重複など）は、登録簿が行う。
+pub fn parse_manifest(bytes: &[u8]) -> Result<Manifest, Vec<Problem>> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|e| {
+        vec![problem(
+            "",
+            None,
+            ProblemKind::ManifestSchema,
+            String::new(),
+            format!("JSON ではありません: {e}"),
+        )]
+    })?;
+    let id = value
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let version = value
+        .get("version")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let mut problems: Vec<Problem> = schema::schema_errors(&value)
+        .into_iter()
+        .map(|(pointer, why)| {
+            problem(
+                &id,
+                version.clone(),
+                ProblemKind::ManifestSchema,
+                pointer,
+                why,
+            )
+        })
+        .collect();
+    if let Some(types) = value["contributes"]["annotationTypes"].as_array() {
+        for (i, t) in types.iter().enumerate() {
+            if let Some(selector) = t.get("selectorSchema")
+                && let Err(why) = validate_selector_schema(selector)
+            {
+                problems.push(problem(
+                    &id,
+                    version.clone(),
+                    ProblemKind::SelectorSchema,
+                    format!("/contributes/annotationTypes/{i}/selectorSchema"),
+                    why,
+                ));
+            }
+        }
+    }
+    if !problems.is_empty() {
+        return Err(problems);
+    }
+    Manifest::from_value(value).map_err(|why| {
+        vec![problem(
+            &id,
+            version,
+            ProblemKind::ManifestSchema,
+            String::new(),
+            why,
+        )]
+    })
 }

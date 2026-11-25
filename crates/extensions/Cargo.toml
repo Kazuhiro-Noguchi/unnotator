@@ -13,6 +13,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 notify = { workspace = true }
+zip = { workspace = true }
+jsonschema = { workspace = true }
 
 [lints]
 workspace = true

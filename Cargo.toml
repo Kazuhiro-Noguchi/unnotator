@@ -25,6 +25,9 @@ rusqlite = { version = "0.43.0", features = ["bundled"] }
 # 004: ファイルシステムの通知（CC0-1.0）、Unicode の正規化（MIT / Apache-2.0）。承認済み（unno-luto・unno-wge1）
 notify = "9.0.0"
 unicode-normalization = "0.1.26"
+# 005: .unnoplugin の展開（MIT）、マニフェストの検証（MIT）。承認済み（unno-ceam・unno-rxux）
+zip = { version = "9.8.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+jsonschema = { version = "0.63.1", default-features = false }
 # アプリ（src-tauri だけが使う）
 tauri = { version = "2.12.7", features = [] }
 tauri-build = { version = "2.7.6", features = [] }

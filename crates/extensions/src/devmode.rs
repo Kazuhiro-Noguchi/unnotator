@@ -9,10 +9,10 @@ use unnotator_core::assets::scan::ScanPath;
 use unnotator_core::assets::watch::{NotifyWatcher, WatchBatch, Watcher};
 
 use crate::error::ExtensionError;
-use crate::registry::{Origin, Problem, ProblemKind, RawExtension};
+use crate::registry::{Origin, Problem, RawExtension};
 use crate::state::ExtensionsState;
 
-fn read_folder(folder: &Path) -> Result<RawExtension, String> {
+fn read_folder(folder: &Path) -> Result<RawExtension, Vec<Problem>> {
     crate::store::read_extension_dir(folder, Origin::Dev)
 }
 
@@ -24,7 +24,15 @@ pub fn load_dev_folder(
     if !state.dev_mode() {
         return Err(ExtensionError::DevModeOff);
     }
-    read_folder(folder).map_err(ExtensionError::Package)
+    read_folder(folder).map_err(|problems| {
+        ExtensionError::Package(
+            problems
+                .iter()
+                .map(|p| format!("{} {}", p.pointer, p.message))
+                .collect::<Vec<_>>()
+                .join("; "),
+        )
+    })
 }
 
 /// 読み込み対象のフォルダ（開発者モードがオフなら無し）をすべて読む。失敗したものは `Problem` にする。
@@ -34,14 +42,7 @@ pub fn load_active_folders(state: &ExtensionsState) -> (Vec<RawExtension>, Vec<P
     for folder in state.active_dev_folders() {
         match read_folder(&folder) {
             Ok(raw) => raws.push(raw),
-            Err(message) => problems.push(Problem {
-                extension_id: String::new(),
-                version: None,
-                kind: ProblemKind::Package,
-                pointer: String::new(),
-                message: format!("{}: {message}", folder.display()),
-                detail: Some(serde_json::json!({ "folder": folder.to_string_lossy() })),
-            }),
+            Err(found) => problems.extend(found),
         }
     }
     (raws, problems)

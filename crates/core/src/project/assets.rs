@@ -146,6 +146,34 @@ impl ProjectStore {
         crate::assets::relink::candidates(&self.conn, asset_id)
     }
 
+    /// 配信のための、アセットの実体の場所（読み取り）。リンク切れ・登録の無い ID・見つからないルートは `NotFound`。
+    pub fn asset_file(
+        &self,
+        id: &str,
+    ) -> Result<crate::serve::AssetFile, crate::serve::AssetFileError> {
+        use crate::serve::AssetFileError;
+        let row = assets::get_asset(&self.conn, id)?.ok_or(AssetFileError::NotFound)?;
+        if row.missing {
+            return Err(AssetFileError::NotFound);
+        }
+        let root = if row.root_key.is_empty() {
+            self.layout.folder.clone()
+        } else {
+            self.scan_options
+                .roots
+                .iter()
+                .find(|r| r.key == row.root_key)
+                .map(|r| r.path.clone())
+                .ok_or(AssetFileError::NotFound)?
+        };
+        Ok(crate::serve::AssetFile {
+            root,
+            rel_path: row.rel_path,
+            size: u64::try_from(row.file_size).unwrap_or(0),
+            mtime_ms: row.mtime_ms,
+        })
+    }
+
     /// 一覧（読み取り）。
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)

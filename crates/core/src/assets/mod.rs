@@ -103,6 +103,13 @@ fn read_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetRow> {
     })
 }
 
+/// ID で 1 件読む。
+pub fn get_asset(conn: &Connection, id: &str) -> Result<Option<AssetRow>, StoreError> {
+    let mut stmt = conn.prepare(&format!("SELECT {COLUMNS} FROM assets WHERE id = ?"))?;
+    let mut rows = stmt.query_map([id], read_row)?;
+    Ok(rows.next().transpose()?)
+}
+
 /// すべてのアセットを `(root_key, rel_path)` の順で読む（走査の写し）。
 pub fn all_assets(conn: &Connection) -> Result<Vec<AssetRow>, StoreError> {
     let mut stmt = conn.prepare(&format!(

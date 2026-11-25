@@ -1,6 +1,7 @@
 //! unnotator-core
 
 pub mod clock;
+pub mod command;
 pub mod db;
 pub mod error;
 pub mod event;

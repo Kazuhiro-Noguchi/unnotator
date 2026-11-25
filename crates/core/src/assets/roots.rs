@@ -51,6 +51,26 @@ fn lexical(path: &Path) -> PathBuf {
     out
 }
 
+/// Windows の `canonicalize` は `\\?\C:\...`（verbatim 形式）を返す。存在しないフォルダの `C:\...` と
+/// `starts_with` で比べられるよう、ドライブのパスの verbatim の接頭辞を外す（他の OS では、何もしない）。
+fn simplify(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let text = path.to_string_lossy();
+        if let Some(rest) = text.strip_prefix(r"\\?\")
+            && !rest.starts_with("UNC\\")
+        {
+            return PathBuf::from(rest);
+        }
+    }
+    path
+}
+
+/// 実体のパス（シンボリックリンクを解決したもの）。解決できなければ `None`。形式は `simplify` でそろえる。
+fn canonical(path: &Path) -> Option<PathBuf> {
+    std::fs::canonicalize(path).ok().map(simplify)
+}
+
 /// 設定の値を、絶対パスにする。あるフォルダは、シンボリックリンクを解決した実体のパスにする（重なりの判定のため）。
 pub fn resolve(folder: &Path, raw: &str) -> PathBuf {
     let path = Path::new(raw);
@@ -60,7 +80,7 @@ pub fn resolve(folder: &Path, raw: &str) -> PathBuf {
         folder.join(path)
     };
     let normalized = lexical(&joined);
-    std::fs::canonicalize(&normalized).unwrap_or(normalized)
+    canonical(&normalized).unwrap_or(normalized)
 }
 
 fn overlaps(a: &Path, b: &Path) -> bool {
@@ -72,7 +92,7 @@ pub fn validate(folder: &Path, value: &Value) -> Result<(), String> {
     let Some(map) = value.as_object() else {
         return Err("オブジェクトでなければならない".to_owned());
     };
-    let project = std::fs::canonicalize(folder).unwrap_or_else(|_| lexical(folder));
+    let project = canonical(folder).unwrap_or_else(|| lexical(folder));
     let mut seen: Vec<(&String, PathBuf)> = Vec::new();
     for (key, raw) in map {
         let path = resolve(&project, raw.as_str().unwrap_or_default());
@@ -89,7 +109,7 @@ pub fn validate(folder: &Path, value: &Value) -> Result<(), String> {
 
 /// 走査に使うルートの一覧。問題のあるもの（重なり）は使わない。
 pub fn specs(folder: &Path, map: &Map<String, Value>) -> Vec<RootSpec> {
-    let project = std::fs::canonicalize(folder).unwrap_or_else(|_| lexical(folder));
+    let project = canonical(folder).unwrap_or_else(|| lexical(folder));
     let mut used: Vec<RootSpec> = Vec::new();
     for (key, raw) in map {
         let Some(raw) = raw.as_str() else {

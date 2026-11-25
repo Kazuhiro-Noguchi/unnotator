@@ -211,6 +211,10 @@ fn etag_matches(header: &str, etag: &str) -> bool {
 
 /// ファイルを、Range・ETag・上限・予算に従って返す。ファイルの全体は読まない（必要な範囲だけ）。
 pub fn respond_file(path: &Path, ctx: &ResponseContext<'_>) -> ServeResponse {
+    // フォルダは、ファイルとして返さない。開く前に調べる（Windows では、フォルダを開くと「アクセス拒否」になり、404 にならない）
+    if std::fs::metadata(path).is_ok_and(|m| m.is_dir()) {
+        return ServeError::NotFound.to_response();
+    }
     let mut file = match std::fs::File::open(path) {
         Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {

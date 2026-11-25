@@ -36,7 +36,7 @@ impl Default for ScanOptions {
         Self {
             exclude: DEFAULT_PATTERNS.iter().map(|p| (*p).to_owned()).collect(),
             roots: Vec::new(),
-            chunk_rows: 5_000,
+            chunk_rows: 1_000,
         }
     }
 }

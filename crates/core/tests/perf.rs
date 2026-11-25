@@ -203,3 +203,107 @@ fn open_and_save_a_project_with_a_million_annotations() {
     assert!(open < 2_000, "開くのに {open} ms");
     assert!(save < 3_000, "保存に {save} ms");
 }
+
+// ---- 004: アセットの走査（SC-001・SC-002・SC-007） ----
+
+/// `count` 個のファイルを、`dirs` 個のフォルダに分けて作る。準備は計測の対象ではない。
+fn make_files(root: &std::path::Path, count: usize, dirs: usize) {
+    for d in 0..dirs {
+        std::fs::create_dir_all(root.join(format!("d{d:04}"))).unwrap();
+    }
+    for i in 0..count {
+        std::fs::write(root.join(format!("d{:04}/f{i:07}.txt", i % dirs)), b"x").unwrap();
+    }
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn scan_a_hundred_thousand_files() {
+    use unnotator_core::assets::scan::ScanScope;
+    let dir = TempDir::new();
+    let started = Instant::now();
+    make_files(dir.path(), 100_000, 1_000);
+    println!("準備（ファイル作成）: {} ms", ms(started));
+
+    let mut store = support::create_and_open(&dir);
+    store.set_media_rules(support::rules_for_tests());
+
+    let first = Instant::now();
+    let job = store.begin_scan(ScanScope::Full).unwrap();
+    let report = job.run(&std::sync::atomic::AtomicBool::new(false), &|_| {});
+    println!("  歩く（別スレッドで進む部分）: {} ms", ms(first));
+    let mut apply = store.plan_apply(report);
+    let mut longest = 0;
+    loop {
+        let step = Instant::now();
+        let more = store.apply_step(&mut apply).unwrap();
+        longest = longest.max(ms(step));
+        if !more {
+            break;
+        }
+    }
+    let summary = apply.into_summary();
+    let first_ms = ms(first);
+    println!(
+        "SC-001 初回の登録（{} 件）: {first_ms} ms（基準 30,000 ms）",
+        summary.added
+    );
+    println!("SC-001 適用の 1 まとまりの最長（ロックを持つ時間）: {longest} ms（基準 50 ms）");
+    assert!(longest < 50, "1 まとまりが長すぎる: {longest} ms");
+    assert_eq!(summary.added, 100_000);
+    assert!(first_ms < 30_000);
+
+    let unsaved = store.save_state().unsaved_count;
+    let second = Instant::now();
+    let summary = store.scan(ScanScope::Full).unwrap();
+    let second_ms = ms(second);
+    println!("SC-002 変更なしの再走査: {second_ms} ms（基準 10,000 ms）");
+    assert_eq!(
+        summary.added + summary.updated + summary.went_missing + summary.restored,
+        0
+    );
+    assert_eq!(store.save_state().unsaved_count, unsaved, "書き込み 0 件");
+    assert!(second_ms < 10_000);
+
+    // 保存と開き直し
+    let saving = Instant::now();
+    store.save().unwrap();
+    println!("参考: 保存（10 万アセット）: {} ms", ms(saving));
+    support::save_and_close(store);
+    let reopening = Instant::now();
+    let store = support::open_store(dir.path());
+    println!("参考: 開く（10 万アセット）: {} ms", ms(reopening));
+    drop(store);
+}
+
+#[test]
+#[ignore = "性能の計測。--ignored で実行する"]
+fn take_in_ten_thousand_changes() {
+    use unnotator_core::assets::scan::{ScanPath, ScanScope};
+    let dir = TempDir::new();
+    let mut store = support::create_and_open(&dir);
+    store.set_media_rules(support::rules_for_tests());
+    store.scan(ScanScope::Full).unwrap();
+    let notifications = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let sink = std::sync::Arc::clone(&notifications);
+    store.subscribe(Box::new(move |_| {
+        sink.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }));
+    make_files(&dir.path().join("bulk"), 10_000, 10);
+
+    let started = Instant::now();
+    let summary = store
+        .scan(ScanScope::Paths(vec![ScanPath {
+            root_key: String::new(),
+            rel_path: "bulk".to_owned(),
+        }]))
+        .unwrap();
+    let taken = ms(started);
+    let count = notifications.load(std::sync::atomic::Ordering::SeqCst);
+    println!(
+        "SC-007 1 万件の取り込み（{} 件）: {taken} ms、通知 {count} 回（基準 100 回以内）",
+        summary.added
+    );
+    assert_eq!(summary.added, 10_000);
+    assert!(count <= 100);
+}

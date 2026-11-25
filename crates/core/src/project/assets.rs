@@ -69,9 +69,17 @@ impl ProjectStore {
     }
 
     /// `ScanJob::run` の結果を適用する（`chunk_rows` 行ごとの `SyncAssets`）。差分が空なら何も書かない。
+    /// 全部を続けて適用する。ロックを手放しながら進めたいときは、`plan_apply` と `apply_step` を使う。
     pub fn apply_scan(&mut self, report: ScanReport) -> Result<ScanSummary, StoreError> {
+        let mut apply = self.plan_apply(report);
+        while self.apply_step(&mut apply)? {}
+        Ok(apply.into_summary())
+    }
+
+    /// 適用の計画を立てる（まだ何も書かない）。走査中の印は、ここで外す。
+    pub fn plan_apply(&mut self, report: ScanReport) -> ScanApply {
         self.scanning = false;
-        let mut summary = ScanSummary {
+        let summary = ScanSummary {
             added: count(report.added.len()),
             updated: count(report.updated.len()),
             went_missing: count(report.went_missing.len()),
@@ -82,53 +90,20 @@ impl ProjectStore {
             complete: report.complete,
             ..ScanSummary::default()
         };
-        summary.skipped_rows = self.apply_chunks(report)?;
-        Ok(summary)
+        ScanApply {
+            chunks: split_chunks(report, self.scan_options.chunk_rows.max(1)),
+            summary,
+        }
     }
 
-    fn apply_chunks(&mut self, report: ScanReport) -> Result<u32, StoreError> {
-        let limit = self.scan_options.chunk_rows.max(1);
-        let mut skipped = 0;
-        let mut chunk = Chunk::default();
-        let mut flush = |store: &mut Self, chunk: &mut Chunk| -> Result<(), StoreError> {
-            if let Some(command) = chunk.take() {
-                store.apply_command(command)?;
-                skipped += store.last_sync_skipped();
-            }
-            Ok(())
+    /// 次の 1 まとまりを適用する。まだ続きがあれば `true`。1 回ごとに短いので、間でロックを手放せる。
+    pub fn apply_step(&mut self, apply: &mut ScanApply) -> Result<bool, StoreError> {
+        let Some(command) = apply.chunks.pop_front() else {
+            return Ok(false);
         };
-        for row in report.added {
-            chunk.added.push(row);
-            if chunk.len() >= limit {
-                flush(self, &mut chunk)?;
-            }
-        }
-        for row in report.updated {
-            chunk.updated.push(row);
-            if chunk.len() >= limit {
-                flush(self, &mut chunk)?;
-            }
-        }
-        for row in report.went_missing {
-            chunk.went_missing.push(row);
-            if chunk.len() >= limit {
-                flush(self, &mut chunk)?;
-            }
-        }
-        for row in report.restored {
-            chunk.restored.push(row);
-            if chunk.len() >= limit {
-                flush(self, &mut chunk)?;
-            }
-        }
-        for row in report.reclassified {
-            chunk.reclassified.push(row);
-            if chunk.len() >= limit {
-                flush(self, &mut chunk)?;
-            }
-        }
-        flush(self, &mut chunk)?;
-        Ok(skipped)
+        self.apply_command(command)?;
+        apply.summary.skipped_rows += self.last_sync_skipped();
+        Ok(!apply.chunks.is_empty())
     }
 
     /// 準備 → 実行 → 適用を、このスレッドで続けて行う。
@@ -158,7 +133,8 @@ impl ProjectStore {
             complete: true,
             ..ScanReport::default()
         };
-        self.apply_chunks(report)?;
+        let mut apply = self.plan_apply(report);
+        while self.apply_step(&mut apply)? {}
         Ok(total)
     }
 
@@ -174,6 +150,46 @@ impl ProjectStore {
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)
     }
+}
+
+/// 立てた適用の計画。`apply_step` で 1 まとまりずつ書く。
+#[derive(Debug)]
+pub struct ScanApply {
+    chunks: std::collections::VecDeque<Command>,
+    summary: ScanSummary,
+}
+
+impl ScanApply {
+    pub fn into_summary(self) -> ScanSummary {
+        self.summary
+    }
+}
+
+/// 差分を、`limit` 行以下の `SyncAssets` に区切る。
+fn split_chunks(report: ScanReport, limit: usize) -> std::collections::VecDeque<Command> {
+    let mut out = std::collections::VecDeque::new();
+    let mut chunk = Chunk::default();
+    macro_rules! push_all {
+        ($rows:expr, $field:ident) => {
+            for row in $rows {
+                chunk.$field.push(row);
+                if chunk.len() >= limit
+                    && let Some(command) = chunk.take()
+                {
+                    out.push_back(command);
+                }
+            }
+        };
+    }
+    push_all!(report.added, added);
+    push_all!(report.updated, updated);
+    push_all!(report.went_missing, went_missing);
+    push_all!(report.restored, restored);
+    push_all!(report.reclassified, reclassified);
+    if let Some(command) = chunk.take() {
+        out.push_back(command);
+    }
+    out
 }
 
 #[derive(Default)]

@@ -68,6 +68,14 @@ A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so y
 - While a project is open, your edits go to a working copy that the app keeps in its own data folder (`recovery/`), together with a change journal; `project.db` changes only when you save, and a save writes a new file next to it and swaps it in, so a crash or power loss in the middle of a save cannot leave a half-written project. You can keep editing while a save is running.
 - When you close a project with unsaved changes you choose between saving and discarding (or you do not close it). If the app crashes, the next time you open the project it offers to restore the unsaved work (with the number of changes and the time of the last one) or discard it; nothing is deleted until you choose, and the undo history is rebuilt (up to 500 steps). Working data whose project no longer exists is deleted automatically after 30 days; it can also be listed and deleted by hand.
 
+### Assets and settings
+
+- **Assets.** Every file under the project folder becomes an asset automatically when you open the project, and new files are picked up while it is open. `.unnotator/` and anything matching `assets.exclude` (by default hidden files such as `.DS_Store` and `*.tmp`) is left out. Files whose type no installed extension recognises are still listed, as "unknown". Re-scanning never duplicates assets or touches their status or annotations.
+- **Missing files.** If a file is deleted or moved, its asset becomes "missing" but keeps its annotations. If another file with the same name and size shows up, it is offered as a candidate to reconnect to; nothing is linked automatically. If the file comes back, the link heals by itself.
+- **External folders.** Folders outside the project can be added as roots in `assets.externalRoots` (stored relative to the project folder when possible). If a root is unavailable (an unplugged drive, say), its assets are marked missing and come back when it returns.
+- **Settings** come in two layers: user (in the app's config folder) and project (`.unnotator/settings.json`). The project value wins. Changes are written immediately, are not part of undo, and do not count as unsaved changes. Keys the app does not know (for example from extensions that are not installed) are kept as they are; a broken settings file is never overwritten silently, it is moved aside first.
+- **Required extensions.** A project may list the extensions it needs in `.unnotator/extensions.json` (`{"version": 1, "extensions": [{"id": "...", "version": "^1.0.0"}]}`); when opening, the app reports which ones are missing or have the wrong version. The file is only ever read.
+
 ## Development
 
 Run all six checks before considering any change done:

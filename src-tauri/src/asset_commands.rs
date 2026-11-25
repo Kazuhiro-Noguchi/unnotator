@@ -36,7 +36,10 @@ pub fn scan(
     state.scan_cancel().store(false, Ordering::SeqCst);
     let job = with_store(state, |store| store.begin_scan(scope))?;
     let report = job.run(state.scan_cancel(), progress);
-    with_store(state, |store| store.apply_scan(report))
+    // 適用は、小さなまとまりごとにロックを手放す（画面の操作が待たされない）
+    let mut apply = with_store(state, |store| Ok(store.plan_apply(report)))?;
+    while with_store(state, |store| store.apply_step(&mut apply))? {}
+    Ok(apply.into_summary())
 }
 
 /// 走査を中断する。整合した部分の結果で終わる（リンク切れは出さない）。

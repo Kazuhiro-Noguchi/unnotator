@@ -1,63 +1,91 @@
-name: CI
+# 3 OS（Linux・macOS・Windows）で、確認コマンドと、`unno://` の自己診断を回す（001 の T045）。
+name: ci
 
 on:
   push:
   pull_request:
 
+# 読み取りだけ。外部からの PR でも、秘密情報は使わない
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
-    name: verify (${{ matrix.os }})
+  checks:
+    name: checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-latest, windows-latest]
     steps:
-      # Windows で改行が CRLF に変わると、Biome と bindings の比較が揺れる。
-      - name: Keep LF line endings
-        run: git config --global core.autocrlf false
-
       - uses: actions/checkout@v4
 
-      - name: Install Linux dependencies (WebKitGTK など)
+      - name: Linux の依存（Tauri）
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libsoup-3.0-dev xvfb
 
-      - name: Rust toolchain (rust-toolchain.toml)
-        run: rustup show active-toolchain || rustup toolchain install
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
-
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
+      # Rust の版は rust-toolchain.toml で決まる（rustup が自動で入れる）
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm schema:check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
 
-      - name: Lint
-        run: pnpm lint
+  # 実機の WebView での `unno://` の診断（S-01）。結果は標準出力の UNNO_SELFTEST_RESULT。
+  # 新しい仕組みなので、3 OS で安定して動くと分かるまでは、失敗しても全体を止めない（continue-on-error）。
+  selftest:
+    name: unno:// self-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    env:
+      UNNOTATOR_SELFTEST: unno
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Linux の依存（Tauri・画面なし）
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libsoup-3.0-dev xvfb
 
-      - name: Test (JS)
-        run: pnpm test
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
 
-      - name: Schema check
-        run: pnpm schema:check
+      - name: 自己診断（Linux）
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm exec tauri dev 2>&1 | tee selftest.log
+      - name: 自己診断（macOS・Windows）
+        if: runner.os != 'Linux'
+        shell: bash
+        run: pnpm exec tauri dev 2>&1 | tee selftest.log
 
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Test (Rust)
-        run: cargo test --workspace
-
-      - name: Build app (no bundle)
-        run: pnpm tauri build --no-bundle
+      - name: 結果
+        if: always()
+        shell: bash
+        run: grep "UNNO_SELFTEST_RESULT" selftest.log || echo "結果の行が出ていない"

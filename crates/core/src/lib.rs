@@ -1,7 +1,10 @@
 //! unnotator-core
 
 pub mod clock;
+pub mod db;
 pub mod error;
+pub mod event;
+pub mod history;
 pub mod id;
 
 /// DB スキーマ（契約の正本の SQL をそのまま埋め込む）。

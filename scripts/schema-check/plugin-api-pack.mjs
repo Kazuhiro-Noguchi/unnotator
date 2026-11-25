@@ -14,6 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Windows では、pnpm は `.cmd` のため、シェル経由でないと起動できない
+const SHELL = process.platform === "win32";
+
 const REQUIRED_FILES = ["index.d.ts", "LICENSE", "README.md", "package.json"];
 
 export function apiVersionOf(dts) {
@@ -34,7 +37,11 @@ export function missingFiles(listed) {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: "utf8", ...options });
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    shell: command === "pnpm" && SHELL,
+    ...options,
+  });
   if (result.status !== 0) {
     throw new Error(
       `${command} ${args.join(" ")} が失敗した\n${result.stdout ?? ""}${result.stderr ?? ""}`,
@@ -73,6 +80,7 @@ function main() {
       const tsc = spawnSync("pnpm", ["exec", "tsc", "-p", consumer], {
         cwd: root,
         encoding: "utf8",
+        shell: SHELL,
       });
       if (tsc.status !== 0)
         problems.push(`利用側の型検査が失敗した\n${tsc.stdout}${tsc.stderr}`);

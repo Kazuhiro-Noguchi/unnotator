@@ -1,12 +1,16 @@
 // 契約の検査の実行役。工程を登録して順に実行し、失敗しても残りを続け、最後にまとめて結果を出す。
 import { spawnSync } from "node:child_process";
+
+// Windows では、pnpm・cargo などは `.cmd` のため、シェル経由でないと起動できない
+const SHELL = process.platform === "win32";
+
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /** コマンドを実行し、失敗したら例外を投げる。出力はそのまま表示する。 */
 function sh(command, args) {
   return () => {
-    const result = spawnSync(command, args, { stdio: "inherit" });
+    const result = spawnSync(command, args, { stdio: "inherit", shell: SHELL });
     if (result.status !== 0) {
       throw new Error(
         `${command} ${args.join(" ")} が終了コード ${result.status} で失敗した`,
@@ -78,7 +82,10 @@ export async function runSteps(list, log) {
 }
 
 function hasCommand(name) {
-  return spawnSync(name, ["--version"], { stdio: "ignore" }).status === 0;
+  return (
+    spawnSync(name, ["--version"], { stdio: "ignore", shell: SHELL }).status ===
+    0
+  );
 }
 
 async function main() {

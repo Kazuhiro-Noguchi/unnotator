@@ -30,6 +30,13 @@ export const commands = {
 	assetScan: (scope: ScanScope | null, options?: InvokeOptions) => __TAURI_INVOKE<ScanSummary>("asset_scan", { scope }, options),
 	assetScanCancel: (options?: InvokeOptions) => __TAURI_INVOKE<void>("asset_scan_cancel", undefined, options),
 	assetSetMediaRules: (rules: MediaRules_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("asset_set_media_rules", { rules }, options),
+	settingsGet: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<EffectiveSetting>("settings_get", { key }, options),
+	settingsSet: (layer: Layer, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_set", { layer, key, valueJson }, options),
+	settingsUnset: (layer: Layer, key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_unset", { layer, key }, options),
+	settingsKeys: (options?: InvokeOptions) => __TAURI_INVOKE<CoreKey[]>("settings_keys", undefined, options),
+	settingsLayer: (layer: Layer, options?: InvokeOptions) => __TAURI_INVOKE<string>("settings_layer", { layer }, options),
+	settingsWarnings: (options?: InvokeOptions) => __TAURI_INVOKE<SettingsIssue[]>("settings_warnings", undefined, options),
+	settingsReload: (options?: InvokeOptions) => __TAURI_INVOKE<string[]>("settings_reload", undefined, options),
 };
 
 /** Events */
@@ -38,6 +45,7 @@ export const events = {
 	projectChanged: makeEvent<ProjectChanged, ProjectChanged>("project-changed"),
 	projectStateChanged: makeEvent<ProjectStateChanged_Serialize, ProjectStateChanged_Deserialize>("project-state-changed"),
 	scanProgressEvent: makeEvent<ScanProgressEvent, ScanProgressEvent>("scan-progress-event"),
+	settingsChangedEvent: makeEvent<SettingsChangedEvent, SettingsChangedEvent>("settings-changed-event"),
 };
 
 /* Types */
@@ -230,6 +238,19 @@ id: string | null; name: string; name_i18n_json: string | null; color: string; h
 /**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
 { kind: "transaction"; commands: Command_Serialize[] };
 
+export type CoreKey = {
+	name: string,
+	kind: ValueKind,
+	/**  既定値（JSON のテキスト）。 */
+	default_json: string,
+};
+
+/**  設定の実効値と、どの段のものか。 */
+export type EffectiveSetting = {
+	value_json: string,
+	source: Source,
+};
+
 export type Entity = "annotation" | "relation" | "group" | "group_member" | "label" | "attribute_schema" | "asset" | "item";
 
 /**
@@ -302,6 +323,8 @@ export type LabelUsage = {
 	/**  そのラベル専用の属性スキーマ（`scope = 'label'`）。 */
 	attribute_schemas: number,
 };
+
+export type Layer = "user" | "project";
 
 export type MediaFilter = { kind: "any" } | 
 /**  媒体種別が判定できない（「不明」）もの。 */
@@ -584,6 +607,20 @@ export type ScanSummary = {
 	complete: boolean,
 };
 
+export type SettingsChanged = {
+	layer: Layer,
+	keys: string[],
+};
+
+/**  設定の変更の通知。 */
+export type SettingsChangedEvent = SettingsChanged;
+
+/**  読めなかった・使えなかった理由（壊れたファイル・検証に合わない値）。 */
+export type SettingsIssue = {
+	layer: Layer,
+	why: string,
+};
+
 /**  歩けなかった場所。 */
 export type Skipped = {
 	root_key: string,
@@ -591,6 +628,9 @@ export type Skipped = {
 	/**  `permission_denied` / `io_error` / `invalid_path` */
 	reason: string,
 };
+
+/**  実効値が、どの段のものか。 */
+export type Source = "project" | "user" | "default";
 
 export type Status = "todo" | "in_progress" | "done" | "review";
 
@@ -615,6 +655,12 @@ export type UndoState = {
 	undo_depth: number,
 	redo_depth: number,
 };
+
+export type ValueKind = 
+/**  文字列の配列。 */
+"string_list" | "bool" | 
+/**  キー → 文字列のオブジェクト。 */
+"string_map";
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;

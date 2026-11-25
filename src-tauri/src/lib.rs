@@ -3,6 +3,7 @@
 pub mod asset_commands;
 pub mod commands;
 pub mod project_commands;
+pub mod settings_commands;
 
 #[cfg(test)]
 mod bindings_test;
@@ -44,13 +45,21 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             asset_commands::asset_list,
             asset_commands::asset_scan,
             asset_commands::asset_scan_cancel,
-            asset_commands::asset_set_media_rules
+            asset_commands::asset_set_media_rules,
+            settings_commands::settings_get,
+            settings_commands::settings_set,
+            settings_commands::settings_unset,
+            settings_commands::settings_keys,
+            settings_commands::settings_layer,
+            settings_commands::settings_warnings,
+            settings_commands::settings_reload
         ])
         .events(collect_events![
             project_commands::ProjectChanged,
             project_commands::ProjectStateChanged,
             asset_commands::ScanProgressEvent,
-            asset_commands::AssetsChanged
+            asset_commands::AssetsChanged,
+            settings_commands::SettingsChangedEvent
         ])
 }
 
@@ -84,7 +93,11 @@ pub fn run() {
             // 30 日を超えた孤立の作業用データを、背景で片付ける（開く処理を待たせない）
             let cleanup_root = recovery_root.clone();
             std::thread::spawn(move || project_commands::cleanup_recovery(&cleanup_root));
-            app.manage(project_commands::ProjectState::new(recovery_root));
+            let user_settings = app.path().app_config_dir()?;
+            app.manage(
+                project_commands::ProjectState::new(recovery_root)
+                    .with_user_settings_dir(user_settings),
+            );
             Ok(())
         })
         .run(tauri::generate_context!());

@@ -33,12 +33,15 @@ enum Slot {
 pub type ChangeHook = Box<dyn Fn(&ChangeSet) + Send>;
 /// 未保存の状態の購読者。
 pub type StateHook = Box<dyn Fn(&SaveState) + Send>;
+/// 設定の変更の購読者。
+pub type SettingsHook = Box<dyn Fn(&unnotator_core::settings::SettingsChanged) + Send>;
 
 /// 開いたプロジェクトに付ける購読者（画面へのイベント）。
 #[derive(Default)]
 pub struct Hooks {
     pub changed: Option<ChangeHook>,
     pub state: Option<StateHook>,
+    pub settings: Option<SettingsHook>,
 }
 
 /// 開いているプロジェクト（1 つだけ）。コマンドは `Mutex` で直列に処理される。
@@ -48,6 +51,8 @@ pub struct ProjectState {
     recovery_root: PathBuf,
     /// 走査の中断の指示（`asset_scan_cancel` が立てる）。
     scan_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// ユーザー設定のフォルダ（`<app_config_dir>`）。無ければユーザー設定は使えない。
+    user_settings_dir: Option<PathBuf>,
 }
 
 impl ProjectState {
@@ -56,7 +61,18 @@ impl ProjectState {
             slot: Mutex::new(Slot::Empty),
             recovery_root,
             scan_cancel: std::sync::Arc::default(),
+            user_settings_dir: None,
         }
+    }
+
+    /// ユーザー設定のフォルダを決める。
+    pub fn with_user_settings_dir(mut self, dir: PathBuf) -> Self {
+        self.user_settings_dir = Some(dir);
+        self
+    }
+
+    pub(crate) fn user_settings_dir(&self) -> Option<&Path> {
+        self.user_settings_dir.as_deref()
     }
 
     pub(crate) fn scan_cancel(&self) -> &std::sync::atomic::AtomicBool {
@@ -157,7 +173,13 @@ fn info_of(store: &ProjectStore) -> ProjectInfo {
     }
 }
 
-fn attach(store: &mut ProjectStore, hooks: Hooks) {
+fn attach(store: &mut ProjectStore, hooks: Hooks, state: &ProjectState) {
+    if let Some(dir) = state.user_settings_dir() {
+        store.attach_user_settings(dir);
+    }
+    if let Some(settings) = hooks.settings {
+        store.settings_subscribe(settings);
+    }
     if let Some(changed) = hooks.changed {
         store.subscribe(changed);
     }
@@ -183,7 +205,7 @@ pub fn open_project(
     if create {
         let mut store = ProjectStore::create(folder, state.config())?;
         let info = info_of(&store);
-        attach(&mut store, hooks);
+        attach(&mut store, hooks, state);
         *guard = Slot::Open(Box::new(store));
         return Ok(OpenResult::Opened {
             info,
@@ -196,7 +218,7 @@ pub fn open_project(
             recovery_unusable,
         } => {
             let info = info_of(&store);
-            attach(&mut store, hooks);
+            attach(&mut store, hooks, state);
             *guard = Slot::Open(Box::new(store));
             Ok(OpenResult::Opened {
                 info,
@@ -231,7 +253,7 @@ pub fn restore_recovery(state: &ProjectState) -> Result<ProjectInfo, IpcError> {
     // 失敗したときは、待ちを手放す（作業用データは残るので、もう一度開けば候補が出る）
     let mut store = pending.restore()?;
     let info = info_of(&store);
-    attach(&mut store, hooks);
+    attach(&mut store, hooks, state);
     *guard = Slot::Open(Box::new(store));
     Ok(info)
 }
@@ -242,7 +264,7 @@ pub fn discard_recovery(state: &ProjectState) -> Result<ProjectInfo, IpcError> {
     let (pending, hooks) = take_pending(&mut guard)?;
     let mut store = pending.discard()?;
     let info = info_of(&store);
-    attach(&mut store, hooks);
+    attach(&mut store, hooks, state);
     *guard = Slot::Open(Box::new(store));
     Ok(info)
 }
@@ -360,6 +382,7 @@ pub fn cleanup_recovery(recovery_root: &Path) {
 fn hooks_for(app: &tauri::AppHandle) -> Hooks {
     let changed_app = app.clone();
     let state_app = app.clone();
+    let settings_app = app.clone();
     Hooks {
         changed: Some(Box::new(move |set| {
             if let Err(error) = ProjectChanged(set.clone()).emit(&changed_app) {
@@ -369,6 +392,13 @@ fn hooks_for(app: &tauri::AppHandle) -> Hooks {
         state: Some(Box::new(move |save_state| {
             if let Err(error) = ProjectStateChanged(*save_state).emit(&state_app) {
                 tracing::warn!(%error, "project-state-changed を送れなかった");
+            }
+        })),
+        settings: Some(Box::new(move |changed| {
+            if let Err(error) =
+                crate::settings_commands::SettingsChangedEvent(changed.clone()).emit(&settings_app)
+            {
+                tracing::warn!(%error, "settings-changed を送れなかった");
             }
         })),
     }
@@ -548,6 +578,7 @@ mod tests {
                 sink.lock().expect("lock").push(set.clone());
             })),
             state: Some(Box::new(move |s| state_sink.lock().expect("lock").push(*s))),
+            settings: None,
         };
 
         let info = opened(open_project(&state, &temp.project(), true, hooks).expect("作れる"));

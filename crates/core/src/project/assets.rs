@@ -200,3 +200,98 @@ impl Chunk {
         })
     }
 }
+
+// ---- 設定の窓口（プロジェクトの設定を含む） ----
+
+use crate::assets::scan::RootSpec;
+use crate::settings::{Effective, Layer, SettingsChanged, SettingsIssue};
+
+impl ProjectStore {
+    /// ユーザー設定のフォルダを付ける（`src-tauri` が、開いたあとに呼ぶ）。
+    pub fn attach_user_settings(&mut self, dir: &std::path::Path) {
+        self.settings.attach_user(dir);
+        self.refresh_scan_options();
+    }
+
+    pub fn settings_effective(&self, key: &str) -> Result<Effective, StoreError> {
+        self.settings.effective(key)
+    }
+
+    pub fn settings_layer(&self, layer: Layer) -> serde_json::Map<String, serde_json::Value> {
+        self.settings.layer(layer).cloned().unwrap_or_default()
+    }
+
+    pub fn settings_set(
+        &mut self,
+        layer: Layer,
+        key: &str,
+        value: serde_json::Value,
+    ) -> Result<(), StoreError> {
+        self.settings.set(layer, key, value)?;
+        self.refresh_scan_options();
+        Ok(())
+    }
+
+    pub fn settings_unset(&mut self, layer: Layer, key: &str) -> Result<(), StoreError> {
+        self.settings.unset(layer, key)?;
+        self.refresh_scan_options();
+        Ok(())
+    }
+
+    /// 設定ファイルが外から変わっていないか確かめて反映する。変わったキーを返す。
+    pub fn settings_reload(&mut self) -> Result<Vec<String>, StoreError> {
+        let changed = self.settings.reload()?;
+        if !changed.is_empty() {
+            self.refresh_scan_options();
+        }
+        Ok(changed)
+    }
+
+    pub fn settings_warnings(&self) -> Vec<SettingsIssue> {
+        self.settings.warnings()
+    }
+
+    pub fn settings_subscribe(&mut self, subscriber: Box<dyn Fn(&SettingsChanged) + Send>) {
+        self.settings.subscribe(subscriber);
+    }
+
+    /// 設定（`assets.exclude`・`assets.externalRoots`）から、走査の設定を作り直す。
+    pub(super) fn refresh_scan_options(&mut self) {
+        let exclude = self
+            .settings
+            .effective("assets.exclude")
+            .ok()
+            .and_then(|e| e.value.as_array().cloned())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_else(|| ScanOptions::default().exclude);
+        let roots = self
+            .settings
+            .effective("assets.externalRoots")
+            .ok()
+            .and_then(|e| e.value.as_object().cloned())
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(key, value)| {
+                        let path = std::path::PathBuf::from(value.as_str()?);
+                        let path = if path.is_absolute() {
+                            path
+                        } else {
+                            self.layout.folder.join(path)
+                        };
+                        Some(RootSpec {
+                            key: key.clone(),
+                            path,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        self.scan_options.exclude = exclude;
+        self.scan_options.roots = roots;
+    }
+}

@@ -31,6 +31,7 @@ use crate::recovery::journal::{
     Journal, NewEntry, SessionInfo, inverted, ops_from_json, ops_to_json,
 };
 use crate::recovery::{corrupt_dir_for, journal_path, recovery_dir_for, working_path};
+use crate::settings::Settings;
 use layout::ProjectLayout;
 use lock::ProjectLock;
 use save::{SaveJob, SaveOutcome};
@@ -116,6 +117,7 @@ pub struct ProjectStore {
     media_rules: MediaRules,
     scan_options: ScanOptions,
     scanning: bool,
+    settings: Settings,
     state_subscribers: Vec<StateSubscriber>,
 }
 
@@ -380,7 +382,8 @@ impl ProjectStore {
             pid: std::process::id(),
         };
         let journal = Journal::create(&journal_path(&dir), &session)?;
-        Ok(Self {
+        let settings_path = layout.dir.join("settings.json");
+        let mut store = Self {
             conn,
             journal,
             lock,
@@ -401,8 +404,11 @@ impl ProjectStore {
             media_rules: MediaRules::default(),
             scan_options: ScanOptions::default(),
             scanning: false,
+            settings: Settings::new(None, Some((settings_path, true))),
             state_subscribers: Vec::new(),
-        })
+        };
+        store.refresh_scan_options();
+        Ok(store)
     }
 
     pub fn project_id(&self) -> &str {
@@ -772,7 +778,8 @@ impl PendingRecovery {
             }
         }
         let unsaved = journal.entry_count()?;
-        Ok(ProjectStore {
+        let settings_path = layout.dir.join("settings.json");
+        let mut store = ProjectStore {
             conn,
             journal,
             lock,
@@ -793,8 +800,11 @@ impl PendingRecovery {
             media_rules: MediaRules::default(),
             scan_options: ScanOptions::default(),
             scanning: false,
+            settings: Settings::new(None, Some((settings_path, true))),
             state_subscribers: Vec::new(),
-        })
+        };
+        store.refresh_scan_options();
+        Ok(store)
     }
 
     /// 作業用データを破棄して、保存済みのプロジェクトを通常に開く。

@@ -22,6 +22,9 @@ tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 # core（テストと 002 以降の本体）
 rusqlite = { version = "0.43.0", features = ["bundled"] }
+# 004: ファイルシステムの通知（CC0-1.0）、Unicode の正規化（MIT / Apache-2.0）。承認済み（unno-luto・unno-wge1）
+notify = "9.0.0"
+unicode-normalization = "0.1.26"
 # アプリ（src-tauri だけが使う）
 tauri = { version = "2.12.7", features = [] }
 tauri-build = { version = "2.7.6", features = [] }

@@ -10,7 +10,7 @@ use unnotator_core::assets::exclude::ExcludeSet;
 use unnotator_core::assets::media::MediaRules;
 use unnotator_core::assets::relink::RelinkCandidate;
 use unnotator_core::assets::scan::{ScanProgress, ScanScope};
-use unnotator_core::assets::watch::{PollingWatcher, Watcher};
+use unnotator_core::assets::watch::{NotifyWatcher, PollingWatcher, Throttled, Watcher};
 use unnotator_core::assets::{AssetFilter, AssetPage, Page};
 use unnotator_core::command::Command;
 use unnotator_core::event::ChangeSet;
@@ -169,15 +169,19 @@ pub fn start_auto_scan(app: &tauri::AppHandle) {
     });
 }
 
-/// 見張りの間隔。通知（`notify`）が入るまでは、定期走査で代える。
-const WATCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-/// 何回に 1 回、全体の走査を求めるか（ファイルの中身だけが変わった場合を拾う）。
-const WATCH_FULL_EVERY: u32 = 30;
+/// 見張りを進める間隔。通知の取りこぼしを待たせないため、短くする（定期走査は、これを間引いて使う）。
+const WATCH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+/// 通知の見張りが、何回に 1 回（約 1 分）、全体の走査を求めるか（取りこぼしに備える）。
+const NOTIFY_FULL_EVERY: u32 = 120;
+/// 定期走査の見張りを、何回に 1 回（約 2 秒）進めるか。
+const POLLING_EVERY: u32 = 4;
+/// 定期走査の見張りが、進めるたびに何回に 1 回、全体の走査を求めるか（ファイルの中身だけの変更を拾う）。
+const POLLING_FULL_EVERY: u32 = 30;
 
 /// 見張りの状態。ルートと除外が変わったら、作り直す。
 #[derive(Default)]
 pub struct WatchLoop {
-    watcher: Option<(WatchKey, PollingWatcher)>,
+    watcher: Option<(WatchKey, Box<dyn Watcher>)>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -213,7 +217,18 @@ pub fn watch_step(
         .is_none_or(|(known, _)| *known != key)
     {
         let exclude = ExcludeSet::new(&key.exclude).unwrap_or_else(|_| ExcludeSet::defaults());
-        let watcher = PollingWatcher::new(key.roots.clone(), exclude, WATCH_FULL_EVERY);
+        // 通知を登録できればそれを使い、できなければ（権限・上限など）定期走査で代える
+        let watcher: Box<dyn Watcher> =
+            match NotifyWatcher::new(key.roots.clone(), exclude.clone(), NOTIFY_FULL_EVERY) {
+                Ok(watcher) => Box::new(watcher),
+                Err(error) => {
+                    tracing::warn!(%error, "ファイルの通知を使えない。定期走査で代える");
+                    Box::new(Throttled::new(
+                        PollingWatcher::new(key.roots.clone(), exclude, POLLING_FULL_EVERY),
+                        POLLING_EVERY,
+                    ))
+                }
+            };
         watch.watcher = Some((key, watcher));
     }
     let Some((_, watcher)) = watch.watcher.as_mut() else {
@@ -516,11 +531,19 @@ mod tests {
             "最初は基準"
         );
 
-        std::thread::sleep(std::time::Duration::from_millis(20));
         std::fs::write(temp.project().join("new.txt"), b"1").expect("書ける");
-        let summary = watch_step(&state, &mut watch, &|_| {})
-            .expect("進む")
-            .expect("変化がある");
+        // 通知は、まとめるために少し待つ（5 秒以内に届く）
+        let started = std::time::Instant::now();
+        let summary = loop {
+            if let Some(summary) = watch_step(&state, &mut watch, &|_| {}).expect("進む") {
+                break summary;
+            }
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(5),
+                "5 秒以内に届く"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
         assert_eq!(summary.added, 1);
         assert!(
             watch_step(&state, &mut watch, &|_| {})

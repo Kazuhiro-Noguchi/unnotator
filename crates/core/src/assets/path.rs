@@ -52,12 +52,10 @@ fn has_drive_prefix(path: &str) -> bool {
     bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
-/// Unicode の正規化（NFC）。
-///
-/// `unicode-normalization` が承認されるまでは、バイト列のまま返す（research.md R3 の縮退）。
-/// macOS で NFD の名前と NFC の名前が別物になりうる、という既知の限界。
+/// Unicode の正規化（NFC）。macOS が NFD で返す名前と、NFC で書かれた名前を、同じものとして扱うため。
 pub fn nfc(text: &str) -> String {
-    text.to_owned()
+    use unicode_normalization::UnicodeNormalization;
+    text.nfc().collect()
 }
 
 /// 重複の検出に使う比較用のキー。保存する綴りは変えない。
@@ -145,6 +143,18 @@ mod tests {
     fn compare_key_folds_case_only_when_asked() {
         assert_eq!(compare_key("A/B.TXT", true), "a/b.txt");
         assert_eq!(compare_key("A/B.TXT", false), "A/B.TXT");
+    }
+
+    #[test]
+    fn nfd_and_nfc_spellings_normalize_to_the_same_path() {
+        let nfc_form = "\u{30D5}\u{30A1}\u{30A4}\u{30EB}\u{304C}.txt"; // が（合成済み）
+        let nfd_form = "\u{30D5}\u{30A1}\u{30A4}\u{30EB}\u{304B}\u{3099}.txt"; // か + 濁点
+        assert_ne!(nfc_form, nfd_form);
+        assert_eq!(normalize_rel(nfd_form).unwrap(), nfc_form);
+        assert_eq!(
+            normalize_rel(&format!("dir/{nfd_form}")).unwrap(),
+            format!("dir/{nfc_form}")
+        );
     }
 
     #[test]

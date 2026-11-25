@@ -205,3 +205,126 @@ impl Watcher for PollingWatcher {
         }
     }
 }
+
+/// 数回に 1 回だけ、中身の見張りを進める。定期走査（`PollingWatcher`）を、短い間隔の呼び出しの上で間引くために使う。
+pub struct Throttled<W> {
+    inner: W,
+    every: u32,
+    calls: u32,
+}
+
+impl<W: Watcher> Throttled<W> {
+    pub fn new(inner: W, every: u32) -> Self {
+        Self {
+            inner,
+            every: every.max(1),
+            calls: 0,
+        }
+    }
+}
+
+impl<W: Watcher> Watcher for Throttled<W> {
+    fn tick(&mut self) -> WatchBatch {
+        self.calls = self.calls.saturating_add(1);
+        if self.calls.is_multiple_of(self.every) {
+            self.inner.tick()
+        } else {
+            WatchBatch::default()
+        }
+    }
+}
+
+/// OS のファイルシステムの通知（`notify`）を使う見張り。通知は `Debouncer` でまとめる。
+/// 取りこぼすことがあるので、`full_every` 回に 1 回、全体の走査を求める（FR-023）。
+pub struct NotifyWatcher {
+    // 持っている間だけ、通知が届く
+    _watchers: Vec<notify::RecommendedWatcher>,
+    events: std::sync::mpsc::Receiver<(String, PathBuf)>,
+    roots: Vec<(String, PathBuf)>,
+    exclude: ExcludeSet,
+    debouncer: Debouncer,
+    full_every: u32,
+    calls: u32,
+}
+
+impl NotifyWatcher {
+    /// ルートごとに通知を登録する。登録できないルートがあれば、`Err`（呼び出し側は定期走査へ切り替える）。
+    pub fn new(
+        roots: Vec<(String, PathBuf)>,
+        exclude: ExcludeSet,
+        full_every: u32,
+    ) -> Result<Self, notify::Error> {
+        use notify::{RecursiveMode, Watcher as _};
+        let (sender, events) = std::sync::mpsc::channel();
+        let mut watchers = Vec::new();
+        for (key, root) in &roots {
+            let key = key.clone();
+            let sender = sender.clone();
+            let mut watcher = notify::recommended_watcher(
+                move |result: Result<notify::Event, notify::Error>| {
+                    let Ok(event) = result else {
+                        return;
+                    };
+                    // 読み取りだけの通知は、変化ではない
+                    if matches!(event.kind, notify::EventKind::Access(_)) {
+                        return;
+                    }
+                    for path in event.paths {
+                        let _ = sender.send((key.clone(), path));
+                    }
+                },
+            )?;
+            watcher.watch(root, RecursiveMode::Recursive)?;
+            watchers.push(watcher);
+        }
+        Ok(Self {
+            _watchers: watchers,
+            events,
+            roots,
+            exclude,
+            debouncer: Debouncer::new(Duration::from_millis(500), Duration::from_secs(2), 2_000),
+            full_every: full_every.max(1),
+            calls: 0,
+        })
+    }
+
+    fn relative(&self, key: &str, path: &std::path::Path) -> Option<String> {
+        let root = &self.roots.iter().find(|(k, _)| k == key)?.1;
+        // 通知のパスは、実体のパス（シンボリックリンクを解決したもの）で届くことがある
+        let canonical_root = std::fs::canonicalize(root).ok();
+        let rel = path
+            .strip_prefix(root)
+            .ok()
+            .or_else(|| path.strip_prefix(canonical_root.as_deref()?).ok())?;
+        let rel = rel
+            .components()
+            .map(|c| c.as_os_str().to_str())
+            .collect::<Option<Vec<_>>>()?
+            .join("/");
+        Some(rel)
+    }
+}
+
+impl Watcher for NotifyWatcher {
+    fn tick(&mut self) -> WatchBatch {
+        self.calls = self.calls.saturating_add(1);
+        let now = Instant::now();
+        while let Ok((key, path)) = self.events.try_recv() {
+            let Some(rel) = self.relative(&key, &path) else {
+                continue;
+            };
+            // ルート自身の変化は、全体を走査するのと同じ。除外されたもの（と、`.unnotator/`）は無視する
+            if !rel.is_empty() && self.exclude.is_excluded(&rel, false) {
+                continue;
+            }
+            self.debouncer.push(&key, &rel, now);
+        }
+        if self.calls.is_multiple_of(self.full_every) {
+            return WatchBatch {
+                paths: Vec::new(),
+                overflow: true,
+            };
+        }
+        self.debouncer.ready(now).unwrap_or_default()
+    }
+}

@@ -15,7 +15,9 @@ use support::{
 };
 use unnotator_core::assets::exclude::ExcludeSet;
 use unnotator_core::assets::scan::{ScanPath, ScanScope};
-use unnotator_core::assets::watch::{Debouncer, PollingWatcher, WatchBatch, Watcher};
+use unnotator_core::assets::watch::{
+    Debouncer, NotifyWatcher, PollingWatcher, Throttled, WatchBatch, Watcher,
+};
 use unnotator_core::project::ProjectStore;
 
 /// 用意した順に、変わったパスを返す見張り。
@@ -270,4 +272,88 @@ fn the_watch_setting_defaults_on_and_can_be_turned_off() {
         )
         .unwrap();
     assert!(!store.watch_enabled());
+}
+
+// ---- 通知（notify）と間引き ----
+
+#[test]
+fn the_notify_watcher_reports_changes_within_five_seconds() {
+    let (dir, mut store) = opened(&[("a/x.txt", "1")]);
+    let mut watcher = NotifyWatcher::new(
+        vec![(String::new(), dir.path().to_path_buf())],
+        ExcludeSet::defaults(),
+        100_000,
+    )
+    .expect("通知を登録できる");
+
+    let started = Instant::now();
+    write_file(dir.path(), "a/new.txt", b"2");
+    write_file(dir.path(), ".hidden", b"ignored by the default exclusions");
+    let mut batch = WatchBatch::default();
+    while started.elapsed() < Duration::from_secs(5) {
+        batch = watcher.tick();
+        if !batch.is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let latency = started.elapsed();
+    assert!(!batch.is_empty(), "5 秒以内に届く");
+    assert!(!batch.overflow);
+    assert!(
+        batch
+            .paths
+            .iter()
+            .any(|p| p.rel_path == "a/new.txt" || p.rel_path == "a"),
+        "{:?}",
+        batch.paths
+    );
+    assert!(
+        batch.paths.iter().all(|p| p.rel_path != ".hidden"),
+        "除外は無視する"
+    );
+    println!("通知から取り込みの指示まで: {latency:?}");
+
+    store.scan(batch.scope()).unwrap();
+    assert!(
+        read_assets(dir.path())
+            .iter()
+            .any(|a| a.rel_path == "a/new.txt")
+    );
+}
+
+#[test]
+fn the_notify_watcher_asks_for_a_full_scan_now_and_then() {
+    let dir = TempDir::new();
+    let mut watcher = NotifyWatcher::new(
+        vec![(String::new(), dir.path().to_path_buf())],
+        ExcludeSet::defaults(),
+        3,
+    )
+    .expect("通知を登録できる");
+    assert!(!watcher.tick().overflow);
+    assert!(!watcher.tick().overflow);
+    assert!(
+        watcher.tick().overflow,
+        "取りこぼしに備えて、全体の走査を求める"
+    );
+}
+
+#[test]
+fn a_throttled_watcher_only_runs_every_nth_call() {
+    struct Counting(u32);
+    impl Watcher for Counting {
+        fn tick(&mut self) -> WatchBatch {
+            self.0 += 1;
+            WatchBatch {
+                paths: vec![path(&format!("n{}", self.0))],
+                overflow: false,
+            }
+        }
+    }
+    let mut throttled = Throttled::new(Counting(0), 3);
+    assert!(throttled.tick().is_empty());
+    assert!(throttled.tick().is_empty());
+    assert_eq!(throttled.tick().paths, [path("n1")]);
+    assert!(throttled.tick().is_empty());
 }

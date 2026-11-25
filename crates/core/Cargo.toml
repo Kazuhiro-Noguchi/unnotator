@@ -11,12 +11,14 @@ publish = false
 specta = ["dep:specta"]
 
 [dependencies]
+notify = { workspace = true }
 rusqlite = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+unicode-normalization = { workspace = true }
 
 [lints]
 workspace = true

@@ -76,6 +76,15 @@ A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so y
 - **Settings** come in two layers: user (in the app's config folder) and project (`.unnotator/settings.json`). The project value wins. Changes are written immediately, are not part of undo, and do not count as unsaved changes. Keys the app does not know (for example from extensions that are not installed) are kept as they are; a broken settings file is never overwritten silently, it is moved aside first.
 - **Required extensions.** A project may list the extensions it needs in `.unnotator/extensions.json` (`{"version": 1, "extensions": [{"id": "...", "version": "^1.0.0"}]}`); when opening, the app reports which ones are missing or have the wrong version. The file is only ever read.
 
+### Extensions and `unno://`
+
+- **Where extensions live.** Installed extensions are unpacked to `<app data>/unnotator/extensions/<id>/<version>/` (next to the executable, under `data/`, in the portable build); several versions of one extension can sit side by side. Nothing about extensions is stored in a project.
+- **Checks.** Every extension is checked against the manifest schema, its names are namespaced as `<extension id>/<name>`, and its dependencies and API range are resolved so that dependencies come first. An extension that cannot work (missing or mismatched dependency, a dependency cycle, a newer API than the app, a broken reference) is not enabled, and the reason is listed as a "problem"; other extensions are not affected.
+- **File types.** The types an extension declares (by extension or MIME type) decide the media type of assets; when two extensions claim the same file extension the result is the same whatever the install order (the lower type id wins, and you can override it per extension).
+- **Permissions** are a declare-and-consent scheme: you consent per extension and version, an update that keeps its permissions is not asked again, and one that adds permissions is asked only about the new ones. `network` is refused unless you consent, with a warning.
+- **Developer mode.** When on, any folder containing an extension manifest can be loaded as is; changes under its `dist/` are announced. A folder loaded this way takes precedence over an installed extension with the same id.
+- **`unno://`.** The app reads files through `unno://asset/<id>`, `unno://preview/<id>`, `unno://ext/<extension id>/...` and `unno://blob/<name>`. Range requests are supported; no response is larger than 4 MiB (the browser asks for the rest), and a path can never leave its folder (links, `..` and encoded forms are refused).
+
 ## Development
 
 Run all six checks before considering any change done:

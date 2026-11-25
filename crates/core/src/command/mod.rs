@@ -39,6 +39,17 @@ pub enum Status {
 }
 
 impl Status {
+    /// 契約の CHECK の値から読む。
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "todo" => Some(Self::Todo),
+            "in_progress" => Some(Self::InProgress),
+            "done" => Some(Self::Done),
+            "review" => Some(Self::Review),
+            _ => None,
+        }
+    }
+
     /// 契約の CHECK の値。
     pub fn as_str(self) -> &'static str {
         match self {

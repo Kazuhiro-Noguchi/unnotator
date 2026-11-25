@@ -69,20 +69,34 @@ pub fn compare_key(rel: &str, case_insensitive: bool) -> String {
     }
 }
 
-/// `dir` があるファイルシステムが、大文字小文字を区別しないか。実際にファイルを作って確かめる。
-/// 確かめられないときは、OS の一般的な既定（Windows・macOS は区別しない）にする。
+/// `dir` があるファイルシステムが、大文字小文字を区別しないか。
+/// フォルダの中を書き換えずに、既にある名前の大文字小文字を入れ替えた名前が同じものを指すかで確かめる。
+/// 確かめる名前が無い（空のフォルダなど）ときは、OS の一般的な既定（Windows・macOS は区別しない）にする。
 pub fn fs_is_case_insensitive(dir: &Path) -> bool {
-    let probe = dir.join(format!(".unno-case-probe-{}", std::process::id()));
-    let upper = dir.join(format!(".UNNO-CASE-PROBE-{}", std::process::id()));
-    let result = std::fs::write(&probe, b"").is_ok() && upper.exists();
-    let _ = std::fs::remove_file(&probe);
-    if result {
-        return true;
+    let default = cfg!(any(target_os = "windows", target_os = "macos"));
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return default;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let flipped: String = name
+            .chars()
+            .map(|c| {
+                if c.is_lowercase() {
+                    c.to_uppercase().next().unwrap_or(c)
+                } else if c.is_uppercase() {
+                    c.to_lowercase().next().unwrap_or(c)
+                } else {
+                    c
+                }
+            })
+            .collect();
+        if flipped == name {
+            continue;
+        }
+        return dir.join(&flipped).symlink_metadata().is_ok();
     }
-    if probe.exists() {
-        return false;
-    }
-    cfg!(any(target_os = "windows", target_os = "macos")) && !dir.exists()
+    default
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@
 //! 編集は作業用の複製（`working.db`、WAL）に書き、確定した操作を `journal.db` へ追記する。
 //! `project.db` を書くのは、保存の名前の置き換えだけ（research.md R4・R7）。
 
+pub mod assets;
 pub mod layout;
 pub mod lock;
 pub mod save;
@@ -12,6 +13,8 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;
 
+use crate::assets::media::MediaRules;
+use crate::assets::scan::ScanOptions;
 use crate::clock::{Clock, SystemClock};
 use crate::command::Command;
 use crate::command::apply::{Ctx, run};
@@ -110,6 +113,9 @@ pub struct ProjectStore {
     saving: bool,
     /// 直前の `apply_command` で、食い違いなどのため飛ばした行の数（`SyncAssets`）。
     last_sync_skipped: u32,
+    media_rules: MediaRules,
+    scan_options: ScanOptions,
+    scanning: bool,
     state_subscribers: Vec<StateSubscriber>,
 }
 
@@ -392,6 +398,9 @@ impl ProjectStore {
             last_change_at: None,
             saving: false,
             last_sync_skipped: 0,
+            media_rules: MediaRules::default(),
+            scan_options: ScanOptions::default(),
+            scanning: false,
             state_subscribers: Vec::new(),
         })
     }
@@ -781,6 +790,9 @@ impl PendingRecovery {
             last_change_at: session.last_change_at,
             saving: false,
             last_sync_skipped: 0,
+            media_rules: MediaRules::default(),
+            scan_options: ScanOptions::default(),
+            scanning: false,
             state_subscribers: Vec::new(),
         })
     }

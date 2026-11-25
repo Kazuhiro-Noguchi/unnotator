@@ -1,2 +1,21 @@
 // Rust との通信は必ずここを経由する（CLAUDE.md）。bindings.ts は生成物なので直接編集しない。
-export { type AppInfo, commands } from "./bindings";
+export {
+  type AppInfo,
+  type AttributeScope,
+  type Change,
+  type ChangeKind,
+  type ChangeSet,
+  type Command,
+  commands,
+  type Entity,
+  events,
+  type Field,
+  type IpcError,
+  type ItemRef,
+  type LabelDisposition,
+  type Origin,
+  type ProjectChanged,
+  type ProjectInfo,
+  type Status,
+  type Target,
+} from "./bindings";

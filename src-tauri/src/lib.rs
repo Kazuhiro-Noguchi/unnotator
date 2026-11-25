@@ -1,6 +1,7 @@
 //! unnotator アプリ本体（Tauri）。
 
 pub mod commands;
+pub mod project_commands;
 
 #[cfg(test)]
 mod bindings_test;
@@ -10,7 +11,7 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use specta_typescript::Typescript;
-use tauri_specta::{Builder, collect_commands};
+use tauri_specta::{Builder, collect_commands, collect_events};
 
 static PROCESS_START: OnceLock<Instant> = OnceLock::new();
 
@@ -21,10 +22,15 @@ pub fn process_start() -> Instant {
 
 /// 型付き IPC のコマンドの登録。
 pub fn ipc_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![
-        commands::app_info,
-        commands::report_ready
-    ])
+    Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            commands::app_info,
+            commands::report_ready,
+            project_commands::project_open,
+            project_commands::project_close,
+            project_commands::apply_command
+        ])
+        .events(collect_events![project_commands::ProjectChanged])
 }
 
 /// TypeScript の型と呼び出し関数を書き出す。
@@ -49,7 +55,12 @@ pub fn run() {
     }
 
     let result = tauri::Builder::default()
+        .manage(project_commands::ProjectState::default())
         .invoke_handler(builder.invoke_handler())
+        .setup(move |app| {
+            builder.mount_events(app);
+            Ok(())
+        })
         .run(tauri::generate_context!());
     if let Err(error) = result {
         tracing::error!(%error, "アプリの起動に失敗した");

@@ -6,13 +6,13 @@ use std::collections::HashMap;
 
 use rusqlite::Connection;
 use rusqlite::types::Value;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::db::tables::{ANNOTATIONS, GROUP_MEMBERS, ITEMS, RELATIONS};
 use crate::error::StoreError;
 use crate::history::recorder::RowOp;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Origin {
@@ -21,7 +21,7 @@ pub enum Origin {
     Redo,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Entity {
@@ -35,7 +35,7 @@ pub enum Entity {
     Item,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum ChangeKind {
@@ -44,7 +44,7 @@ pub enum ChangeKind {
     Deleted,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Change {
     pub entity: Entity,
@@ -53,7 +53,7 @@ pub struct Change {
     pub kind: ChangeKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ChangeSet {
     pub seq: u32,

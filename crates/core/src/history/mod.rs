@@ -5,7 +5,7 @@ pub mod recorder;
 use std::collections::VecDeque;
 
 use recorder::RowOp;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// 履歴の上限（設計書 3.4）。
 pub const UNDO_LIMIT: usize = 500;
@@ -17,7 +17,7 @@ pub struct UndoEntry {
     pub ops: Vec<RowOp>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct UndoState {
     pub can_undo: bool,

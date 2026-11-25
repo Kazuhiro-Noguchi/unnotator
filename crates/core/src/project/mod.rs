@@ -235,6 +235,11 @@ impl ProjectStore {
         &self.project_id
     }
 
+    /// このアプリが扱う、プロジェクトデータベースの最新の版。
+    pub fn schema_version(&self) -> u32 {
+        latest_version(PROJECT_MIGRATIONS)
+    }
+
     pub fn folder(&self) -> &Path {
         &self.layout.folder
     }

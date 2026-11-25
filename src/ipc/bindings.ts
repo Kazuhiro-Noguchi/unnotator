@@ -2,6 +2,7 @@
 
 import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 import type { InvokeOptions } from "@tauri-apps/api/core";
+import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
@@ -12,11 +13,228 @@ export const commands = {
 	 *  計測用の出力が書けなくてもアプリは止めない。
 	 */
 	reportReady: (options?: InvokeOptions) => __TAURI_INVOKE<void>("report_ready", undefined, options),
+	projectOpen: (folder: string, create: boolean, options?: InvokeOptions) => __TAURI_INVOKE<ProjectInfo_Serialize>("project_open", { folder, create }, options),
+	projectClose: (options?: InvokeOptions) => __TAURI_INVOKE<null>("project_close", undefined, options),
+	applyCommand: (command: Command_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("apply_command", { command }, options),
+};
+
+/** Events */
+export const events = {
+	projectChanged: makeEvent<ProjectChanged, ProjectChanged>("project-changed"),
 };
 
 /* Types */
+export type AnnotationPatch = AnnotationPatch_Serialize | AnnotationPatch_Deserialize;
+
+export type AnnotationPatch_Deserialize = {
+	type_version?: Field<number>,
+	selector_json?: Field<string>,
+	label_id?: Field<string>,
+	attributes_json?: Field<string>,
+	summary?: Field<string>,
+	z_order?: Field<number>,
+};
+
+export type AnnotationPatch_Serialize = {
+	type_version: Field<number>,
+	selector_json: Field<string>,
+	label_id: Field<string>,
+	attributes_json: Field<string>,
+	summary: Field<string>,
+	z_order: Field<number>,
+};
+
 /**  アプリ名と版数（型付きの通路が往復することを示す見本）。 */
 export type AppInfo = {
 	name: string,
 	version: string,
 };
+
+export type AttributeScope = "global" | "label" | "annotation_type" | "relation_type" | "group_type" | "asset" | "item";
+
+export type Change = {
+	entity: Entity,
+	/**  主キー。複合主キー（グループの所属）は `/` でつなぐ。 */
+	id: string,
+	kind: ChangeKind,
+};
+
+export type ChangeKind = "created" | "updated" | "deleted";
+
+export type ChangeSet = {
+	seq: number,
+	origin: Origin,
+	changes: Change[],
+	/**  この変更が属するアセット（重複なし）。 */
+	asset_ids: string[],
+};
+
+export type Command = Command_Serialize | Command_Deserialize;
+
+export type Command_Deserialize = { kind: "create_annotation"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id?: string | null; target: Target_Deserialize; type: string; type_version?: number | null; selector_json: string; label_id?: string | null; attributes_json?: string | null; summary?: string | null; z_order?: number | null; source?: string | null } | { kind: "update_annotation"; id: string; patch: AnnotationPatch_Deserialize } | { kind: "delete_annotation"; id: string } | { kind: "create_relation"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id?: string | null; type: string; from_id: string; to_id: string; directed?: boolean | null; label_id?: string | null; attributes_json?: string | null; source?: string | null } | { kind: "update_relation"; id: string; patch: RelationPatch_Deserialize } | { kind: "delete_relation"; id: string } | { kind: "create_group"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id?: string | null; type: string; ordered?: boolean | null; label_id?: string | null; attributes_json?: string | null; members?: string[]; source?: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Deserialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at?: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id?: string | null; name: string; name_i18n_json?: string | null; color: string; hotkey?: number | null; sort_order?: number | null; hidden?: boolean | null; applies_to_json?: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Deserialize } | { kind: "delete_label"; id: string; disposition?: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
+{ kind: "transaction"; commands: Command_Deserialize[] };
+
+export type Command_Serialize = { kind: "create_annotation"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id: string | null; target: Target_Serialize; type: string; type_version: number | null; selector_json: string; label_id: string | null; attributes_json: string | null; summary: string | null; z_order: number | null; source: string | null } | { kind: "update_annotation"; id: string; patch: AnnotationPatch_Serialize } | { kind: "delete_annotation"; id: string } | { kind: "create_relation"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id: string | null; type: string; from_id: string; to_id: string; directed: boolean | null; label_id: string | null; attributes_json: string | null; source: string | null } | { kind: "update_relation"; id: string; patch: RelationPatch_Serialize } | { kind: "delete_relation"; id: string } | { kind: "create_group"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id: string | null; type: string; ordered: boolean | null; label_id: string | null; attributes_json: string | null; members: string[]; source: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Serialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
+/**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
+id: string | null; name: string; name_i18n_json: string | null; color: string; hotkey: number | null; sort_order: number | null; hidden: boolean | null; applies_to_json: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Serialize } | { kind: "delete_label"; id: string; disposition: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
+{ kind: "transaction"; commands: Command_Serialize[] };
+
+export type Entity = "annotation" | "relation" | "group" | "group_member" | "label" | "attribute_schema" | "asset" | "item";
+
+/**
+ *  項目ごとの「変えない / 値にする / 空にする」。更新のパッチで使う。
+ *  `Clear` は空にできる（NULL を許す）項目にだけ使える。
+ */
+export type Field<T> = { kind: "keep" } | { kind: "set"; value: T } | { kind: "clear" };
+
+export type GroupPatch = GroupPatch_Serialize | GroupPatch_Deserialize;
+
+export type GroupPatch_Deserialize = {
+	ordered?: Field<boolean>,
+	label_id?: Field<string>,
+	attributes_json?: Field<string>,
+};
+
+export type GroupPatch_Serialize = {
+	ordered: Field<boolean>,
+	label_id: Field<string>,
+	attributes_json: Field<string>,
+};
+
+/**  IPC のエラー。`code` は安定した識別子で、文言は画面側が i18n で決める。 */
+export type IpcError = {
+	code: string,
+	message: string,
+};
+
+/**  アイテム（アセットの分割単位）。行が無ければ、必要なコマンドが作る。 */
+export type ItemRef = {
+	asset_id: string,
+	item_key: string,
+	provider: string,
+};
+
+/**  使用中のラベルを削除するときの扱い。 */
+export type LabelDisposition = 
+/**  使っているものの `label_id` を別のラベルへ付け替える。 */
+{ kind: "reassign"; to_label_id: string } | 
+/**  使っているものごと削除する。 */
+{ kind: "cascade" };
+
+export type LabelPatch = LabelPatch_Serialize | LabelPatch_Deserialize;
+
+export type LabelPatch_Deserialize = {
+	name?: Field<string>,
+	name_i18n_json?: Field<string>,
+	color?: Field<string>,
+	hotkey?: Field<number>,
+	sort_order?: Field<number>,
+	hidden?: Field<boolean>,
+	applies_to_json?: Field<string>,
+};
+
+export type LabelPatch_Serialize = {
+	name: Field<string>,
+	name_i18n_json: Field<string>,
+	color: Field<string>,
+	hotkey: Field<number>,
+	sort_order: Field<number>,
+	hidden: Field<boolean>,
+	applies_to_json: Field<string>,
+};
+
+export type Origin = "apply" | "undo" | "redo";
+
+/**  変更の差分。`apply_command`・`undo`・`redo` がコミットされたあとに通知する。 */
+export type ProjectChanged = ChangeSet;
+
+export type ProjectInfo = ProjectInfo_Serialize | ProjectInfo_Deserialize;
+
+export type ProjectInfo_Deserialize = {
+	project_id: string,
+	folder: string,
+	schema_version: number,
+	/**  移行したときだけ、移行前の版。 */
+	migrated_from?: number | null,
+};
+
+export type ProjectInfo_Serialize = {
+	project_id: string,
+	folder: string,
+	schema_version: number,
+	/**  移行したときだけ、移行前の版。 */
+	migrated_from: number | null,
+};
+
+export type RelationPatch = RelationPatch_Serialize | RelationPatch_Deserialize;
+
+export type RelationPatch_Deserialize = {
+	directed?: Field<boolean>,
+	label_id?: Field<string>,
+	attributes_json?: Field<string>,
+};
+
+export type RelationPatch_Serialize = {
+	directed: Field<boolean>,
+	label_id: Field<string>,
+	attributes_json: Field<string>,
+};
+
+export type Status = "todo" | "in_progress" | "done" | "review";
+
+/**  アノテーションの対象。 */
+export type Target = Target_Serialize | Target_Deserialize;
+
+/**  アノテーションの対象。 */
+export type Target_Deserialize = {
+	asset_id: string,
+	item?: ItemRef | null,
+};
+
+/**  アノテーションの対象。 */
+export type Target_Serialize = {
+	asset_id: string,
+	item: ItemRef | null,
+};
+
+/* Tauri Specta runtime */
+type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;
+
+type EventEmitTo<T> = [T] extends [null] ? (target: __TAURI_EVENT.EventTarget | string) => Promise<void> : (target: __TAURI_EVENT.EventTarget | string, payload: T) => Promise<void>;
+
+function makeEvent<TListen, TEmit = TListen>(name: string, serialize?: (payload: TEmit) => unknown, deserialize?: (payload: any) => TListen) {
+    const mapEvent = (cb: __TAURI_EVENT.EventCallback<TListen>) => (event: __TAURI_EVENT.Event<any>) => cb({ ...event, payload: deserialize ? deserialize(event.payload) : event.payload });
+    const mapPayload = (payload: TEmit) => serialize ? serialize(payload) : payload;
+
+    const base = {
+        listen: (cb: __TAURI_EVENT.EventCallback<TListen>) => __TAURI_EVENT.listen(name, mapEvent(cb)),
+        once: (cb: __TAURI_EVENT.EventCallback<TListen>) => __TAURI_EVENT.once(name, mapEvent(cb)),
+        emit: ((payload: TEmit) => __TAURI_EVENT.emit(name, mapPayload(payload)) as unknown) as EventEmit<TEmit>,
+        emitTo: ((to: __TAURI_EVENT.EventTarget | string, payload: TEmit) => __TAURI_EVENT.emitTo(to, name, mapPayload(payload)) as unknown) as EventEmitTo<TEmit>
+    };
+
+    const fn = (target: import("@tauri-apps/api/webview").Webview | import("@tauri-apps/api/window").Window) => ({
+        listen: (cb: __TAURI_EVENT.EventCallback<TListen>) => target.listen(name, mapEvent(cb)),
+        once: (cb: __TAURI_EVENT.EventCallback<TListen>) => target.once(name, mapEvent(cb)),
+        emit: ((payload: TEmit) => target.emit(name, mapPayload(payload)) as unknown) as EventEmit<TEmit>,
+        emitTo: ((to: __TAURI_EVENT.EventTarget | string, payload: TEmit) => target.emitTo(to, name, mapPayload(payload)) as unknown) as EventEmitTo<TEmit>
+    });
+
+    return Object.assign(fn, base);
+}

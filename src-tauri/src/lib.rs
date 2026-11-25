@@ -31,7 +31,8 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::apply_command,
             project_commands::undo,
             project_commands::redo,
-            project_commands::undo_state
+            project_commands::undo_state,
+            project_commands::label_usage
         ])
         .events(collect_events![project_commands::ProjectChanged])
 }

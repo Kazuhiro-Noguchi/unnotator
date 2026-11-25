@@ -13,6 +13,7 @@ export {
   type IpcError,
   type ItemRef,
   type LabelDisposition,
+  type LabelUsage,
   type Origin,
   type ProjectChanged,
   type ProjectInfo,

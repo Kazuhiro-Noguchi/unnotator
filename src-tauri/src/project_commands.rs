@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri_specta::Event;
 use unnotator_core::command::Command;
+use unnotator_core::command::label::LabelUsage;
 use unnotator_core::error::StoreError;
 use unnotator_core::event::ChangeSet;
 use unnotator_core::history::UndoState;
@@ -107,6 +108,14 @@ pub fn redo_project(state: &ProjectState) -> Result<Option<ChangeSet>, IpcError>
     Ok(store.redo()?)
 }
 
+pub fn usage_of_label(state: &ProjectState, label_id: &str) -> Result<LabelUsage, IpcError> {
+    let guard = lock(state)?;
+    Ok(guard
+        .as_ref()
+        .ok_or(StoreError::NotOpen)?
+        .label_usage(label_id)?)
+}
+
 pub fn project_undo_state(state: &ProjectState) -> Result<UndoState, IpcError> {
     let guard = lock(state)?;
     Ok(guard.as_ref().ok_or(StoreError::NotOpen)?.undo_state())
@@ -159,6 +168,15 @@ pub fn redo(state: tauri::State<'_, ProjectState>) -> Result<Option<ChangeSet>, 
 #[specta::specta]
 pub fn undo_state(state: tauri::State<'_, ProjectState>) -> Result<UndoState, IpcError> {
     project_undo_state(&state)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn label_usage(
+    state: tauri::State<'_, ProjectState>,
+    label_id: String,
+) -> Result<LabelUsage, IpcError> {
+    usage_of_label(&state, &label_id)
 }
 
 #[cfg(test)]
@@ -217,6 +235,12 @@ mod tests {
 
         let set = apply(&state, label()).expect("適用できる");
         assert_eq!(set.changes.len(), 1);
+        let usage = usage_of_label(&state, &set.changes[0].id).expect("件数");
+        assert_eq!(usage.annotations, 0);
+        assert_eq!(
+            usage_of_label(&state, "missing").unwrap_err().code,
+            "not_found"
+        );
         assert_eq!(seen.lock().expect("lock").len(), 1);
         assert!(project_undo_state(&state).expect("状態").can_undo);
 

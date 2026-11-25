@@ -22,7 +22,7 @@ pub fn handle(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
 }
 
 /// いまのメンバーを、位置の順に返す。
-fn current_members(ctx: &Ctx<'_>, group_id: &str) -> Result<Vec<String>, StoreError> {
+pub(super) fn current_members(ctx: &Ctx<'_>, group_id: &str) -> Result<Vec<String>, StoreError> {
     let mut stmt = ctx.rec.conn().prepare_cached(
         "SELECT annotation_id FROM group_members WHERE group_id = ?1 ORDER BY position, annotation_id",
     )?;
@@ -31,7 +31,11 @@ fn current_members(ctx: &Ctx<'_>, group_id: &str) -> Result<Vec<String>, StoreEr
 }
 
 /// `order` の並びになるよう、位置を 0.. で付け直す。無いメンバーは追加する。
-fn renumber(ctx: &mut Ctx<'_>, group_id: &str, order: &[String]) -> Result<(), StoreError> {
+pub(super) fn renumber(
+    ctx: &mut Ctx<'_>,
+    group_id: &str,
+    order: &[String],
+) -> Result<(), StoreError> {
     for (index, annotation_id) in order.iter().enumerate() {
         let position = i64::try_from(index).unwrap_or(i64::MAX);
         let key = [text(group_id), text(annotation_id)];
@@ -142,6 +146,11 @@ fn delete(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
     let Command::DeleteGroup { id } = command else {
         return Err(mismatch());
     };
+    delete_group(ctx, id)
+}
+
+/// メンバーの所属を削除してから、グループを削除する。
+pub(super) fn delete_group(ctx: &mut Ctx<'_>, id: &str) -> Result<(), StoreError> {
     require(ctx.rec.conn(), "annotation_groups", id, "グループ")?;
     for member in current_members(ctx, id)? {
         ctx.rec

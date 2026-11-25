@@ -11,7 +11,7 @@ use rusqlite::Connection;
 use support::{create_label, new_project, read_conn, snapshot};
 use unnotator_core::command::{
     AnnotationPatch, AttributeScope, COMMAND_NAMES, Command, Field, GroupPatch, ItemRef,
-    LabelPatch, RelationPatch, Status, Target,
+    LabelDisposition, LabelPatch, RelationPatch, Status, Target,
 };
 use unnotator_core::event::{ChangeKind, ChangeSet, Entity, Origin};
 use unnotator_core::project::ProjectStore;
@@ -91,6 +91,40 @@ fn schema(scope: AttributeScope, target: &str, title: &str) -> Command {
     }
 }
 
+/// ラベル 10・11 と、10 を使うアノテーション・関係・グループ・属性スキーマ。
+fn labeled() -> Vec<Command> {
+    vec![
+        label(10, "person"),
+        label(11, "human"),
+        annotation(1, "a1"),
+        annotation(2, "a1"),
+        relation(20, 1, 2),
+        group(30, &[1, 2]),
+        Command::UpdateAnnotation {
+            id: id(1),
+            patch: AnnotationPatch {
+                label_id: Field::Set(id(10)),
+                ..AnnotationPatch::default()
+            },
+        },
+        Command::UpdateRelation {
+            id: id(20),
+            patch: RelationPatch {
+                label_id: Field::Set(id(10)),
+                ..RelationPatch::default()
+            },
+        },
+        Command::UpdateGroup {
+            id: id(30),
+            patch: GroupPatch {
+                label_id: Field::Set(id(10)),
+                ..GroupPatch::default()
+            },
+        },
+        schema(AttributeScope::Label, &id(10), "label scoped"),
+    ]
+}
+
 fn setup(store: &mut ProjectStore, commands: Vec<Command>) {
     for command in commands {
         store.apply_command(command).unwrap();
@@ -148,6 +182,23 @@ fn scenarios() -> Vec<Scenario> {
             command: "delete_annotation",
             prepare: |store| {
                 setup(store, vec![annotation(1, "a1")]);
+                Command::DeleteAnnotation { id: id(1) }
+            },
+        },
+        Scenario {
+            command: "delete_annotation",
+            prepare: |store| {
+                setup(
+                    store,
+                    vec![
+                        annotation(1, "a1"),
+                        annotation(2, "a2"),
+                        annotation(3, "a1"),
+                        relation(20, 1, 2),
+                        relation(21, 3, 1),
+                        group(30, &[3, 1, 2]),
+                    ],
+                );
                 Command::DeleteAnnotation { id: id(1) }
             },
         },
@@ -292,6 +343,38 @@ fn scenarios() -> Vec<Scenario> {
             },
         },
         Scenario {
+            command: "delete_label",
+            prepare: |store| {
+                setup(store, labeled());
+                Command::DeleteLabel {
+                    id: id(10),
+                    disposition: Some(LabelDisposition::Reassign {
+                        to_label_id: id(11),
+                    }),
+                }
+            },
+        },
+        Scenario {
+            command: "delete_label",
+            prepare: |store| {
+                setup(store, labeled());
+                Command::DeleteLabel {
+                    id: id(10),
+                    disposition: Some(LabelDisposition::Cascade),
+                }
+            },
+        },
+        Scenario {
+            command: "delete_label",
+            prepare: |store| {
+                setup(store, vec![label(10, "person")]);
+                Command::DeleteLabel {
+                    id: id(10),
+                    disposition: None,
+                }
+            },
+        },
+        Scenario {
             command: "set_attribute_schema",
             prepare: |_| schema(AttributeScope::Global, "", "one"),
         },
@@ -361,8 +444,8 @@ fn scenarios() -> Vec<Scenario> {
     ]
 }
 
-/// US4 で実装するまで、往復テストの網羅から外すコマンド。
-const PENDING: &[&str] = &["delete_label"];
+/// 往復テストの網羅から外すコマンド。全コマンドが揃ったので空。
+const PENDING: &[&str] = &[];
 
 #[test]
 fn every_command_round_trips() {

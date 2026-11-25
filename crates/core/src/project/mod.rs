@@ -10,6 +10,7 @@ use rusqlite::{Connection, ErrorCode};
 use crate::clock::{Clock, SystemClock};
 use crate::command::Command;
 use crate::command::apply::{Ctx, run};
+use crate::command::label::{self, LabelUsage};
 use crate::db::migrate::{PROJECT_MIGRATIONS, apply_all, latest_version};
 use crate::db::open_connection;
 use crate::error::StoreError;
@@ -252,6 +253,11 @@ impl ProjectStore {
     /// コミットの直前に行の変更を受け取る差し込み口を足す（003 の journal 用）。
     pub fn add_observer(&mut self, observer: Box<dyn ChangeObserver>) {
         self.hub.add_observer(observer);
+    }
+
+    /// ラベルを使っているものの件数（削除の前に、付け替えか一緒に削除かを選ばせるため）。
+    pub fn label_usage(&self, label_id: &str) -> Result<LabelUsage, StoreError> {
+        label::usage(&self.conn, label_id)
     }
 
     pub fn undo_state(&self) -> UndoState {

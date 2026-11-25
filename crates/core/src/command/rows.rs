@@ -93,3 +93,14 @@ pub fn push_field<T>(
 pub fn mismatch() -> StoreError {
     StoreError::InvalidCommand("コマンドと処理が合っていない（内部エラー）".to_owned())
 }
+
+/// 1 列目が文字列の行を、すべて集める（ID の一覧など）。
+pub fn query_ids(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+) -> Result<Vec<String>, StoreError> {
+    let mut stmt = conn.prepare_cached(sql)?;
+    let rows = stmt.query_map(params, |row| row.get::<_, String>(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}

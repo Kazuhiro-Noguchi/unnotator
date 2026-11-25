@@ -281,39 +281,3 @@ fn caller_supplied_ids_are_used_and_must_not_collide() {
         "invalid_command"
     );
 }
-
-#[test]
-fn annotation_with_relations_or_members_cannot_be_deleted_until_cascade_is_implemented() {
-    // US4 で連鎖削除を実装するまでの保護: 記録されない削除（SQLite の ON DELETE CASCADE）を起こさない。
-    let (dir, mut store) = new_project(&["a1"]);
-    let a = store
-        .apply_command(create_annotation("a1", "{}"))
-        .unwrap()
-        .changes[0]
-        .id
-        .clone();
-    let b = store
-        .apply_command(create_annotation("a1", "{}"))
-        .unwrap()
-        .changes[0]
-        .id
-        .clone();
-    store
-        .apply_command(Command::CreateRelation {
-            id: None,
-            relation_type: "com.example.rel/link".into(),
-            from_id: a.clone(),
-            to_id: b,
-            directed: None,
-            label_id: None,
-            attributes_json: None,
-            source: None,
-        })
-        .unwrap();
-    let before = snapshot(&read_conn(dir.path()));
-    let err = store
-        .apply_command(Command::DeleteAnnotation { id: a })
-        .unwrap_err();
-    assert_eq!(err.code(), "invalid_command");
-    assert_eq!(snapshot(&read_conn(dir.path())), before);
-}

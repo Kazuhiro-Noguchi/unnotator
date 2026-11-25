@@ -19,6 +19,7 @@ export const commands = {
 	undo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("undo", undefined, options),
 	redo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("redo", undefined, options),
 	undoState: (options?: InvokeOptions) => __TAURI_INVOKE<UndoState>("undo_state", undefined, options),
+	labelUsage: (labelId: string, options?: InvokeOptions) => __TAURI_INVOKE<LabelUsage>("label_usage", { labelId }, options),
 };
 
 /** Events */
@@ -160,6 +161,15 @@ export type LabelPatch_Serialize = {
 	sort_order: Field<number>,
 	hidden: Field<boolean>,
 	applies_to_json: Field<string>,
+};
+
+/**  ラベルを使っているものの件数。 */
+export type LabelUsage = {
+	annotations: number,
+	relations: number,
+	groups: number,
+	/**  そのラベル専用の属性スキーマ（`scope = 'label'`）。 */
+	attribute_schemas: number,
 };
 
 export type Origin = "apply" | "undo" | "redo";

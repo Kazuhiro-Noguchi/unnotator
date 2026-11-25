@@ -3,8 +3,11 @@
 use rusqlite::types::Value;
 
 use super::apply::Ctx;
+use super::group;
 use super::items::ensure_item;
-use super::rows::{RowBuilder, int, mismatch, opt_text, push_field, query_optional, require, text};
+use super::rows::{
+    RowBuilder, int, mismatch, opt_text, push_field, query_ids, query_optional, require, text,
+};
 use super::validate::{classification_selector, json_object, json_text};
 use super::{Command, Status};
 use crate::db::tables::ANNOTATIONS;
@@ -158,21 +161,32 @@ fn delete(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
     let Command::DeleteAnnotation { id } = command else {
         return Err(mismatch());
     };
+    delete_cascade(ctx, id)
+}
+
+/// アノテーションを削除する。それを端に持つ関係を先に削除し、グループからは外す（位置は詰め直す）。
+/// グループ自体は、メンバーが 0 件になっても残す。すべて同じ Undo 単位に記録される。
+pub(super) fn delete_cascade(ctx: &mut Ctx<'_>, id: &str) -> Result<(), StoreError> {
     let key = [text(id)];
     if ctx.rec.get("annotations", &key)?.is_none() {
         return Err(StoreError::NotFound(format!("アノテーション {id}")));
     }
-    // US4 で連鎖削除を実装するまでの保護。SQLite の ON DELETE CASCADE に頼ると、記録されない削除が起きる。
-    let dependents: i64 = ctx.rec.conn().query_row(
-        "SELECT (SELECT count(*) FROM relations WHERE from_id = ?1 OR to_id = ?1) \
-              + (SELECT count(*) FROM group_members WHERE annotation_id = ?1)",
-        [id.as_str()],
-        |row| row.get(0),
-    )?;
-    if dependents > 0 {
-        return Err(StoreError::InvalidCommand(
-            "関係またはグループに含まれている（連鎖削除は未実装）".to_owned(),
-        ));
+    // 子（関係・所属）を先に削除する。Undo は逆順なので、親から再挿入され、外部キーが満たされる。
+    for relation in query_ids(
+        ctx.rec.conn(),
+        "SELECT id FROM relations WHERE from_id = ?1 OR to_id = ?1 ORDER BY id",
+        [id],
+    )? {
+        ctx.rec.delete("relations", &[text(&relation)])?;
+    }
+    for group in query_ids(
+        ctx.rec.conn(),
+        "SELECT group_id FROM group_members WHERE annotation_id = ?1 ORDER BY group_id",
+        [id],
+    )? {
+        ctx.rec.delete("group_members", &[text(&group), text(id)])?;
+        let remaining = group::current_members(ctx, &group)?;
+        group::renumber(ctx, &group, &remaining)?;
     }
     ctx.rec.delete("annotations", &key)
 }

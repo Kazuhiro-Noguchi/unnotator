@@ -59,6 +59,13 @@ pnpm tauri dev
 
 If `corepack enable` fails with a permissions error, use `corepack enable --install-directory <writable dir on your PATH> pnpm`.
 
+## Project folders
+
+A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so you can move, copy or zip the folder and open it anywhere.
+
+- `.unnotator/project.db` is the project database. `.unnotator/lock` stops a second app (or window) from opening the same project at the same time; if the app crashes, the operating system releases the lock, so there is nothing to clean up. The lock is reliable on local disks; on network drives the operating system may not guarantee it, so keep projects on a local disk.
+- When an update changes the database format, the project is migrated automatically when you open it, and the previous contents are kept as `.unnotator/project.db.bak`. A project from a newer app is refused (and left untouched) rather than opened.
+
 ## Development
 
 Run all six checks before considering any change done:

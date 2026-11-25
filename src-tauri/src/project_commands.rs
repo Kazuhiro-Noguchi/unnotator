@@ -53,6 +53,8 @@ pub struct ProjectState {
     scan_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// ユーザー設定のフォルダ（`<app_config_dir>`）。無ければユーザー設定は使えない。
     user_settings_dir: Option<PathBuf>,
+    /// 見張りの世代。開く・閉じるたびに進み、古い世代の見張りのスレッドは止まる。
+    watch_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl ProjectState {
@@ -62,7 +64,20 @@ impl ProjectState {
             recovery_root,
             scan_cancel: std::sync::Arc::default(),
             user_settings_dir: None,
+            watch_generation: std::sync::Arc::default(),
         }
+    }
+
+    /// 見張りの世代を進めて、新しい世代を返す。古い世代の見張りは止まる。
+    pub(crate) fn next_watch_generation(&self) -> u64 {
+        self.watch_generation
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1
+    }
+
+    pub(crate) fn watch_generation(&self) -> u64 {
+        self.watch_generation
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// ユーザー設定のフォルダを決める。
@@ -272,6 +287,8 @@ pub fn discard_recovery(state: &ProjectState) -> Result<ProjectInfo, IpcError> {
 /// 閉じる。未保存があって `action` が無いときは、`unsaved_changes` で失敗し、開いたままにする。
 pub fn close_project(state: &ProjectState, action: Option<CloseChoice>) -> Result<(), IpcError> {
     let mut guard = lock(state)?;
+    // 閉じる途中で失敗しても、見張りはいったん止める（開いたままなら、次の操作で再開できる）
+    let _ = state.next_watch_generation();
     let store = match std::mem::take(&mut *guard) {
         Slot::Open(store) => *store,
         other => {

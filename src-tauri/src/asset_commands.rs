@@ -6,9 +6,11 @@ use std::sync::atomic::Ordering;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri_specta::Event;
+use unnotator_core::assets::exclude::ExcludeSet;
 use unnotator_core::assets::media::MediaRules;
 use unnotator_core::assets::relink::RelinkCandidate;
 use unnotator_core::assets::scan::{ScanProgress, ScanScope};
+use unnotator_core::assets::watch::{PollingWatcher, Watcher};
 use unnotator_core::assets::{AssetFilter, AssetPage, Page};
 use unnotator_core::command::Command;
 use unnotator_core::event::ChangeSet;
@@ -150,16 +152,115 @@ pub fn scan_and_notify(
     Ok(summary)
 }
 
-/// プロジェクトを開いた直後に、背景で走査を始める（開く処理を待たせない）。失敗は記録だけする。
+/// プロジェクトを開いた直後に、背景で走査を始め、続けて見張りを始める（開く処理を待たせない）。失敗は記録だけする。
 pub fn start_auto_scan(app: &tauri::AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         use tauri::Manager;
         let state = app.state::<ProjectState>();
+        let generation = state.next_watch_generation();
         if let Err(error) = scan_and_notify(&app, &state, ScanScope::Full) {
             tracing::warn!(code = %error.code, "開いたあとの走査に失敗した");
         }
+        run_watch(&app, generation);
     });
+}
+
+/// 見張りの間隔。通知（`notify`）が入るまでは、定期走査で代える。
+const WATCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+/// 何回に 1 回、全体の走査を求めるか（ファイルの中身だけが変わった場合を拾う）。
+const WATCH_FULL_EVERY: u32 = 30;
+
+/// 見張りの状態。ルートと除外が変わったら、作り直す。
+#[derive(Default)]
+pub struct WatchLoop {
+    watcher: Option<(WatchKey, PollingWatcher)>,
+}
+
+#[derive(PartialEq, Eq)]
+struct WatchKey {
+    roots: Vec<(String, std::path::PathBuf)>,
+    exclude: Vec<String>,
+}
+
+/// 見張りを 1 回進める。変化があれば走査して、その結果を返す。
+/// 設定ファイルが外から変わっていれば、読み直す（反映されると、購読者へ通知される）。
+pub fn watch_step(
+    state: &ProjectState,
+    watch: &mut WatchLoop,
+    progress: &dyn Fn(ScanProgress),
+) -> Result<Option<ScanSummary>, IpcError> {
+    let (enabled, key) = with_store(state, |store| {
+        let _ = store.settings_reload();
+        Ok((
+            store.watch_enabled(),
+            WatchKey {
+                roots: store.watch_roots(),
+                exclude: store.scan_options().exclude.clone(),
+            },
+        ))
+    })?;
+    if !enabled {
+        watch.watcher = None;
+        return Ok(None);
+    }
+    if watch
+        .watcher
+        .as_ref()
+        .is_none_or(|(known, _)| *known != key)
+    {
+        let exclude = ExcludeSet::new(&key.exclude).unwrap_or_else(|_| ExcludeSet::defaults());
+        let watcher = PollingWatcher::new(key.roots.clone(), exclude, WATCH_FULL_EVERY);
+        watch.watcher = Some((key, watcher));
+    }
+    let Some((_, watcher)) = watch.watcher.as_mut() else {
+        return Ok(None);
+    };
+    let batch = watcher.tick();
+    if batch.is_empty() {
+        return Ok(None);
+    }
+    match scan(state, batch.scope(), progress) {
+        Ok(summary) => Ok(Some(summary)),
+        // 開いた直後の全体の走査と重なった。その走査が見ているので、基準を取り直して、次から追う
+        Err(error) if error.code == "scan_in_progress" => {
+            watch.watcher = None;
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// 背景の見張り。世代が変わる（閉じる・別のプロジェクトを開く）か、プロジェクトが無くなったら止まる。
+fn run_watch(app: &tauri::AppHandle, generation: u64) {
+    use tauri::Manager;
+    let state = app.state::<ProjectState>();
+    let mut watch = WatchLoop::default();
+    loop {
+        // 短く区切って待つ（止める指示にすぐ反応するため）
+        let mut waited = std::time::Duration::ZERO;
+        while waited < WATCH_INTERVAL {
+            if state.watch_generation() != generation {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            waited += std::time::Duration::from_millis(100);
+        }
+        let progress_app = app.clone();
+        let result = watch_step(&state, &mut watch, &move |progress| {
+            let _ = ScanProgressEvent(progress).emit(&progress_app);
+        });
+        match result {
+            Ok(Some(summary)) => {
+                if let Some(changed) = AssetsChanged::from_summary(&summary) {
+                    emit_changed(app, changed);
+                }
+            }
+            Ok(None) => {}
+            Err(error) if error.code == "not_open" => return,
+            Err(error) => tracing::warn!(code = %error.code, "見張りの走査に失敗した"),
+        }
+    }
 }
 
 #[tauri::command(async)]
@@ -396,6 +497,60 @@ mod tests {
         assert_eq!(
             relink_candidates(&state, "nope").unwrap_err().code,
             "not_found"
+        );
+    }
+
+    #[test]
+    fn the_watch_step_picks_up_new_files_and_stops_when_the_project_closes() {
+        let temp = Temp::new();
+        let state = temp.state();
+        open_project(&state, &temp.project(), true, Hooks::default()).expect("作れる");
+        let mut watch = WatchLoop::default();
+        assert!(
+            watch_step(&state, &mut watch, &|_| {})
+                .expect("進む")
+                .is_none(),
+            "最初は基準"
+        );
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(temp.project().join("new.txt"), b"1").expect("書ける");
+        let summary = watch_step(&state, &mut watch, &|_| {})
+            .expect("進む")
+            .expect("変化がある");
+        assert_eq!(summary.added, 1);
+        assert!(
+            watch_step(&state, &mut watch, &|_| {})
+                .expect("進む")
+                .is_none()
+        );
+
+        // 設定で止められる
+        crate::settings_commands::set(
+            &state,
+            unnotator_core::settings::Layer::Project,
+            "assets.watch",
+            "false",
+        )
+        .expect("設定できる");
+        std::fs::write(temp.project().join("later.txt"), b"2").expect("書ける");
+        assert!(
+            watch_step(&state, &mut watch, &|_| {})
+                .expect("進む")
+                .is_none()
+        );
+
+        // 閉じると、世代が進み、見張りは止まる
+        let generation = state.watch_generation();
+        crate::project_commands::close_project(
+            &state,
+            Some(crate::project_commands::CloseChoice::Discard),
+        )
+        .expect("閉じられる");
+        assert!(state.watch_generation() > generation);
+        assert_eq!(
+            watch_step(&state, &mut watch, &|_| {}).unwrap_err().code,
+            "not_open"
         );
     }
 

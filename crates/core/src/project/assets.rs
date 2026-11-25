@@ -284,6 +284,27 @@ impl ProjectStore {
         Ok(())
     }
 
+    /// 見張りを動かすか（設定 `assets.watch`）。
+    pub fn watch_enabled(&self) -> bool {
+        self.settings
+            .effective("assets.watch")
+            .ok()
+            .and_then(|e| e.value.as_bool())
+            .unwrap_or(true)
+    }
+
+    /// 見張りが見るルート（キーとフォルダ）。プロジェクトのフォルダは、キー `''`。
+    pub fn watch_roots(&self) -> Vec<(String, std::path::PathBuf)> {
+        let mut roots = vec![(String::new(), self.layout.folder.clone())];
+        roots.extend(
+            self.scan_options
+                .roots
+                .iter()
+                .map(|r| (r.key.clone(), r.path.clone())),
+        );
+        roots
+    }
+
     /// 設定ファイルが外から変わっていないか確かめて反映する。変わったキーを返す。
     pub fn settings_reload(&mut self) -> Result<Vec<String>, StoreError> {
         let changed = self.settings.reload()?;

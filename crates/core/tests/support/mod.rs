@@ -8,7 +8,11 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use rusqlite::Connection;
 use rusqlite::types::Value;
+use unnotator_core::clock::ManualClock;
+use unnotator_core::command::{Command, Target};
+use unnotator_core::id::SequentialIds;
 use unnotator_core::migrations::PROJECT_V1;
+use unnotator_core::project::{ProjectStore, StoreConfig};
 
 /// 一時フォルダ。破棄すると中身ごと消える。
 pub struct TempDir {
@@ -108,4 +112,99 @@ pub fn snapshot(conn: &Connection) -> Snapshot {
             (name, rows)
         })
         .collect()
+}
+
+/// 読み取り専用の接続（開いているプロジェクトの中身を、ストアを通さずに確かめる）。
+pub fn read_conn(folder: &Path) -> Connection {
+    Connection::open_with_flags(
+        folder.join(".unnotator/project.db"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .expect("project.db を読み取りで開ける")
+}
+
+/// 固定の時刻と連番の ID で、アセットを登録済みのプロジェクトを開く。
+/// アセットの登録は 004 の範囲なので、閉じた状態で行を直接入れて準備する。
+pub fn new_project(assets: &[&str]) -> (TempDir, ProjectStore) {
+    let dir = TempDir::new();
+    ProjectStore::create(dir.path()).unwrap().close().unwrap();
+    {
+        let conn = Connection::open(dir.path().join(".unnotator/project.db")).unwrap();
+        for id in assets {
+            insert_asset(&conn, id, &format!("{id}.bin"));
+        }
+    }
+    let store = ProjectStore::open_with(
+        dir.path(),
+        StoreConfig {
+            clock: Box::new(ManualClock::new(1_700_000_000_000)),
+            ids: Box::new(SequentialIds::starting_after(1_000)),
+        },
+    )
+    .unwrap();
+    (dir, store)
+}
+
+pub fn target(asset: &str) -> Target {
+    Target {
+        asset_id: asset.to_owned(),
+        item: None,
+    }
+}
+
+pub fn create_annotation(asset: &str, selector: &str) -> Command {
+    Command::CreateAnnotation {
+        id: None,
+        target: target(asset),
+        annotation_type: "com.example.shape/shape".to_owned(),
+        type_version: None,
+        selector_json: selector.to_owned(),
+        label_id: None,
+        attributes_json: None,
+        summary: None,
+        z_order: None,
+        source: None,
+    }
+}
+
+pub fn create_label(name: &str) -> Command {
+    Command::CreateLabel {
+        id: None,
+        name: name.to_owned(),
+        name_i18n_json: None,
+        color: "#112233".to_owned(),
+        hotkey: None,
+        sort_order: None,
+        hidden: None,
+        applies_to_json: None,
+    }
+}
+
+/// 1 列目（主キー）で引いた 1 行（列名→値）。
+pub fn row(
+    conn: &Connection,
+    table: &str,
+    id: &str,
+) -> Option<std::collections::BTreeMap<String, Value>> {
+    let mut stmt = conn
+        .prepare(&format!("SELECT * FROM {table} WHERE id = ?1"))
+        .unwrap();
+    let names: Vec<String> = stmt.column_names().map(str::to_owned).collect();
+    stmt.query_row([id], |r| {
+        let mut map = std::collections::BTreeMap::new();
+        for (i, name) in names.iter().enumerate() {
+            map.insert(name.clone(), r.get::<_, Value>(i)?);
+        }
+        Ok(map)
+    })
+    .ok()
+}
+
+pub fn text(s: &str) -> Value {
+    Value::Text(s.to_owned())
+}
+
+pub fn count(conn: &Connection, table: &str) -> i64 {
+    conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+        .unwrap()
 }

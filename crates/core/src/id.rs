@@ -66,6 +66,13 @@ pub struct SequentialIds {
     next: u64,
 }
 
+impl SequentialIds {
+    /// `n` の次の番号から始める。開き直しても前の ID と重ならないようにするため。
+    pub fn starting_after(n: u64) -> Self {
+        Self { next: n }
+    }
+}
+
 impl IdGenerator for SequentialIds {
     fn next_id(&mut self, _conn: &Connection, _now_ms: i64) -> Result<String, StoreError> {
         self.next += 1;

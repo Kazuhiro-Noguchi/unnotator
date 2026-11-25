@@ -2,6 +2,17 @@
 //!
 //! 媒体に関係しない（憲章 I）。`*_json` は JSON テキストで、コアは中身を解釈しない（research.md R3）。
 
+pub mod annotation;
+pub mod apply;
+pub mod attribute_schema;
+pub mod group;
+pub mod items;
+pub mod label;
+pub mod relation;
+pub mod rows;
+pub mod status;
+pub mod validate;
+
 use serde::{Deserialize, Serialize};
 
 /// 項目ごとの「変えない / 値にする / 空にする」。更新のパッチで使う。
@@ -143,6 +154,9 @@ pub struct LabelPatch {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Command {
     CreateAnnotation {
+        /// 呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。
+        #[serde(default)]
+        id: Option<String>,
         target: Target,
         #[serde(rename = "type")]
         annotation_type: String,
@@ -168,6 +182,9 @@ pub enum Command {
         id: String,
     },
     CreateRelation {
+        /// 呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。
+        #[serde(default)]
+        id: Option<String>,
         #[serde(rename = "type")]
         relation_type: String,
         from_id: String,
@@ -189,6 +206,9 @@ pub enum Command {
         id: String,
     },
     CreateGroup {
+        /// 呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。
+        #[serde(default)]
+        id: Option<String>,
         #[serde(rename = "type")]
         group_type: String,
         #[serde(default)]
@@ -225,6 +245,9 @@ pub enum Command {
         to_position: u32,
     },
     CreateLabel {
+        /// 呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。
+        #[serde(default)]
+        id: Option<String>,
         name: String,
         #[serde(default)]
         name_i18n_json: Option<String>,
@@ -401,6 +424,7 @@ mod tests {
         };
         let samples = vec![
             Command::CreateAnnotation {
+                id: None,
                 target: Target {
                     asset_id: "a".into(),
                     item: None,
@@ -420,6 +444,7 @@ mod tests {
             },
             Command::DeleteAnnotation { id: "n".into() },
             Command::CreateRelation {
+                id: None,
                 relation_type: "x/y".into(),
                 from_id: "a".into(),
                 to_id: "b".into(),
@@ -434,6 +459,7 @@ mod tests {
             },
             Command::DeleteRelation { id: "r".into() },
             Command::CreateGroup {
+                id: None,
                 group_type: "x/y".into(),
                 ordered: None,
                 label_id: None,
@@ -461,6 +487,7 @@ mod tests {
                 to_position: 0,
             },
             Command::CreateLabel {
+                id: None,
                 name: "n".into(),
                 name_i18n_json: None,
                 color: "#000000".into(),

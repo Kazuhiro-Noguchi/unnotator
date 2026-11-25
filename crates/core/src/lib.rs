@@ -7,6 +7,7 @@ pub mod db;
 pub mod error;
 pub mod event;
 pub mod extensions_list;
+pub mod fsio;
 pub mod history;
 pub mod id;
 pub mod project;

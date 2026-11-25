@@ -2,12 +2,12 @@
 //!
 //! 実行（`SaveJob::run`）は `ProjectStore` を借りないので、別スレッドで実行でき、その間も編集を続けられる。
 
-use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
 use crate::error::StoreError;
+use crate::fsio::{sync_directory, sync_file};
 
 /// 保存の実行の段階。テストで、その段階の直後に打ち切るために使う。
 #[doc(hidden)]
@@ -77,26 +77,6 @@ fn verify(path: &Path, project_id: &str, schema_version: u32) -> Result<(), Stor
             "保存した内容のプロジェクト ID が違う".to_owned(),
         ));
     }
-    Ok(())
-}
-
-fn sync_file(path: &Path) -> Result<(), StoreError> {
-    // Windows では、書き込みの権限が要る
-    let file = OpenOptions::new()
-        .write(true)
-        .open(path)
-        .map_err(io_error)?;
-    file.sync_all().map_err(io_error)
-}
-
-#[cfg(unix)]
-fn sync_directory(path: &Path) -> Result<(), StoreError> {
-    let directory = std::fs::File::open(path).map_err(io_error)?;
-    directory.sync_all().map_err(io_error)
-}
-
-#[cfg(not(unix))]
-fn sync_directory(_path: &Path) -> Result<(), StoreError> {
     Ok(())
 }
 

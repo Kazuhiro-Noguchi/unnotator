@@ -9,6 +9,9 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use unnotator_core::assets::media::{MediaRule, MediaRules};
+use unnotator_core::extensions_list::InstalledExtension;
+
 use crate::manifest::Manifest;
 use crate::manifest::text::Locales;
 use crate::names::{
@@ -197,6 +200,91 @@ impl Registry {
             Some(locales) => locales.resolve(text, language),
             None => text.to_owned(),
         }
+    }
+
+    /// 004 の判定規則を作る。利用者の上書きが先頭、そのあとは完全な媒体種別 ID の昇順
+    /// （導入や読み込みの順に依らず、同じ結果になる。research.md R11）。
+    pub fn media_rules(&self, state: &ExtensionsState) -> MediaRules {
+        let mut rules = MediaRules::new();
+        for (extension, media_type) in state.media_overrides() {
+            // 宣言が（無効などで）無い種別への上書きは、無視する
+            if self
+                .contribution(ContributionKind::MediaType, media_type)
+                .is_some()
+            {
+                let _ = rules.push(MediaRule {
+                    media_type: media_type.clone(),
+                    extensions: vec![extension.clone()],
+                    mime_types: Vec::new(),
+                });
+            }
+        }
+        for media in self.contributions(ContributionKind::MediaType) {
+            let strings = |key: &str| -> Vec<String> {
+                media
+                    .value
+                    .get(key)
+                    .and_then(Value::as_array)
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(str::to_owned))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
+            let _ = rules.push(MediaRule {
+                media_type: media.id.clone(),
+                extensions: strings("extensions"),
+                mime_types: strings("mimeTypes"),
+            });
+        }
+        rules
+    }
+
+    /// 拡張子 → `Content-Type` の対応。宣言から作る（コアは MIME の表を持たない）。
+    pub fn mime_rules(&self, state: &ExtensionsState) -> MimeRules {
+        let mut rules = MimeRules::default();
+        let first_mime = |media_type: &str| -> Option<String> {
+            self.contribution(ContributionKind::MediaType, media_type)
+                .and_then(|c| c.value.get("mimeTypes"))
+                .and_then(Value::as_array)
+                .and_then(|a| a.first())
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        };
+        for (extension, media_type) in state.media_overrides() {
+            if let Some(mime) = first_mime(media_type) {
+                rules.add(extension, mime);
+            }
+        }
+        for media in self.contributions(ContributionKind::MediaType) {
+            let Some(mime) = first_mime(&media.id) else {
+                continue;
+            };
+            for extension in media
+                .value
+                .get("extensions")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+            {
+                rules.add(extension, mime.clone());
+            }
+        }
+        rules
+    }
+
+    /// 使える（有効な）拡張機能の ID と版。004 の `extensions.json` の確認に渡す。
+    pub fn installed_list(&self) -> Vec<InstalledExtension> {
+        self.entries
+            .iter()
+            .filter(|e| matches!(e.status, ExtensionStatus::Enabled { .. }))
+            .map(|e| InstalledExtension {
+                id: e.id.clone(),
+                version: e.version.clone(),
+            })
+            .collect()
     }
 
     pub fn build(input: RegistryInput<'_>) -> Registry {
@@ -630,5 +718,40 @@ fn resolve_refs(
             }
         }
         _ => {}
+    }
+}
+
+/// 拡張子 → `Content-Type`（宣言された MIME の先頭）。先に足したものが勝つ。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MimeRules {
+    by_extension: BTreeMap<String, String>,
+}
+
+impl MimeRules {
+    /// 拡張子（`.txt`・`txt`・`.TXT` のどれでも）に、MIME を割り当てる。すでにあれば、何もしない。
+    pub fn add(&mut self, extension: &str, mime: String) {
+        let key = extension.trim_start_matches('.').to_lowercase();
+        if !key.is_empty() {
+            self.by_extension.entry(key).or_insert(mime);
+        }
+    }
+
+    /// ファイル名から。`a.tar.gz` は、長い拡張子（`tar.gz`）→ 短い拡張子（`gz`）の順に試す。
+    pub fn for_file_name(&self, name: &str) -> Option<&str> {
+        let lower = name.to_lowercase();
+        let body = lower.strip_prefix('.').unwrap_or(&lower);
+        let mut start = 0;
+        while let Some(dot) = body[start..].find('.') {
+            let ext = &body[start + dot + 1..];
+            if let Some(mime) = self.by_extension.get(ext) {
+                return Some(mime.as_str());
+            }
+            start += dot + 1;
+        }
+        None
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_extension.is_empty()
     }
 }

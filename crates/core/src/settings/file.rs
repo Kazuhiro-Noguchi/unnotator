@@ -166,7 +166,7 @@ mod tests {
         let file = tmp.file();
         std::fs::write(
             file.path(),
-            r#"{"com.example.zoom": {"fit": true}, "assets.watch": true, "future.key": [1,2]}"#,
+            r#"{"com.example.theme": {"wide": true}, "assets.watch": true, "future.key": [1,2]}"#,
         )
         .unwrap();
         let mut loaded = file.load();
@@ -174,7 +174,7 @@ mod tests {
         file.write(&loaded.map, 1).unwrap();
         let again = file.load();
         assert_eq!(again.map["assets.watch"], json!(false));
-        assert_eq!(again.map["com.example.zoom"], json!({"fit": true}));
+        assert_eq!(again.map["com.example.theme"], json!({"wide": true}));
         assert_eq!(again.map["future.key"], json!([1, 2]));
         assert!(again.warning.is_none());
     }

@@ -49,6 +49,18 @@ pub enum StoreError {
     /// 保存中に、もう一度保存・閉じるを指示した。
     #[error("保存中です")]
     AlreadySaving,
+    /// 走査を同時に 2 つ走らせた。
+    #[error("走査中です")]
+    ScanInProgress,
+    /// 設定の値が、型・範囲・重なりの検証に反する。
+    #[error("設定 {key} が正しくありません: {why}")]
+    InvalidSetting { key: String, why: String },
+    /// 設定ファイルが壊れていて読めない。
+    #[error("設定ファイルを読めません（{layer}）: {why}")]
+    SettingsUnreadable { layer: String, why: String },
+    /// ロックを持っていない（読み取り専用）ので書き込めない。
+    #[error("読み取り専用のため書き込めません")]
+    ReadOnly,
     /// テスト用の停止点で、保存を途中で打ち切った。
     #[error("保存を途中で打ち切りました（テスト用）")]
     Aborted,
@@ -75,6 +87,10 @@ impl StoreError {
             Self::NotOpen => "not_open",
             Self::UnsavedChanges => "unsaved_changes",
             Self::AlreadySaving => "already_saving",
+            Self::ScanInProgress => "scan_in_progress",
+            Self::InvalidSetting { .. } => "invalid_setting",
+            Self::SettingsUnreadable { .. } => "settings_unreadable",
+            Self::ReadOnly => "read_only",
             Self::Aborted => "aborted",
             Self::Io(_) => "io",
             Self::Sqlite(_) => "internal",
@@ -115,6 +131,22 @@ mod tests {
             (StoreError::NotOpen, "not_open"),
             (StoreError::UnsavedChanges, "unsaved_changes"),
             (StoreError::AlreadySaving, "already_saving"),
+            (StoreError::ScanInProgress, "scan_in_progress"),
+            (
+                StoreError::InvalidSetting {
+                    key: "k".into(),
+                    why: "w".into(),
+                },
+                "invalid_setting",
+            ),
+            (
+                StoreError::SettingsUnreadable {
+                    layer: "user".into(),
+                    why: "w".into(),
+                },
+                "settings_unreadable",
+            ),
+            (StoreError::ReadOnly, "read_only"),
             (StoreError::Aborted, "aborted"),
             (StoreError::Io(std::io::Error::other("x")), "io"),
             (

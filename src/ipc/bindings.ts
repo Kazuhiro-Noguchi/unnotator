@@ -61,6 +61,37 @@ export type AppInfo = {
 	version: string,
 };
 
+export type AssetMiss = {
+	asset_id: string,
+	base: AssetStamp,
+};
+
+export type AssetReclass = AssetReclass_Serialize | AssetReclass_Deserialize;
+
+export type AssetReclass_Deserialize = {
+	asset_id: string,
+	media_type?: string | null,
+};
+
+export type AssetReclass_Serialize = {
+	asset_id: string,
+	media_type: string | null,
+};
+
+/**  サイズと更新時刻。走査が写しを取った時点の値と、いまの行を比べて、食い違うものを飛ばすために使う。 */
+export type AssetStamp = {
+	/**  2^53 未満なので、TS の `number` で欠けない。 */
+	file_size: number | null,
+	mtime_ms: number | null,
+};
+
+export type AssetUpdate = {
+	asset_id: string,
+	/**  走査が見た、更新前の値。いまの行と違えば飛ばす。 */
+	base: AssetStamp,
+	now: AssetStamp,
+};
+
 export type AttributeScope = "global" | "label" | "annotation_type" | "relation_type" | "group_type" | "asset" | "item";
 
 export type Change = {
@@ -94,6 +125,8 @@ id?: string | null; type: string; from_id: string; to_id: string; directed?: boo
 id?: string | null; type: string; ordered?: boolean | null; label_id?: string | null; attributes_json?: string | null; members?: string[]; source?: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Deserialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at?: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id?: string | null; name: string; name_i18n_json?: string | null; color: string; hotkey?: number | null; sort_order?: number | null; hidden?: boolean | null; applies_to_json?: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Deserialize } | { kind: "delete_label"; id: string; disposition?: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
+{ kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
 { kind: "transaction"; commands: Command_Deserialize[] };
 
@@ -106,6 +139,8 @@ id: string | null; type: string; from_id: string; to_id: string; directed: boole
 id: string | null; type: string; ordered: boolean | null; label_id: string | null; attributes_json: string | null; members: string[]; source: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Serialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id: string | null; name: string; name_i18n_json: string | null; color: string; hotkey: number | null; sort_order: number | null; hidden: boolean | null; applies_to_json: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Serialize } | { kind: "delete_label"; id: string; disposition: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
+{ kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。 */
 { kind: "transaction"; commands: Command_Serialize[] };
 
@@ -182,6 +217,26 @@ export type LabelUsage = {
 	attribute_schemas: number,
 };
 
+export type NewAsset = NewAsset_Serialize | NewAsset_Deserialize;
+
+export type NewAsset_Deserialize = {
+	/**  呼び出し側が ID を決めるとき。省略するとコアが生成する。 */
+	id?: string | null,
+	root_key: string,
+	rel_path: string,
+	media_type?: string | null,
+	stamp: AssetStamp,
+};
+
+export type NewAsset_Serialize = {
+	/**  呼び出し側が ID を決めるとき。省略するとコアが生成する。 */
+	id: string | null,
+	root_key: string,
+	rel_path: string,
+	media_type: string | null,
+	stamp: AssetStamp,
+};
+
 /**  `project_open` の結果。 */
 export type OpenResult = OpenResult_Serialize | OpenResult_Deserialize;
 
@@ -195,7 +250,9 @@ export type OpenResult_Serialize = { kind: "opened"; info: ProjectInfo_Serialize
 /**  前回の作業用データが残っている。`recovery_restore` か `recovery_discard` で選ぶ。 */
 { kind: "recovery_available"; candidate: RecoveryCandidate_Serialize };
 
-export type Origin = "apply" | "undo" | "redo";
+export type Origin = "apply" | "undo" | "redo" | 
+/**  走査・見張りの反映（Undo の対象外）。 */
+"sync";
 
 /**  変更の差分。`apply_command`・`undo`・`redo` がコミットされたあとに通知する。 */
 export type ProjectChanged = ChangeSet;

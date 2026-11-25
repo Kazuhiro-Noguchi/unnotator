@@ -108,6 +108,8 @@ pub struct ProjectStore {
     unsaved: u32,
     last_change_at: Option<i64>,
     saving: bool,
+    /// 直前の `apply_command` で、食い違いなどのため飛ばした行の数（`SyncAssets`）。
+    last_sync_skipped: u32,
     state_subscribers: Vec<StateSubscriber>,
 }
 
@@ -389,6 +391,7 @@ impl ProjectStore {
             unsaved: 0,
             last_change_at: None,
             saving: false,
+            last_sync_skipped: 0,
             state_subscribers: Vec::new(),
         })
     }
@@ -431,6 +434,11 @@ impl ProjectStore {
         label::usage(&self.conn, label_id)
     }
 
+    /// 直前の `apply_command`（`SyncAssets`）が飛ばした行の数。
+    pub fn last_sync_skipped(&self) -> u32 {
+        self.last_sync_skipped
+    }
+
     pub fn undo_state(&self) -> UndoState {
         self.undo.state()
     }
@@ -455,17 +463,25 @@ impl ProjectStore {
         let ops = {
             let mut ctx = Ctx::new(Recorder::new(&tx), now, self.ids.as_mut());
             run(&mut ctx, &command)?;
+            self.last_sync_skipped = ctx.skipped;
             ctx.into_recorder().into_ops()
         };
-        self.hub.run_before_commit(&tx, Origin::Apply, &ops)?;
+        let undoable = command.undoable();
+        let origin = if undoable {
+            Origin::Apply
+        } else {
+            Origin::Sync
+        };
+        self.hub.run_before_commit(&tx, origin, &ops)?;
         tx.commit()?;
         let entry = EntryMeta {
             label: command.name().to_owned(),
             source: command.source().unwrap_or("user").to_owned(),
             command_json: json_of(&command),
-            inverse: ops.clone(),
+            // Undo に積まない操作は、元に戻す情報を持たない（working.db が正。research.md R12）
+            inverse: if undoable { ops.clone() } else { Vec::new() },
         };
-        Ok(self.finish(Origin::Apply, ops, &entry))
+        Ok(self.finish(origin, ops, &entry))
     }
 
     /// 直前の操作を元に戻す。戻す操作が無ければ `None`。
@@ -732,7 +748,7 @@ impl PendingRecovery {
         // 記録の中身が古い構造を指すので、移行したときは、履歴を空にする（FR-022）
         if migrated_from.is_none() {
             let mut rebuilt: Vec<Vec<RowOp>> = Vec::new();
-            for entry in journal.recent(UNDO_LIMIT)? {
+            for entry in journal.recent_undoable(UNDO_LIMIT)? {
                 match ops_from_json(&entry.inverse_json) {
                     Ok(ops) => rebuilt.push(ops),
                     Err(unreadable) => {
@@ -764,6 +780,7 @@ impl PendingRecovery {
             unsaved,
             last_change_at: session.last_change_at,
             saving: false,
+            last_sync_skipped: 0,
             state_subscribers: Vec::new(),
         })
     }

@@ -19,6 +19,8 @@ pub enum Origin {
     Apply,
     Undo,
     Redo,
+    /// 走査・見張りの反映（Undo の対象外）。
+    Sync,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

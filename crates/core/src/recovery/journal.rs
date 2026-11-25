@@ -343,10 +343,19 @@ impl Journal {
 
     /// 新しい順に、最大 `limit` 件。
     pub fn recent(&self, limit: usize) -> Result<Vec<Entry>, StoreError> {
-        let mut stmt = self.conn.prepare(
+        self.recent_where("1 = 1", limit)
+    }
+
+    /// 新しい順に、Undo の再構築に使える記録を最大 `limit` 件。走査・見張りの反映（`source = 'sync'`）は除く。
+    pub fn recent_undoable(&self, limit: usize) -> Result<Vec<Entry>, StoreError> {
+        self.recent_where("source <> 'sync'", limit)
+    }
+
+    fn recent_where(&self, condition: &str, limit: usize) -> Result<Vec<Entry>, StoreError> {
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT seq, at, label, source, asset_id, command_json, inverse_json \
-             FROM entries ORDER BY seq DESC LIMIT ?1",
-        )?;
+             FROM entries WHERE {condition} ORDER BY seq DESC LIMIT ?1"
+        ))?;
         let rows = stmt
             .query_map([i64::try_from(limit).unwrap_or(i64::MAX)], |row| {
                 Ok(Entry {

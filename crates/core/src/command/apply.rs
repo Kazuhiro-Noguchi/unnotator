@@ -1,6 +1,6 @@
 //! 適用の入口。1 回の適用は 1 トランザクションで、行の変更を `Recorder` に記録する。
 
-use super::{Command, annotation, attribute_schema, group, label, relation, status};
+use super::{Command, annotation, asset, attribute_schema, group, label, relation, status};
 use crate::error::StoreError;
 use crate::history::recorder::Recorder;
 use crate::id::IdGenerator;
@@ -9,12 +9,19 @@ use crate::id::IdGenerator;
 pub struct Ctx<'a> {
     pub rec: Recorder<'a>,
     pub now: i64,
+    /// 食い違いなどで飛ばした行の数（`SyncAssets`）。
+    pub skipped: u32,
     ids: &'a mut dyn IdGenerator,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(rec: Recorder<'a>, now: i64, ids: &'a mut dyn IdGenerator) -> Self {
-        Self { rec, now, ids }
+        Self {
+            rec,
+            now,
+            skipped: 0,
+            ids,
+        }
     }
 
     /// 呼び出し側が ID を決めていればそれを、無ければ新しく生成する。
@@ -70,5 +77,6 @@ pub fn run(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
         Command::SetAssetStatus { .. } | Command::SetItemStatus { .. } => {
             status::handle(ctx, command)
         }
+        Command::SyncAssets { .. } => asset::handle(ctx, command),
     }
 }

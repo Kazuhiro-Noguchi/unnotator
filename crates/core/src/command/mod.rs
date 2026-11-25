@@ -4,6 +4,7 @@
 
 pub mod annotation;
 pub mod apply;
+pub mod asset;
 pub mod attribute_schema;
 pub mod group;
 pub mod items;
@@ -287,6 +288,19 @@ pub enum Command {
         item: ItemRef,
         status: Status,
     },
+    /// 走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。
+    SyncAssets {
+        #[serde(default)]
+        added: Vec<asset::NewAsset>,
+        #[serde(default)]
+        updated: Vec<asset::AssetUpdate>,
+        #[serde(default)]
+        went_missing: Vec<asset::AssetMiss>,
+        #[serde(default)]
+        restored: Vec<asset::AssetUpdate>,
+        #[serde(default)]
+        reclassified: Vec<asset::AssetReclass>,
+    },
     /// 全体を 1 つの適用・1 つの Undo 単位にする。入れ子にはできない。
     Transaction {
         commands: Vec<Command>,
@@ -314,6 +328,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "delete_attribute_schema",
     "set_asset_status",
     "set_item_status",
+    "sync_assets",
     "transaction",
 ];
 
@@ -340,7 +355,17 @@ impl Command {
             Self::DeleteAttributeSchema { .. } => "delete_attribute_schema",
             Self::SetAssetStatus { .. } => "set_asset_status",
             Self::SetItemStatus { .. } => "set_item_status",
+            Self::SyncAssets { .. } => "sync_assets",
             Self::Transaction { .. } => "transaction",
+        }
+    }
+
+    /// Undo の履歴に積む操作か。走査・見張りの反映（`SyncAssets`）は積まない。
+    pub fn undoable(&self) -> bool {
+        match self {
+            Self::SyncAssets { .. } => false,
+            Self::Transaction { commands } => commands.iter().all(Command::undoable),
+            _ => true,
         }
     }
 
@@ -351,6 +376,7 @@ impl Command {
             | Self::CreateRelation { source, .. }
             | Self::CreateGroup { source, .. } => source.as_deref(),
             Self::Transaction { commands } => commands.iter().find_map(Command::source),
+            Self::SyncAssets { .. } => Some("sync"),
             _ => None,
         }
     }
@@ -531,6 +557,13 @@ mod tests {
             Command::SetItemStatus {
                 item,
                 status: Status::Review,
+            },
+            Command::SyncAssets {
+                added: vec![],
+                updated: vec![],
+                went_missing: vec![],
+                restored: vec![],
+                reclassified: vec![],
             },
             Command::Transaction { commands: vec![] },
         ];

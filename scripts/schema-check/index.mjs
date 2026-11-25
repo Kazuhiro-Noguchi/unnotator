@@ -33,6 +33,10 @@ export const steps = [
     name: "拡張 API の型検査",
     run: sh("pnpm", ["exec", "tsc", "-p", "packages/plugin-api"]),
   },
+  {
+    name: "拡張 API のパッケージ",
+    run: sh("node", ["scripts/schema-check/plugin-api-pack.mjs"]),
+  },
 ];
 
 /** 前提が欠けていれば、足りないものを名指しした文のリストを返す。 */

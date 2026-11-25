@@ -1,0 +1,17 @@
+{
+  "name": "@unnotator/plugin-api",
+  "version": "1.0.0",
+  "description": "Type definitions for unnotator extensions.",
+  "license": "MIT",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts"
+    }
+  },
+  "files": [
+    "index.d.ts",
+    "LICENSE",
+    "README.md"
+  ]
+}

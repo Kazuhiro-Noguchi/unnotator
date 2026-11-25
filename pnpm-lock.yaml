@@ -40,6 +40,8 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1(vite@8.3.8)
 
+  packages/plugin-api: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':

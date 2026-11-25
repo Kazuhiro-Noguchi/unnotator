@@ -1,14 +1,17 @@
 //! unnotator-core
 
+pub mod assets;
 pub mod clock;
 pub mod command;
 pub mod db;
 pub mod error;
 pub mod event;
+pub mod extensions_list;
 pub mod history;
 pub mod id;
 pub mod project;
 pub mod recovery;
+pub mod settings;
 
 /// DB スキーマ（契約の正本の SQL をそのまま埋め込む）。
 pub mod migrations {

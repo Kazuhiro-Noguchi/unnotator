@@ -403,3 +403,24 @@ pub fn create_and_open(dir: &TempDir) -> ProjectStore {
         .unwrap();
     open_store(dir.path())
 }
+
+/// テスト用の判定規則（媒体の語を使わない種別名）。
+pub fn rules_for_tests() -> unnotator_core::assets::media::MediaRules {
+    use unnotator_core::assets::media::{MediaRule, MediaRules};
+    let mut rules = MediaRules::new();
+    rules
+        .push(MediaRule {
+            media_type: "test/text".to_owned(),
+            extensions: vec!["txt".to_owned(), "md".to_owned()],
+            mime_types: vec!["text/plain".to_owned()],
+        })
+        .expect("規則を足せる");
+    rules
+        .push(MediaRule {
+            media_type: "test/binary".to_owned(),
+            extensions: vec!["bin".to_owned()],
+            mime_types: vec![],
+        })
+        .expect("規則を足せる");
+    rules
+}

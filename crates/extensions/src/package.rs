@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use unnotator_core::assets::path::nfc;
-use unnotator_core::fsio::sync_directory;
 
 use crate::error::ExtensionError;
 use crate::limits::{
@@ -149,9 +148,8 @@ pub fn install_package_with_crash(
             std::process::abort();
         }
         std::fs::rename(&staging, &dest)?;
-        if let Some(parent) = dest.parent() {
-            let _ = sync_directory(parent);
-        }
+        // フォルダの fsync はしない: 電源断で名前の置き換えが失われても、拡張機能が入っていないだけで、
+        // 利用者のデータは失われない（取り込み直せる）。100 件の取り込みの時間（SC-001）にも効く。
         Ok(InstallOutcome::Installed { id, version })
     })();
     // 置き換えられなかった（失敗・既にある）作業フォルダは消す

@@ -950,7 +950,7 @@ mod tests {
     }
 
     #[test]
-    fn dev_mode_gates_dev_folders_and_install_is_not_available_yet() {
+    fn dev_mode_gates_dev_folders_and_install_reports_bad_packages() {
         let temp = Temp::new();
         let (rt, serve, project) = parts(&temp);
         let dev = temp.0.join("dev-ext");
@@ -979,6 +979,14 @@ mod tests {
         assert!(dev.is_dir(), "フォルダは残る");
         assert_eq!(
             install(&rt, &serve, &project, "/nowhere.unnoplugin")
+                .unwrap_err()
+                .code,
+            "io"
+        );
+        let bad = temp.0.join("bad.unnoplugin");
+        std::fs::write(&bad, b"not a zip").expect("書ける");
+        assert_eq!(
+            install(&rt, &serve, &project, &bad.to_string_lossy())
                 .unwrap_err()
                 .code,
             "package"

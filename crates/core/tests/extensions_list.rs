@@ -184,3 +184,61 @@ fn version_ranges_are_interpreted_as_documented() {
         );
     }
 }
+
+// ---- 005: 版の比較（最新の適合版を選ぶため） ----
+
+mod compare {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+
+    use unnotator_core::extensions_list::{compare_versions, version_satisfies};
+
+    #[test]
+    fn major_minor_and_patch_are_compared_as_numbers() {
+        assert_eq!(compare_versions("1.2.3", "1.2.3"), Some(Equal));
+        assert_eq!(compare_versions("1.2.3", "1.2.4"), Some(Less));
+        assert_eq!(compare_versions("1.10.0", "1.9.9"), Some(Greater));
+        assert_eq!(compare_versions("2.0.0", "10.0.0"), Some(Less));
+    }
+
+    #[test]
+    fn a_prerelease_is_older_than_its_release() {
+        assert_eq!(compare_versions("1.0.0-beta.1", "1.0.0"), Some(Less));
+        assert_eq!(compare_versions("1.0.0", "1.0.0-rc.1"), Some(Greater));
+        assert_eq!(compare_versions("1.0.0-alpha", "1.0.0-beta"), Some(Less));
+        assert_eq!(
+            compare_versions("1.0.0-beta.2", "1.0.0-beta.10"),
+            Some(Less)
+        );
+        assert_eq!(
+            compare_versions("1.0.0-1", "1.0.0-alpha"),
+            Some(Less),
+            "数字だけの識別子は、文字を含むものより小さい"
+        );
+    }
+
+    #[test]
+    fn build_metadata_is_ignored() {
+        assert_eq!(compare_versions("1.0.0+a", "1.0.0+b"), Some(Equal));
+    }
+
+    #[test]
+    fn an_unreadable_version_has_no_order() {
+        assert_eq!(
+            compare_versions("1.0", "1.0.0"),
+            None,
+            "完全な x.y.z だけを比べる"
+        );
+        assert_eq!(compare_versions("abc", "1.0.0"), None);
+        assert_eq!(compare_versions("1.0.0", ""), None);
+    }
+
+    #[test]
+    fn the_newest_satisfying_version_can_be_picked() {
+        let installed = ["1.0.0", "1.4.2", "1.10.0", "2.0.0", "1.9.9"];
+        let newest = installed
+            .iter()
+            .filter(|v| version_satisfies("^1.0.0", v) == Some(true))
+            .max_by(|a, b| compare_versions(a, b).unwrap_or(Equal));
+        assert_eq!(newest, Some(&"1.10.0"));
+    }
+}

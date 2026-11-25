@@ -220,3 +220,76 @@ pub fn version_satisfies(range: &str, version: &str) -> Option<bool> {
     };
     Some(satisfied)
 }
+
+/// 2 つの版を、SemVer の優先順位で比べる。`x.y.z`（`-プレリリース`・`+ビルド` は任意）だけを読む。
+/// どちらかを読めなければ `None`。ビルドのメタ情報は無視する。
+pub fn compare_versions(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    let (core_a, pre_a) = parse_full_version(a)?;
+    let (core_b, pre_b) = parse_full_version(b)?;
+    match core_a.cmp(&core_b) {
+        std::cmp::Ordering::Equal => {}
+        other => return Some(other),
+    }
+    Some(match (pre_a, pre_b) {
+        (None, None) => std::cmp::Ordering::Equal,
+        // プレリリースは、同じ版のリリースより古い
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(x), Some(y)) => compare_prerelease(&x, &y),
+    })
+}
+
+fn parse_full_version(text: &str) -> Option<(Version, Option<Vec<String>>)> {
+    let text = text.trim();
+    let without_build = text.split('+').next()?;
+    let (core, pre) = match without_build.split_once('-') {
+        Some((core, pre)) => (core, Some(pre)),
+        None => (without_build, None),
+    };
+    let parts: Vec<&str> = core.split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let mut numbers = [0u64; 3];
+    for (i, part) in parts.iter().enumerate() {
+        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        numbers[i] = part.parse().ok()?;
+    }
+    let pre = match pre {
+        None => None,
+        Some(p) => {
+            let ids: Vec<String> = p.split('.').map(str::to_owned).collect();
+            if ids.iter().any(|id| {
+                id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            }) {
+                return None;
+            }
+            Some(ids)
+        }
+    };
+    Some(((numbers[0], numbers[1], numbers[2]), pre))
+}
+
+fn compare_prerelease(a: &[String], b: &[String]) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    for (x, y) in a.iter().zip(b.iter()) {
+        let numeric = |s: &str| s.bytes().all(|c| c.is_ascii_digit());
+        let order = match (numeric(x), numeric(y)) {
+            (true, true) => {
+                // 桁が多い数字は、先に長さで比べる（u64 に収まらない場合のため）
+                let (xt, yt) = (x.trim_start_matches('0'), y.trim_start_matches('0'));
+                xt.len().cmp(&yt.len()).then_with(|| xt.cmp(yt))
+            }
+            // 数字だけの識別子は、文字を含むものより小さい
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            (false, false) => x.cmp(y),
+        };
+        if order != Ordering::Equal {
+            return order;
+        }
+    }
+    a.len().cmp(&b.len())
+}

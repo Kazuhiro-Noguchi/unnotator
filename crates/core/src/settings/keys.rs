@@ -87,6 +87,12 @@ pub const CORE_KEYS: &[CoreKey] = &[
         kind: ValueKind::StringList,
         default_json: "[]",
     },
+    // エクスプローラーの開いたフォルダ（007）。プロジェクトのフォルダごとの一覧。
+    CoreKey {
+        name: "ui.explorer",
+        kind: ValueKind::Json,
+        default_json: "{}",
+    },
 ];
 
 /// コアの項目の名前の領域。この領域の知らない名前は、打ち間違いとして拒む。
@@ -206,6 +212,15 @@ mod tests {
         );
         assert_eq!(default_value("ui.keybindings"), Some(json!([])));
         assert_eq!(default_value("ui.recentProjects"), Some(json!([])));
+    }
+
+    #[test]
+    fn ui_explorer_exists_with_an_empty_default_and_is_a_size_limited_json() {
+        assert!(core_key("ui.explorer").is_some());
+        assert_eq!(default_value("ui.explorer"), Some(json!({})));
+        assert!(validate("ui.explorer", &json!({"/p": ["a:b"]})).is_ok());
+        let big = "x".repeat(1024 * 1024 + 1);
+        assert!(validate("ui.explorer", &json!({ "/p": [big] })).is_err());
     }
 
     #[test]

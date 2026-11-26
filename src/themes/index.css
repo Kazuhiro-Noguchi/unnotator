@@ -3,6 +3,12 @@
 @import "./shape.css";
 @import "../shell/shell.css";
 
+html,
+body {
+  height: 100%;
+  overflow: clip;
+}
+
 body {
   margin: 0;
   font:

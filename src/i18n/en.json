@@ -104,5 +104,8 @@
   "notify.centerClose": "Close notifications",
   "notify.removeAll": "Delete all notifications",
   "notify.remove": "Delete this notification",
-  "notify.empty": "No new notifications"
+  "notify.empty": "No new notifications",
+  "notify.showFull": "Show full text",
+  "notify.showLess": "Show less",
+  "dev.demoLongText": "Demo: a long notification. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button.  /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }

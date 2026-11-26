@@ -198,6 +198,7 @@ const ICONS: Record<string, string[]> = {
   ],
   close: ["M18 6 6 18", "m6 6 12 12"],
   "chevron-down": ["m6 9 6 6 6-6"],
+  "chevron-up": ["m18 15-6-6-6 6"],
   "chevron-right": ["m9 18 6-6-6-6"],
   command: [
     "M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3",

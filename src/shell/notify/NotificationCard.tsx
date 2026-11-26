@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { format } from "../../i18n";
 import { Icon } from "../Icon";
 import { useT } from "../solid";
@@ -26,8 +26,18 @@ export function NotificationCard(props: {
   closeLabel: string;
   /** 操作のボタンを押した後の動き（既定は onClose）。 */
   onAction?: () => void;
+  /** 本文を 3 行までにして、あふれるときは「全文を表示」ボタンを出す（トースト用）。 */
+  clamp?: boolean;
 }) {
   const t = useT();
+  const [full, setFull] = createSignal(false);
+  const [overflowing, setOverflowing] = createSignal(false);
+  let text: HTMLParagraphElement | undefined;
+  onMount(() => {
+    // 3 行に収まらない本文のときだけ、ボタンを出す。
+    if (props.clamp && text)
+      setOverflowing(text.scrollHeight > text.clientHeight + 1);
+  });
   return (
     <div
       class={`toast ${props.item.level}`}
@@ -37,10 +47,28 @@ export function NotificationCard(props: {
         <Icon name={LEVEL_ICON[props.item.level]} size={16} />
       </span>
       <div class="toast-body">
-        <p class="toast-text">
+        <p
+          ref={text}
+          class="toast-text"
+          classList={{ clamped: props.clamp === true && !full() }}
+        >
           <span class="toast-level">{t(`notify.${props.item.level}`)}</span>{" "}
           {props.item.text}
         </p>
+        <Show when={overflowing()}>
+          <button
+            type="button"
+            class="toast-expand"
+            aria-expanded={full()}
+            onClick={() => setFull(!full())}
+          >
+            <Icon
+              name={full() ? "$(chevron-up)" : "$(chevron-down)"}
+              size={14}
+            />
+            {full() ? t("notify.showLess") : t("notify.showFull")}
+          </button>
+        </Show>
       </div>
       <div class="toast-tools">
         <Show when={props.item.settings}>

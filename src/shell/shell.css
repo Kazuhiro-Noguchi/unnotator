@@ -773,6 +773,30 @@ fieldset.ribbon-group {
 .toast-text {
   margin: 0;
   line-height: 20px;
+  /* 長い文字列（パスなど）も、カードの中で折り返す。 */
+  overflow-wrap: anywhere;
+}
+
+/* トーストの本文は 3 行まで。全文は、ボタンで開く。 */
+.toast-text.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.toast-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .toast-tools {

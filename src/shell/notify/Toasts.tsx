@@ -17,6 +17,7 @@ export function Toasts() {
         {(item) => (
           <NotificationCard
             item={item}
+            clamp
             closeLabel={t("notify.dismiss")}
             // 自分で閉じた通知は、通知センターにも残さない。
             onClose={() => notifyStore.remove(item.id)}

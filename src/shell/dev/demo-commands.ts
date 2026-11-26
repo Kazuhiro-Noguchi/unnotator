@@ -109,6 +109,17 @@ export function installDemoCommands({
     "$(close)",
   );
   declare(
+    "dev.demo.longToast",
+    "長い通知",
+    "Long notification",
+    () =>
+      notify("warn", t("dev.demoLongText"), {
+        source: "Demo",
+        actions: [{ label: t("dev.demoYes"), primary: true, run: () => {} }],
+      }),
+    "$(problems)",
+  );
+  declare(
     "dev.demo.actionToast",
     "操作つきの通知",
     "Notification with actions",

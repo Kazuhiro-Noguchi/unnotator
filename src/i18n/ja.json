@@ -104,5 +104,8 @@
   "notify.centerClose": "通知センターを閉じる",
   "notify.removeAll": "すべての通知を削除",
   "notify.remove": "この通知を削除",
-  "notify.empty": "新しい通知はありません"
+  "notify.empty": "新しい通知はありません",
+  "notify.showFull": "全文を表示",
+  "notify.showLess": "折りたたむ",
+  "dev.demoLongText": "デモ: 長い通知です。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。 /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }

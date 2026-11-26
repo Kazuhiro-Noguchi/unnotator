@@ -88,5 +88,21 @@
   "problems.times": "({count} times)",
   "region.activityBar": "Activity bar",
   "recent.none": "No recent projects.",
-  "settings.category.general": "General"
+  "settings.category.general": "General",
+  "dev.demoRan": "Demo: ran {title} (placeholder)",
+  "notify.source": "Source: {source}",
+  "notify.settings": "Notification settings",
+  "dev.demoActionText": "Demo: a notification with actions. It closes when you pick one.",
+  "dev.demoSettings": "Demo: opened the settings",
+  "dev.demoYes": "Yes",
+  "dev.demoAlways": "Always",
+  "dev.demoNever": "Never",
+  "dev.demoInfoText": "Demo: an info notification.",
+  "dev.demoWarnText": "Demo: a warning notification. Please check.",
+  "dev.demoErrorText": "Demo: an error notification. It stays until closed.",
+  "notify.center": "Notifications",
+  "notify.centerClose": "Close notifications",
+  "notify.removeAll": "Delete all notifications",
+  "notify.remove": "Delete this notification",
+  "notify.empty": "No new notifications"
 }

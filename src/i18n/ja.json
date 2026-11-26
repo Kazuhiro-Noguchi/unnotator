@@ -88,5 +88,21 @@
   "problems.times": "（{count} 回）",
   "region.activityBar": "アクティビティバー",
   "recent.none": "最近使ったプロジェクトはありません。",
-  "settings.category.general": "一般"
+  "settings.category.general": "一般",
+  "dev.demoRan": "デモ: {title} を実行しました（仮の処理）",
+  "notify.source": "ソース: {source}",
+  "notify.settings": "この通知の設定",
+  "dev.demoActionText": "デモ: 操作つきの通知です。どれかを選ぶと閉じます。",
+  "dev.demoSettings": "デモ: 設定を開きました",
+  "dev.demoYes": "はい",
+  "dev.demoAlways": "いつも",
+  "dev.demoNever": "しない",
+  "dev.demoInfoText": "デモ: 情報の通知です。",
+  "dev.demoWarnText": "デモ: 警告の通知です。確認してください。",
+  "dev.demoErrorText": "デモ: エラーの通知です。閉じるまで残ります。",
+  "notify.center": "通知",
+  "notify.centerClose": "通知センターを閉じる",
+  "notify.removeAll": "すべての通知を削除",
+  "notify.remove": "この通知を削除",
+  "notify.empty": "新しい通知はありません"
 }

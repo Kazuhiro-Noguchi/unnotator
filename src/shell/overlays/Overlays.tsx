@@ -43,7 +43,7 @@ function FolderDialog() {
           <div class="dialog-actions">
             <button
               type="button"
-              class="button"
+              class="button primary"
               onClick={() => request().resolve(path())}
             >
               {t("dialog.ok")}

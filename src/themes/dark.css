@@ -1,44 +1,56 @@
 /* ダークのトークン。名前は light.css と同じでなければならない（テストで検査する）。 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #1a1a1a;
-    --color-fg: #f0f0f0;
-    --color-fg-muted: #a1a1aa;
-    --color-fg-disabled: #8b8b94;
-    --color-border: #3f3f46;
-    --color-surface: #242428;
-    --color-surface-hover: #2e2e34;
-    --color-surface-active: #3a3a42;
-    --color-accent: #60a5fa;
-    --color-accent-fg: #0b1220;
-    --color-selection: #1e3a5f;
-    --color-danger: #f87171;
-    --color-warning: #fbbf24;
-    --color-info: #38bdf8;
-    --color-success: #4ade80;
-    --color-focus: #93c5fd;
-    --color-backdrop: rgb(0 0 0 / 60%);
+    --color-bg: #111318;
+    --color-fg: #e2e2e9;
+    --color-fg-muted: #c3c6cf;
+    --color-fg-disabled: #8d9199;
+    --color-border: #43474e;
+    --color-surface: #1d2024;
+    --color-surface-low: #191c20;
+    --color-surface-hover: #282a2f;
+    --color-surface-active: #33353a;
+    --color-surface-high: #272a2f;
+    --color-outline: #8d9199;
+    --color-inverse-surface: #e2e2e9;
+    --color-inverse-fg: #2e3135;
+    --color-accent: #a8c7fa;
+    --color-accent-fg: #062e6f;
+    --color-selection: #0842a0;
+    --color-on-selection: #d3e3fd;
+    --color-danger: #ffb4ab;
+    --color-warning: #e8b84a;
+    --color-info: #8dcdff;
+    --color-success: #7bdb8f;
+    --color-focus: #a8c7fa;
+    --color-backdrop: rgb(0 0 0 / 32%);
     --color-shadow: rgb(0 0 0 / 50%);
   }
 }
 
 :root[data-theme="dark"] {
-  --color-bg: #1a1a1a;
-  --color-fg: #f0f0f0;
-  --color-fg-muted: #a1a1aa;
-  --color-fg-disabled: #8b8b94;
-  --color-border: #3f3f46;
-  --color-surface: #242428;
-  --color-surface-hover: #2e2e34;
-  --color-surface-active: #3a3a42;
-  --color-accent: #60a5fa;
-  --color-accent-fg: #0b1220;
-  --color-selection: #1e3a5f;
-  --color-danger: #f87171;
-  --color-warning: #fbbf24;
-  --color-info: #38bdf8;
-  --color-success: #4ade80;
-  --color-focus: #93c5fd;
-  --color-backdrop: rgb(0 0 0 / 60%);
+  --color-bg: #111318;
+  --color-fg: #e2e2e9;
+  --color-fg-muted: #c3c6cf;
+  --color-fg-disabled: #8d9199;
+  --color-border: #43474e;
+  --color-surface: #1d2024;
+  --color-surface-low: #191c20;
+  --color-surface-hover: #282a2f;
+  --color-surface-active: #33353a;
+  --color-surface-high: #272a2f;
+  --color-outline: #8d9199;
+  --color-inverse-surface: #e2e2e9;
+  --color-inverse-fg: #2e3135;
+  --color-accent: #a8c7fa;
+  --color-accent-fg: #062e6f;
+  --color-selection: #0842a0;
+  --color-on-selection: #d3e3fd;
+  --color-danger: #ffb4ab;
+  --color-warning: #e8b84a;
+  --color-info: #8dcdff;
+  --color-success: #7bdb8f;
+  --color-focus: #a8c7fa;
+  --color-backdrop: rgb(0 0 0 / 32%);
   --color-shadow: rgb(0 0 0 / 50%);
 }

@@ -17,6 +17,7 @@ import {
 } from "./shell/layout/project-context";
 import { Shell } from "./shell/layout/Shell";
 import { normalizeLayout } from "./shell/layout/state";
+import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
 import { Overlays } from "./shell/overlays/Overlays";
 import { reportProblem } from "./shell/problems";
@@ -119,6 +120,16 @@ provideCoreHandlers({
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");
+// 開発ビルドだけ: 画面の部品を押して確かめられるよう、仮の処理（デモ）を結ぶ。
+if (import.meta.env.DEV) {
+  void import("./shell/dev/demo-commands").then((demo) =>
+    demo.installDemoCommands({
+      commands: commandRegistry,
+      ctx,
+      notify,
+    }),
+  );
+}
 registerCoreViews(
   views,
   () => void commandRegistry.execute("core.project.open"),
@@ -192,6 +203,7 @@ export function App() {
     <>
       <Shell ribbon={<Ribbon />} statusBar={<StatusBar />} />
       <Toasts />
+      <NotificationCenter />
       <Overlays />
     </>
   );

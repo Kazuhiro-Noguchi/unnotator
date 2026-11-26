@@ -155,7 +155,7 @@ function KeysPage() {
           {t("settings.keys.invalid")}
         </p>
       </Show>
-      <button type="button" class="button" onClick={save}>
+      <button type="button" class="button primary" onClick={save}>
         {t("settings.keys.save")}
       </button>
       <h4>{t("settings.keys.list")}</h4>

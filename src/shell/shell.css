@@ -66,7 +66,7 @@
 
 .tab-strip button:hover {
   color: var(--color-fg);
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
 }
 
 .tab-strip button[aria-selected="true"] {
@@ -99,23 +99,32 @@
   text-align: center;
 }
 
+/* 枠つきボタン（outlined）。枠は背景との対比 3:1 以上（WCAG 1.4.11）。主な操作は .primary（塗りつぶし）。 */
 .button {
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-fg);
-  padding: 4px 12px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-accent);
+  padding: 4px 16px;
   font: inherit;
   cursor: pointer;
 }
 
+.button.primary {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
 .button:disabled {
+  border-color: var(--color-border);
+  background: transparent;
   color: var(--color-fg-disabled);
   cursor: default;
 }
 
 .button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
 }
 
 .splitter {
@@ -176,11 +185,11 @@
   max-height: 76vh;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg);
+  background: var(--color-surface-high);
   color: var(--color-fg);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px var(--color-shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
 }
 
 .dialog.wide {
@@ -217,8 +226,8 @@
   box-sizing: border-box;
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
   background: var(--color-bg);
   color: var(--color-fg);
   font: inherit;
@@ -237,12 +246,14 @@
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
 .palette-item.selected {
   background: var(--color-selection);
+  color: var(--color-on-selection);
+  font-weight: 700;
 }
 
 /* 実行できないものは、色だけでなく取り消し線と文言でも示す。 */
@@ -266,7 +277,7 @@
 .palette-key {
   padding: 0 6px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--color-surface);
   color: var(--color-fg-muted);
   font:
@@ -284,8 +295,8 @@
   width: 100%;
   margin-bottom: 8px;
   padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
   background: var(--color-bg);
   color: var(--color-fg);
   font:
@@ -349,14 +360,14 @@
 }
 
 .ribbon-tab:hover {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
   color: var(--color-fg);
 }
 
 .ribbon-tab[aria-selected="true"] {
-  color: var(--color-fg);
+  color: var(--color-accent);
   border-bottom-color: var(--color-accent);
-  background: var(--color-bg);
+  background: transparent;
 }
 
 /* コンテキストタブは、色だけでなく枠でも目立たせる。 */
@@ -373,7 +384,7 @@
   box-sizing: border-box;
   height: 100px;
   padding: 2px;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   /* 縮退しても収まらないときは、横にスクロールする（縦にははみ出さない）。 */
   overflow: auto hidden;
@@ -426,7 +437,7 @@ fieldset.ribbon-group {
   align-items: center;
   gap: 3px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-fg);
   padding: 1px 3px;
@@ -451,13 +462,13 @@ fieldset.ribbon-group {
 }
 
 .ribbon-button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border);
+  background: var(--state-hover);
 }
 
 /* オンのトグルは、色に加えて枠と下線でも示す。 */
 .ribbon-button.checked {
   background: var(--color-selection);
+  color: var(--color-on-selection);
   border-color: var(--color-accent);
   text-decoration: underline;
 }
@@ -492,8 +503,8 @@ fieldset.ribbon-group {
 .ribbon-number input {
   width: 56px;
   padding: 2px 4px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
   background: var(--color-bg);
   color: var(--color-fg);
   font: inherit;
@@ -516,10 +527,10 @@ fieldset.ribbon-group {
   display: flex;
   flex-direction: column;
   padding: 2px;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px var(--color-shadow);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
 }
 
 .context-menu-anchor {
@@ -536,7 +547,7 @@ fieldset.ribbon-group {
   align-items: center;
   gap: 6px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-fg);
   padding: 3px 6px;
@@ -581,7 +592,7 @@ fieldset.ribbon-group {
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-fg);
   padding: 6px 8px;
@@ -591,7 +602,7 @@ fieldset.ribbon-group {
 }
 
 .backstage-entry:hover:not(:disabled) {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
 }
 
 .backstage-entry:disabled {
@@ -654,6 +665,22 @@ fieldset.ribbon-group {
   cursor: pointer;
 }
 
+.status-bell {
+  gap: 4px;
+  padding: 0 6px;
+  color: var(--color-fg);
+}
+
+.status-bell[aria-expanded="true"] {
+  background: var(--state-hover);
+}
+
+.status-bell-count {
+  font-size: 11px;
+  min-width: 14px;
+  text-align: center;
+}
+
 .status-item progress {
   width: 80px;
   height: 8px;
@@ -671,36 +698,82 @@ fieldset.ribbon-group {
 }
 
 .toast {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--color-bg);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: start;
+  padding: 10px 8px 8px 12px;
+  background: var(--color-surface-high);
   color: var(--color-fg);
   border: 1px solid var(--color-border);
-  border-inline-start-width: 4px;
-  border-radius: 6px;
-  box-shadow: 0 4px 16px var(--color-shadow);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
 }
 
-.toast.info {
-  border-inline-start-color: var(--color-info);
+.toast.info .toast-mark {
+  color: var(--color-info);
 }
 
-.toast.warn {
-  border-inline-start-color: var(--color-warning);
+.toast.warn .toast-mark {
+  color: var(--color-warning);
 }
 
-.toast.error {
-  border-inline-start-color: var(--color-danger);
+.toast.error .toast-mark {
+  color: var(--color-danger);
 }
 
+/* 画面には出さず、スクリーンリーダーにだけ段階を伝える。 */
 .toast-level {
-  font-weight: 600;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.toast-mark {
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+}
+
+.toast-body {
+  min-width: 0;
 }
 
 .toast-text {
-  flex: 1;
+  margin: 0;
+  line-height: 20px;
+}
+
+.toast-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.toast-tools .button {
+  color: var(--color-fg);
+}
+
+.toast-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toast-source {
+  color: var(--color-fg-muted);
+  font-size: 11px;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
 }
 
 .problems {
@@ -736,23 +809,23 @@ fieldset.ribbon-group {
 .activity-button {
   position: relative;
   width: 40px;
-  height: 40px;
+  height: 32px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-fg-muted);
   cursor: pointer;
 }
 
 .activity-button:hover {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
   color: var(--color-fg);
 }
 
 .activity-button[aria-pressed="true"] {
-  color: var(--color-fg);
+  color: var(--color-on-selection);
   background: var(--color-selection);
 }
 
@@ -804,21 +877,21 @@ fieldset.ribbon-group {
   padding: 0;
   border-color: transparent;
   background: transparent;
+  color: var(--color-fg);
 }
 
 .button.icon-button:hover:not(:disabled) {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
 }
 
 /* メニューを開いている間は、ホバーしているときと同じ見た目にする。 */
 .activity-button[aria-expanded="true"] {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
   color: var(--color-fg);
 }
 
 .ribbon-button[aria-expanded="true"] {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border);
+  background: var(--state-hover);
 }
 
 .dialog:focus {
@@ -848,7 +921,7 @@ fieldset.ribbon-group {
   gap: 4px;
   width: 100%;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-fg);
   padding: 3px 6px;
@@ -867,11 +940,14 @@ fieldset.ribbon-group {
 
 .settings-category-title:hover,
 .settings-page-link:hover {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
 }
 
+/* 選択中は、背景の色だけでなく、文字を太くして示す（背景だけでは、周りとの対比が 1.1:1 で見えない）。 */
 .settings-page-link[aria-current="page"] {
   background: var(--color-selection);
+  color: var(--color-on-selection);
+  font-weight: 700;
 }
 
 .settings-content {
@@ -880,4 +956,50 @@ fieldset.ribbon-group {
 
 .settings-content h3 {
   margin-top: 0;
+}
+
+/* 通知センター: 右下に開く一覧。開いている間、トーストは出さない。 */
+.center {
+  position: fixed;
+  inset-block-end: 32px;
+  inset-inline-end: 12px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 90vw);
+  max-height: 70vh;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+}
+
+.center-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 6px 12px;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.center-title {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.center-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.center-empty {
+  margin: 12px;
+  text-align: center;
+  color: var(--color-fg-muted);
 }

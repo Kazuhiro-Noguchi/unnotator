@@ -13,13 +13,17 @@ import { createQuickAccess } from "./ribbon/quick-access";
 import { createSettingsPages } from "./settings/pages";
 import { DEFAULT_QUICK_ACCESS } from "./settings/ui-settings";
 import { createStatusStore } from "./status/store";
-import type { LayoutState, NotifyLevel } from "./types";
+import type { LayoutState, NotifyLevel, NotifyOptions } from "./types";
 import { shellContext } from "./when/context";
 
 export const notifyStore = createNotifyStore();
 export const statusStore = createStatusStore();
-export const notify = (level: NotifyLevel, text: string): void => {
-  notifyStore.notify(level, text);
+export const notify = (
+  level: NotifyLevel,
+  text: string,
+  options?: NotifyOptions,
+): void => {
+  notifyStore.notify(level, text, options);
 };
 
 /** 配置の保存の出口。起動時に、設定の書き込みへ差し替える。 */

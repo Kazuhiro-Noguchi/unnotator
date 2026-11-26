@@ -1,22 +1,29 @@
-/* ライトのトークン。色はすべてここで決め、部品はこの変数だけを使う（006 research.md R10）。 */
+/* ライトのトークン。色はすべてここで決め、部品はこの変数だけを使う（006 research.md R10）。
+   Material Design 3 の考え方（色味のある面・primary・secondary container）で、青を基準にした。 */
 :root,
 :root[data-theme="light"] {
-  --color-bg: #ffffff;
-  --color-fg: #1a1a1a;
-  --color-fg-muted: #52525b;
-  --color-fg-disabled: #6b6b73;
-  --color-border: #d4d4d8;
-  --color-surface: #f4f4f5;
-  --color-surface-hover: #e4e4e7;
-  --color-surface-active: #d4d4d8;
-  --color-accent: #1d4ed8;
+  --color-bg: #f8f9ff;
+  --color-fg: #191c20;
+  --color-fg-muted: #43474e;
+  --color-fg-disabled: #6f737b;
+  --color-border: #c3c7cf;
+  --color-surface: #edf0f8;
+  --color-surface-low: #f2f3fa;
+  --color-surface-hover: #e1e5ee;
+  --color-surface-active: #d4d9e4;
+  --color-surface-high: #e6e8ee;
+  --color-outline: #73777f;
+  --color-inverse-surface: #2e3135;
+  --color-inverse-fg: #eff0f7;
+  --color-accent: #0b57d0;
   --color-accent-fg: #ffffff;
-  --color-selection: #dbeafe;
-  --color-danger: #b91c1c;
-  --color-warning: #92400e;
-  --color-info: #0369a1;
-  --color-success: #166534;
-  --color-focus: #1d4ed8;
-  --color-backdrop: rgb(0 0 0 / 35%);
-  --color-shadow: rgb(0 0 0 / 18%);
+  --color-selection: #d3e3fd;
+  --color-on-selection: #041e49;
+  --color-danger: #b3261e;
+  --color-warning: #8b5000;
+  --color-info: #00639b;
+  --color-success: #146c2e;
+  --color-focus: #0b57d0;
+  --color-backdrop: rgb(0 0 0 / 32%);
+  --color-shadow: rgb(0 0 0 / 22%);
 }

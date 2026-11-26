@@ -1,6 +1,8 @@
 import { For, Show } from "solid-js";
 import { format } from "../../i18n";
-import { commands, statusStore } from "../services";
+import { Icon } from "../Icon";
+import { centerOpen, setCenterOpen } from "../notify/center";
+import { commands, notifyStore, statusStore } from "../services";
 import { fromStore, useT } from "../solid";
 import type { StatusItem } from "../types";
 
@@ -40,6 +42,10 @@ export function StatusBar() {
     () => statusStore.items("right"),
     statusStore.subscribe,
   );
+  const count = fromStore(
+    () => notifyStore.history().length,
+    notifyStore.subscribe,
+  );
   const percent = fromStore(() => statusStore.percent(), statusStore.subscribe);
   return (
     <div class="status-bar">
@@ -68,6 +74,19 @@ export function StatusBar() {
           {format(t("status.jobs"), { count: state().jobs })}
         </span>
       </Show>
+      <button
+        type="button"
+        class="status-item clickable status-bell"
+        aria-expanded={centerOpen()}
+        aria-label={t("notify.center")}
+        title={t("notify.center")}
+        onClick={() => setCenterOpen(!centerOpen())}
+      >
+        <Icon name="$(bell)" size={14} />
+        <Show when={count() > 0}>
+          <span class="status-bell-count">{count()}</span>
+        </Show>
+      </button>
     </div>
   );
 }

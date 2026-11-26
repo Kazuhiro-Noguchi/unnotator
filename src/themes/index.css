@@ -1,5 +1,6 @@
 @import "./light.css";
 @import "./dark.css";
+@import "./shape.css";
 @import "../shell/shell.css";
 
 body {

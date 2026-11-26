@@ -200,10 +200,27 @@ export interface StatusItem {
 }
 
 export type NotifyLevel = "info" | "warn" | "error";
-export interface Notification {
+export interface NotificationAction {
+  label: string;
+  /** 主な操作（塗りつぶしのボタン）。 */
+  primary?: boolean;
+  run: () => void;
+}
+
+/** 通知に添えられるもの。 */
+export interface NotifyOptions {
+  /** 送り元（「ソース: Git」のように、左下に出す）。 */
+  source?: string;
+  /** 操作のボタン（右下に並べる）。ある通知は、自動では消えない。 */
+  actions?: NotificationAction[];
+  /** 歯車ボタンを押したときの動き（その送り元の設定を開くなど）。 */
+  settings?: () => void;
+}
+
+export interface Notification extends NotifyOptions {
   id: number;
   level: NotifyLevel;
   text: string;
-  /** error は null（閉じるまで残る）。 */
+  /** warn・error と、操作のある通知は null（閉じるまで残る）。 */
   autoDismissMs: number | null;
 }

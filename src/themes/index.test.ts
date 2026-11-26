@@ -75,6 +75,21 @@ const PAIRS: Array<[string, string, number]> = [
   ["--color-focus", "--color-bg", 3],
   ["--color-focus", "--color-surface", 3],
   ["--color-border", "--color-bg", 1.3],
+  ["--color-fg", "--color-surface-low", 4.5],
+  ["--color-fg", "--color-surface-high", 4.5],
+  ["--color-fg-muted", "--color-surface-high", 4.5],
+  ["--color-accent", "--color-surface-high", 4.5],
+  ["--color-outline", "--color-bg", 3],
+  ["--color-inverse-fg", "--color-inverse-surface", 4.5],
+  // 選択中の項目の文字（背景 = 選択の面。Material の on-secondary-container）。
+  ["--color-on-selection", "--color-selection", 4.5],
+  ["--color-accent", "--color-selection", 4.5],
+  // 枠つきボタンの枠と文字（背景 = ダイアログの面）。WCAG 1.4.11 の 3:1。
+  ["--color-outline", "--color-surface-high", 3],
+  ["--color-outline", "--color-surface", 3],
+  ["--color-accent", "--color-surface", 4.5],
+  // 塗りつぶしボタンの面と背景。
+  ["--color-accent", "--color-surface-high", 3],
 ];
 
 describe("テーマの対比", () => {

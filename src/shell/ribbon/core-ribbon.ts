@@ -65,7 +65,9 @@ export function coreRibbon(): RibbonTab[] {
         small("core.edit.selectAll"),
         small("core.edit.duplicate"),
       ]),
-      group("home.tools", "ツール", "Tools", 40, [toggle("core.tool.select")]),
+      group("home.tools", "ツール", "Tools", 40, [
+        toggle("core.tool.select", "toolSelectActive"),
+      ]),
       group("home.relations", "関係とグループ", "Relations and groups", 30, [
         small("core.relation.create"),
         small("core.group.create"),
@@ -81,8 +83,8 @@ export function coreRibbon(): RibbonTab[] {
       ]),
       // 表示の切替（アノテーション・ラベル名）。
       group("home.view", "表示", "View", 35, [
-        toggle("core.view.annotations.toggle"),
-        toggle("core.view.labelNames.toggle"),
+        toggle("core.view.annotations.toggle", "annotationsVisible"),
+        toggle("core.view.labelNames.toggle", "labelNamesVisible"),
       ]),
       // プロジェクトの設定。新規・開く・最近・名前をつけて保存は、ファイルタブ（Backstage）にある。
       group("home.project", "プロジェクト", "Project", 90, [

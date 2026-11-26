@@ -7,6 +7,7 @@ import type {
   Disposable,
   ExecuteResult,
   NotifyLevel,
+  NotifyOptions,
   ProblemSink,
 } from "../types";
 import { createWhen } from "../when/parse";
@@ -14,7 +15,7 @@ import { createWhen } from "../when/parse";
 export interface RegistryDeps {
   ctx: Context;
   report: ProblemSink;
-  notify: (level: NotifyLevel, text: string) => void;
+  notify: (level: NotifyLevel, text: string, options?: NotifyOptions) => void;
 }
 
 export type CommandRegistry = ReturnType<typeof createCommandRegistry>;
@@ -122,7 +123,9 @@ export function createCommandRegistry({ ctx, report, notify }: RegistryDeps) {
           message: `コマンドの実行に失敗した: ${id}`,
           detail,
         });
-        notify("error", format(t("commands.failed"), { id }));
+        notify("error", format(t("commands.failed"), { id }), {
+          source: spec.source,
+        });
         return { ok: false, reason: "failed" };
       }
     },

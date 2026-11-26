@@ -1,10 +1,12 @@
 import { For } from "solid-js";
 import { notifyStore } from "../services";
 import { fromStore, useT } from "../solid";
+import { NotificationCard } from "./NotificationCard";
 
-const MARK = { info: "ⓘ", warn: "⚠", error: "✕" } as const;
-
-/** 通知。色だけでなく、記号と文言（情報・警告・エラー）でも段階を示す。 */
+/**
+ * 画面の右下に出るトースト（同時に 3 件まで。多いときは古いものから消え、通知センターに残る）。
+ * 通知センターを開いている間は、ストアがトーストを空にする（`setToastsEnabled`）。
+ */
 export function Toasts() {
   const t = useT();
   const list = fromStore(notifyStore.list, notifyStore.subscribe);
@@ -12,24 +14,12 @@ export function Toasts() {
     <div class="toasts">
       <For each={list()}>
         {(item) => (
-          <div
-            class={`toast ${item.level}`}
-            role={item.level === "error" ? "alert" : "status"}
-          >
-            <span class="toast-mark" aria-hidden="true">
-              {MARK[item.level]}
-            </span>
-            <span class="toast-level">{t(`notify.${item.level}`)}</span>
-            <span class="toast-text">{item.text}</span>
-            <button
-              type="button"
-              class="button"
-              aria-label={t("notify.dismiss")}
-              onClick={() => notifyStore.dismiss(item.id)}
-            >
-              ✕
-            </button>
-          </div>
+          <NotificationCard
+            item={item}
+            closeLabel={t("notify.dismiss")}
+            onClose={() => notifyStore.dismiss(item.id)}
+            onAction={() => notifyStore.remove(item.id)}
+          />
         )}
       </For>
     </div>

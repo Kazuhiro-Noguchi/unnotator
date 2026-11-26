@@ -106,5 +106,16 @@
   "notify.empty": "No new notifications",
   "notify.showFull": "Show full text",
   "notify.showLess": "Show less",
-  "dev.demoLongText": "Demo: a long notification. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button.  /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  "dev.demoLongText": "Demo: a long notification. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button. When the text is long, the toast shows only three lines and the rest opens with the button.  /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "explorer.tree.label": "Asset tree",
+  "explorer.status.todo": "To do",
+  "explorer.status.in_progress": "In progress",
+  "explorer.status.done": "Done",
+  "explorer.status.review": "Needs review",
+  "explorer.missing": "Missing",
+  "explorer.count": "{done} / {total}",
+  "explorer.empty.noAssets": "No assets. Add files to the folder and they will appear here.",
+  "explorer.loading": "Loading…",
+  "explorer.unknownMedia": "Unknown format",
+  "explorer.root.project": "Project"
 }

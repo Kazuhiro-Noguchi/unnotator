@@ -124,6 +124,8 @@ describe("コンテキスト", () => {
         "secondarySidebarVisible",
         "bottomVisible",
         "primarySidebarView",
+        "hasCurrent",
+        "filterActive",
       ].sort(),
     );
     const ctx = createContext();

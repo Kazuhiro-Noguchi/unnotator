@@ -16,6 +16,9 @@ const CORE_DEFAULTS: Record<string, ContextValue> = {
   secondarySidebarVisible: true,
   bottomVisible: false,
   primarySidebarView: "explorer",
+  // エクスプローラー（007）: アセットを開いているか、フィルターが有効か。
+  hasCurrent: false,
+  filterActive: false,
 };
 
 export const CORE_CONTEXT_KEYS: readonly string[] = Object.keys(CORE_DEFAULTS);

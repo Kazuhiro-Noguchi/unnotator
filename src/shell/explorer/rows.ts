@@ -11,10 +11,15 @@ export interface RowsPort {
 }
 
 export interface RowsStore {
-  /** 見え方を設定し、キャッシュを捨てる（フィルターや開閉が変わったとき）。 */
-  setView(spec: ViewSpec): Promise<void>;
+  /**
+   * 見え方を設定する。既定ではキャッシュを捨てる。`keepPages` なら、取り直すまで古い行を見せ続ける
+   * （フォルダの開閉のように、多くの行がそのまま使えるとき）。
+   */
+  setView(spec: ViewSpec, options?: { keepPages?: boolean }): Promise<void>;
   /** 同じ見え方を設定し直す。取り直すまで、古い行は見せ続ける（アセットの増減のとき）。 */
   refresh(): Promise<void>;
+  /** 見え方もキャッシュも捨てて、空に戻す（プロジェクトを閉じたとき）。 */
+  clear(): void;
   total(): number;
   rowAt(index: number): TreeRow | undefined;
   /** 見える範囲 `[start, end)` と、その前後の 1 ページを取る。 */
@@ -101,9 +106,19 @@ export function createRowsStore(port: RowsPort): RowsStore {
   }
 
   return {
-    setView: (next) => applyView(next, false),
+    setView: (next, options) => applyView(next, options?.keepPages ?? false),
     async refresh() {
       if (spec !== null) await applyView(spec, true);
+    },
+    clear() {
+      epoch += 1;
+      spec = null;
+      version = -1;
+      total = 0;
+      pages.clear();
+      fetched = new Set();
+      inflight = new Map();
+      notify();
     },
     total: () => total,
     rowAt(index) {

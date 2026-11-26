@@ -6,6 +6,7 @@ import { openDirectoryDialog } from "./ipc/dialog";
 import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
+import { explorer } from "./shell/explorer/instance";
 import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
@@ -83,6 +84,7 @@ const actions = createProjectActions({
   close: async () => {
     await commands.projectClose(null);
     setProjectName(null);
+    await explorer.close();
     await projectContext.setOpen(false);
   },
   save: async () => {
@@ -104,6 +106,7 @@ const actions = createProjectActions({
   onOpened: async (folder) => {
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
+    await explorer.open(folder);
   },
   notify,
 });

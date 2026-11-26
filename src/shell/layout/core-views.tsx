@@ -1,4 +1,5 @@
 import type { MessageKey } from "../../i18n";
+import { ExplorerView } from "../explorer/ExplorerView";
 import { useT } from "../solid";
 import { EmptyState } from "./EmptyState";
 import { ProblemsView } from "./ProblemsView";
@@ -36,11 +37,14 @@ export function registerCoreViews(
       render: () =>
         meta.id === "problems" ? (
           <ProblemsView />
-        ) : (
-          <CoreEmpty
-            message={meta.empty}
-            onOpenFolder={meta.id === "explorer" ? openFolder : undefined}
+        ) : meta.id === "explorer" ? (
+          <ExplorerView
+            fallback={
+              <CoreEmpty message={meta.empty} onOpenFolder={openFolder} />
+            }
           />
+        ) : (
+          <CoreEmpty message={meta.empty} onOpenFolder={undefined} />
         ),
     });
   }

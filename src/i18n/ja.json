@@ -106,5 +106,16 @@
   "notify.empty": "新しい通知はありません",
   "notify.showFull": "全文を表示",
   "notify.showLess": "折りたたむ",
-  "dev.demoLongText": "デモ: 長い通知です。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。 /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  "dev.demoLongText": "デモ: 長い通知です。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。本文が長いときは、トーストでは 3 行までに省かれ、「全文を表示」で残りが開きます。 /Users/example/a/very/long/path/without/any/break/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "explorer.tree.label": "アセットのツリー",
+  "explorer.status.todo": "未着手",
+  "explorer.status.in_progress": "作業中",
+  "explorer.status.done": "完了",
+  "explorer.status.review": "要確認",
+  "explorer.missing": "リンク切れ",
+  "explorer.count": "{done} / {total}",
+  "explorer.empty.noAssets": "アセットがありません。フォルダにファイルを置くと、ここに並びます。",
+  "explorer.loading": "読み込み中…",
+  "explorer.unknownMedia": "不明な形式",
+  "explorer.root.project": "プロジェクト"
 }

@@ -1078,3 +1078,119 @@ fieldset.ribbon-group {
   text-align: center;
   color: var(--color-fg-muted);
 }
+
+/* ---- エクスプローラーのツリー（007） ---- */
+.tree {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+  outline: none;
+  --tree-indent: 16px;
+}
+
+.tree:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.tree-body {
+  position: relative;
+  min-width: 100%;
+}
+
+.tree-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 8px 0 calc(8px + var(--tree-depth, 0) * var(--tree-indent));
+  color: var(--color-fg);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tree-row:hover {
+  background: var(--color-surface-hover);
+}
+
+.tree-row.selected {
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+}
+
+.tree-row.focused {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.tree-row.missing .tree-name {
+  color: var(--color-fg-disabled);
+  text-decoration: line-through;
+}
+
+.tree-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tree-chevron-space {
+  display: inline-block;
+  width: 16px;
+  flex: none;
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-loading {
+  color: var(--color-fg-muted);
+}
+
+.tree-count {
+  color: var(--color-fg-muted);
+  font-size: 0.85em;
+}
+
+.tree-missing {
+  color: var(--color-danger);
+  font-size: 0.85em;
+}
+
+.status-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-outline);
+  box-sizing: border-box;
+}
+
+.status-dot[data-status="in_progress"] {
+  border-color: var(--color-info);
+  background: var(--color-info);
+}
+
+.status-dot[data-status="done"] {
+  border-color: var(--color-success);
+  background: var(--color-success);
+}
+
+.status-dot[data-status="review"] {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+}

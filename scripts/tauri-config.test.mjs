@@ -58,10 +58,11 @@ describe("tauri.conf.json", () => {
 });
 
 describe("capabilities/default.json", () => {
-  it("permissions が core:default と core:window:allow-set-title だけ", () => {
+  it("permissions が core:default・タイトルの変更・フォルダ選択（dialog:allow-open）だけ", () => {
     expect([...capability.permissions].sort()).toEqual([
       "core:default",
       "core:window:allow-set-title",
+      "dialog:allow-open",
     ]);
   });
 });

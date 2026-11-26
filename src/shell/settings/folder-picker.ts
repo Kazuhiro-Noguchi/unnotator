@@ -9,6 +9,38 @@ export interface FolderPicker {
   pick(options: { title: string }): Promise<string | null>;
 }
 
+/** `@tauri-apps/plugin-dialog` の `open` のうち、使う部分。 */
+export type OpenDirectoryDialog = (options: {
+  directory: true;
+  multiple: false;
+  title: string;
+  canCreateDirectories: boolean;
+}) => Promise<string | null>;
+
+/**
+ * OS 標準のフォルダ選択。キャンセルは null。
+ * OS のダイアログを開けないとき（ブラウザでの開発など）だけ、簡易のダイアログ（fallback）に切り替える。
+ */
+export function createNativeFolderPicker(
+  openDialog: OpenDirectoryDialog,
+  fallback: FolderPicker,
+): FolderPicker {
+  return {
+    async pick(options) {
+      try {
+        return await openDialog({
+          directory: true,
+          multiple: false,
+          title: options.title,
+          canCreateDirectories: true,
+        });
+      } catch {
+        return fallback.pick(options);
+      }
+    },
+  };
+}
+
 /** 新しいものを先頭にして、重複を除き、最大件数に収める。 */
 export function addRecent(list: string[], folder: string): string[] {
   if (folder === "") return list;

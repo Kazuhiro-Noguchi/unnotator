@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, onMount } from "solid-js";
 import { detectLanguage, format, t } from "./i18n";
 import { commands, events } from "./ipc";
+import { openDirectoryDialog } from "./ipc/dialog";
 import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
@@ -40,7 +41,10 @@ import {
   statusStore,
   views,
 } from "./shell/services";
-import { createProjectActions } from "./shell/settings/folder-picker";
+import {
+  createNativeFolderPicker,
+  createProjectActions,
+} from "./shell/settings/folder-picker";
 import {
   createUiSettingsWriter,
   loadUiSettings,
@@ -56,11 +60,17 @@ import {
 } from "./shell/ui-state";
 
 // ---- 組み立て（モジュールの読み込み時に 1 回） ----
+// OS 標準のダイアログ。開けないとき（ブラウザでの開発）だけ、パス入力の簡易ダイアログに切り替える
+const nativeFolderPicker = createNativeFolderPicker(
+  openDirectoryDialog,
+  dialogFolderPicker,
+);
+
 const projectContext = bindProjectContext({ ctx, ...projectPort });
 
 const actions = createProjectActions({
   pick: (purpose) =>
-    dialogFolderPicker.pick({
+    nativeFolderPicker.pick({
       title: t(purpose === "new" ? "folder.title.new" : "folder.title.open"),
     }),
   open: async (folder, create) => {

@@ -127,7 +127,7 @@ pub fn run() {
         }
     }
 
-    let result = unno_protocol::register(tauri::Builder::default())
+    let result = unno_protocol::register(tauri::Builder::default().plugin(tauri_plugin_dialog::init()))
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
                 selftest::on_page_loaded(webview);

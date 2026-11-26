@@ -18,6 +18,7 @@ unnotator-core = { path = "../crates/core", features = ["specta"] }
 unnotator-extensions = { path = "../crates/extensions" }
 unnotator-worker = { path = "../crates/worker" }
 tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
 tauri-specta = { workspace = true }
 specta = { workspace = true }
 specta-typescript = { workspace = true }

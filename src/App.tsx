@@ -148,6 +148,8 @@ if (import.meta.env.DEV) {
         ctx,
         notify,
         enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
+        measureExplorer: () =>
+          import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
       }),
     ),
   );

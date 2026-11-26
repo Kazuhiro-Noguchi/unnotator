@@ -142,4 +142,20 @@ describe("ExplorerSession", () => {
     });
     expect(ctx.get("filterActive")).toBe(false);
   });
+
+  it("拡張機能が 1 つも無い構成（アイテムの提供元なし）でも、ツリーが動く（SC-010）", async () => {
+    const { ipc, session } = setup();
+    await session.open("/p");
+    expect(session.rows.total()).toBe(3);
+    expect(session.controller.items).toBeUndefined();
+    const first = session.rows.rowAt(0);
+    expect(first && session.controller.canExpand(first)).toBe(false);
+    await session.controller.activate(0);
+    expect(session.current.get()).toEqual({
+      assetId: "id0",
+      itemKey: null,
+      mediaType: null,
+    });
+    expect(ipc.viewCalls.length).toBeGreaterThan(0);
+  });
 });

@@ -19,6 +19,18 @@ describe("assetUrl", () => {
   });
 });
 
+describe("assetUrl（表示用）", () => {
+  it("display のときだけ、?preview=1 を付ける", () => {
+    expect(assetUrl("a", "Mac", { display: true })).toBe(
+      "unno://localhost/asset/a?preview=1",
+    );
+    expect(assetUrl("a", "Windows", { display: true })).toBe(
+      "http://unno.localhost/asset/a?preview=1",
+    );
+    expect(assetUrl("a", "Mac")).not.toContain("?");
+  });
+});
+
 describe("detectPdfSupport", () => {
   it("pdfViewerEnabled があれば、それに従う", () => {
     expect(

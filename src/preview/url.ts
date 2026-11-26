@@ -7,11 +7,15 @@ export function assetUrl(
   platform: string = typeof navigator === "undefined"
     ? ""
     : navigator.userAgent,
+  options: { display?: boolean } = {},
 ): string {
   const id = encodeURIComponent(assetId);
+  // `display`: `<img>`・`<iframe>` で表示するとき。拡張機能が種別を宣言していなくても表示できるよう、
+  // 拡張子から表示用の種別を付けてもらう（`unno_protocol.rs`）。
+  const query = options.display ? "?preview=1" : "";
   return /windows/i.test(platform)
-    ? `http://unno.localhost/asset/${id}`
-    : `unno://localhost/asset/${id}`;
+    ? `http://unno.localhost/asset/${id}${query}`
+    : `unno://localhost/asset/${id}${query}`;
 }
 
 /** PDF を、WebView が表示できるか。`navigator.pdfViewerEnabled` があればそれに従い、無ければ OS で決める。 */

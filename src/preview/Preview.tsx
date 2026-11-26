@@ -63,12 +63,15 @@ export function Preview(props: PreviewProps) {
         const kind = choosePreviewKind(relPath);
         const url = assetUrl(id);
         if (kind === "image") {
-          setState({ kind: "image", url });
+          setState({
+            kind: "image",
+            url: assetUrl(id, undefined, { display: true }),
+          });
         } else if (kind === "pdf") {
           const supported = props.pdfSupported ?? detectPdfSupport();
           setState(
             supported
-              ? { kind: "pdf", url }
+              ? { kind: "pdf", url: assetUrl(id, undefined, { display: true }) }
               : { kind: "fallback", reason: "no-pdf-support" },
           );
         } else if (kind === "text") {

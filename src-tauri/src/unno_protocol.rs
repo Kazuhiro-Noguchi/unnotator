@@ -112,6 +112,30 @@ pub fn handle(
     }
 }
 
+/// クエリに `preview=1` があるか。
+fn has_preview_flag(path: &str) -> bool {
+    path.split_once('?')
+        .map(|(_, q)| q.split('&').any(|kv| kv == "preview=1"))
+        .unwrap_or(false)
+}
+
+/// 汎用プレビューが表示する形式だけの、拡張子 → 種別。媒体の表ではなく、表示専用の小さな表。
+fn preview_content_type(file_name: &str) -> Option<&'static str> {
+    let ext = file_name.rsplit_once('.')?.1.to_ascii_lowercase();
+    Some(match ext.as_str() {
+        "pdf" => "application/pdf",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "svg" => "image/svg+xml",
+        _ => return None,
+    })
+}
+
 fn respond(
     project: &ProjectState,
     serve: &ServeState,
@@ -128,7 +152,24 @@ fn respond(
                     .map_err(|_| ServeError::NotFound)?;
                 let path = confine_inside(&file.root, &file.rel_path)?;
                 let name = file.rel_path.rsplit('/').next().unwrap_or(&file.rel_path);
-                (path, serve.content_type_of(name), true, Vec::new())
+                let mut content_type = serve.content_type_of(name);
+                let mut extra = Vec::new();
+                // 汎用プレビュー（表示専用）: 拡張機能が種別を宣言していないアセットでも、画像・PDF を
+                // ブラウザが表示できるよう、`?preview=1` のときだけ、拡張子から表示用の種別を付ける。
+                if content_type == FALLBACK_CONTENT_TYPE
+                    && has_preview_flag(request.path)
+                    && let Some(shown) = preview_content_type(name)
+                {
+                    content_type = shown.to_owned();
+                    if shown == "image/svg+xml" {
+                        // SVG は、画像としてだけ使わせる（スクリプトを動かさない）。
+                        extra.push((
+                            "Content-Security-Policy".to_owned(),
+                            "default-src 'none'; style-src 'unsafe-inline'; sandbox".to_owned(),
+                        ));
+                    }
+                }
+                (path, content_type, true, extra)
             }
             Target::Preview(id) => {
                 let path = serve.previews.resolve(id)?;
@@ -335,6 +376,58 @@ mod tests {
                 .expect("ある")
                 .contains("Range")
         );
+    }
+
+    #[test]
+    fn preview_flag_gives_a_display_type_only_to_undeclared_viewable_files() {
+        let temp = Temp::new();
+        for name in ["m.pdf", "p.png", "v.svg", "z.zzz", "a.txt"] {
+            std::fs::write(temp.0.join("project").join(name), b"x").expect("書ける");
+        }
+        let project = project_state(&temp);
+        open_project(&project, &temp.0.join("project"), true, Hooks::default()).expect("作れる");
+        scan(&project, ScanScope::Full, &|_| {}).expect("走査できる");
+        let serve = serve_state(&temp);
+        let (registry, state) = registry_with_text_extension(&temp, false);
+        serve.update(&registry, &state);
+        let page = list(&project, &AssetFilter::default(), &Page::first(10)).expect("一覧");
+        let id_of = |name: &str| {
+            page.items
+                .iter()
+                .find(|a| a.rel_path == name)
+                .expect("ある")
+                .id
+                .clone()
+        };
+        let ct = |name: &str, flag: bool| {
+            let path = if flag {
+                format!("/asset/{}?preview=1", id_of(name))
+            } else {
+                format!("/asset/{}", id_of(name))
+            };
+            let r = handle(&project, &serve, &get(&path));
+            assert_eq!(r.status, 200, "{name}");
+            (
+                r.header("content-type").map(str::to_owned),
+                r.header("content-security-policy").map(str::to_owned),
+            )
+        };
+        assert_eq!(ct("m.pdf", true).0.as_deref(), Some("application/pdf"));
+        assert_eq!(ct("p.png", true).0.as_deref(), Some("image/png"));
+        let (svg, csp) = ct("v.svg", true);
+        assert_eq!(svg.as_deref(), Some("image/svg+xml"));
+        assert!(csp.is_some_and(|c| c.contains("sandbox")));
+        // 旗が無ければ、従来どおり（宣言が無ければ octet-stream）
+        assert_eq!(
+            ct("m.pdf", false).0.as_deref(),
+            Some("application/octet-stream")
+        );
+        // 表にない形式・宣言のある種別は、旗があっても変えない
+        assert_eq!(
+            ct("z.zzz", true).0.as_deref(),
+            Some("application/octet-stream")
+        );
+        assert_eq!(ct("a.txt", true).0.as_deref(), Some("text/plain"));
     }
 
     #[test]

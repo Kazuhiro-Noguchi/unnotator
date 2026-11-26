@@ -1,4 +1,5 @@
-// アセットを読む URL（`unno://asset/<id>`）。Windows の WebView2 は、独自のスキームを
+// アセットを読む URL。Tauri のカスタムプロトコルは、ホストが `localhost` で、パスが `/asset/<id>` の形
+// （`unno_protocol.rs` が `/asset/<id>` として解釈する）。Windows の WebView2 は、独自のスキームを
 // `http://unno.localhost/...` として扱う（Tauri の既定。CSP にも両方を許している）。
 
 export function assetUrl(
@@ -10,7 +11,7 @@ export function assetUrl(
   const id = encodeURIComponent(assetId);
   return /windows/i.test(platform)
     ? `http://unno.localhost/asset/${id}`
-    : `unno://asset/${id}`;
+    : `unno://localhost/asset/${id}`;
 }
 
 /** PDF を、WebView が表示できるか。`navigator.pdfViewerEnabled` があればそれに従い、無ければ OS で決める。 */

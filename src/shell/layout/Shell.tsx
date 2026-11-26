@@ -10,12 +10,7 @@ import { isEditableTarget } from "../keys/editable";
 import { ctx, layout } from "../services";
 import { fromStore, useT } from "../solid";
 import { ActivityBar } from "./ActivityBar";
-import {
-  BottomPanel,
-  EditorArea,
-  PrimarySidebar,
-  SecondarySidebar,
-} from "./Panels";
+import { BottomPanel, PrimarySidebar, SecondarySidebar } from "./Panels";
 import { Splitter } from "./Splitter";
 import {
   BOTTOM_HEIGHT_RANGE,
@@ -27,6 +22,8 @@ import {
 export function Shell(props: {
   ribbon?: JSX.Element;
   statusBar?: JSX.Element;
+  /** エディター領域（現在位置の表示）。 */
+  editor: JSX.Element;
 }) {
   const t = useT();
   const state = fromStore(layout.get, layout.subscribe);
@@ -99,7 +96,7 @@ export function Shell(props: {
           />
         </Show>
         <div class="shell-center">
-          <EditorArea />
+          {props.editor}
           <Show when={shown().bottom.visible}>
             <Splitter
               orientation="horizontal"

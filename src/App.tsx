@@ -6,6 +6,7 @@ import { openDirectoryDialog } from "./ipc/dialog";
 import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
+import { EditorSurface } from "./shell/explorer/EditorSurface";
 import { explorer, provideExplorerCommands } from "./shell/explorer/instance";
 import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
@@ -215,7 +216,11 @@ export function App() {
   });
   return (
     <>
-      <Shell ribbon={<Ribbon />} statusBar={<StatusBar />} />
+      <Shell
+        ribbon={<Ribbon />}
+        statusBar={<StatusBar />}
+        editor={<EditorSurface />}
+      />
       <Toasts />
       <NotificationCenter />
       <Overlays />

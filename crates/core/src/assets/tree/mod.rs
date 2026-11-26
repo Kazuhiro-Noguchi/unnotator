@@ -5,6 +5,9 @@
 
 pub mod nav;
 pub mod order;
+pub mod view;
+
+pub use view::{ExpandedAsset, FlatView, Located, MAX_WINDOW, NodeKey, TreeRow, ViewSpec};
 
 use std::collections::{HashMap, HashSet};
 

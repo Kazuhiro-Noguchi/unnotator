@@ -195,6 +195,8 @@
   display: flex;
   align-items: center;
   padding-inline: 8px;
+  /* 下の余白を、上（リボンのタブの段）と同じくらいにする */
+  padding-block-end: 8px;
   background: var(--color-frame);
   color: var(--color-fg-muted);
 }

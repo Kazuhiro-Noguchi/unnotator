@@ -191,12 +191,11 @@
 
 .status-slot {
   flex: none;
-  min-height: 22px;
   display: flex;
   align-items: center;
   padding-inline: 8px;
-  /* 下の余白を、上（リボンのタブの段）と同じくらいにする */
-  padding-block-end: 8px;
+  /* 上の余白は `.shell-main` の padding（6px）。下も同じ 6px にする */
+  padding-block: 0 6px;
   background: var(--color-frame);
   color: var(--color-fg-muted);
 }

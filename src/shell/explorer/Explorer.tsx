@@ -162,6 +162,14 @@ export function Explorer(props: ExplorerProps) {
           ref={(element) => {
             container = element;
             queueMicrotask(() => setHeight(element.clientHeight));
+            // 領域の大きさが変わったら（ウィンドウ・スプリッター）、描く行数を取り直す。
+            if (typeof ResizeObserver !== "undefined") {
+              const observer = new ResizeObserver(() =>
+                setHeight(element.clientHeight),
+              );
+              observer.observe(element);
+              onCleanup(() => observer.disconnect());
+            }
           }}
           onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
           onKeyDown={(event) => {

@@ -1,17 +1,9 @@
-// 開発用のデモのコマンド。画面の部品（リボン・トグル・メニュー）を、実機で押して確かめるための仮の処理。
+// 開発用のデモのコマンド（通知・プロジェクトの状態の切り替え）。パレットから実行して、画面の部品を確かめる。
 // 開発ビルド（`pnpm tauri dev`）だけで読み込み、製品のビルドには含めない（App.tsx の `import.meta.env.DEV`）。
-// 本物の処理（007・008・009 が `commands.provide` で結ぶ）がすでにあるコマンドには、触らない。
-import { format, t } from "../../i18n";
+// 未提供のコマンドに、仮の処理は結ばない（本物の処理は 007・008・009 が `commands.provide` で結ぶ）。
+import { t } from "../../i18n";
 import type { CommandRegistry } from "../commands/registry";
-import { resolveTitle } from "../title";
 import type { Context, Disposable, NotifyLevel, NotifyOptions } from "../types";
-
-/** トグルのコマンド → オン・オフを持つコンテキストのキー（リボンの `checked` が読む）。 */
-export const DEMO_TOGGLES: Record<string, string> = {
-  "core.tool.select": "toolSelectActive",
-  "core.view.annotations.toggle": "annotationsVisible",
-  "core.view.labelNames.toggle": "labelNamesVisible",
-};
 
 export interface DemoDeps {
   commands: CommandRegistry;
@@ -19,36 +11,11 @@ export interface DemoDeps {
   notify: (level: NotifyLevel, text: string, options?: NotifyOptions) => void;
 }
 
-const flip = (ctx: Context, key: string): boolean => {
-  const next = ctx.get(key) !== true;
-  ctx.set(key, next ? true : null);
-  return next;
-};
-
 export function installDemoCommands({
   commands,
   ctx,
   notify,
 }: DemoDeps): Disposable {
-  const handles: Disposable[] = [];
-
-  // 未提供のコアのコマンドに、仮の処理を結ぶ。
-  for (const spec of commands.list()) {
-    if (spec.source !== "core") continue;
-    if (commands.availability(spec.id)().enabled) continue;
-    const key = DEMO_TOGGLES[spec.id];
-    handles.push(
-      commands.provide(spec.id, () => {
-        if (key) flip(ctx, key);
-        notify(
-          "info",
-          format(t("dev.demoRan"), { title: resolveTitle(spec.title, "ja") }),
-          { source: "Demo" },
-        );
-      }),
-    );
-  }
-
   // プロジェクトの状態を切り替えるデモのコマンド（パレットから実行する）。
   const declare = (
     id: string,
@@ -149,7 +116,6 @@ export function installDemoCommands({
 
   return {
     dispose() {
-      for (const handle of handles) handle.dispose();
       commands.unregister("dev");
     },
   };

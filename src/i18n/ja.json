@@ -89,7 +89,6 @@
   "region.activityBar": "アクティビティバー",
   "recent.none": "最近使ったプロジェクトはありません。",
   "settings.category.general": "一般",
-  "dev.demoRan": "デモ: {title} を実行しました（仮の処理）",
   "notify.source": "ソース: {source}",
   "notify.settings": "この通知の設定",
   "dev.demoActionText": "デモ: 操作つきの通知です。どれかを選ぶと閉じます。",

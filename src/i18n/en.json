@@ -89,7 +89,6 @@
   "region.activityBar": "Activity bar",
   "recent.none": "No recent projects.",
   "settings.category.general": "General",
-  "dev.demoRan": "Demo: ran {title} (placeholder)",
   "notify.source": "Source: {source}",
   "notify.settings": "Notification settings",
   "dev.demoActionText": "Demo: a notification with actions. It closes when you pick one.",

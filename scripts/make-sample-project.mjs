@@ -9,9 +9,6 @@ const PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
-const PDF_MIN = Buffer.from(
-  "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
-);
 
 /** 先頭に置く、種類の見本（件数が少なくても全種類が入る）。 */
 const SPECIMENS = [
@@ -19,14 +16,13 @@ const SPECIMENS = [
   { path: "specimen/notes.txt", kind: "text" },
   { path: "specimen/latin1.txt", kind: "text-not-utf8" },
   { path: "specimen/large.txt", kind: "text-large" },
-  { path: "specimen/manual.pdf", kind: "pdf" },
   { path: "specimen/data.zzz", kind: "unknown" },
   { path: "specimen/broken.png", kind: "image-broken" },
 ];
 
 const FOLDERS = ["a", "b", "docs", "docs/sub", "写真", "ＡＢＣ", "z-last"];
 const BASES = ["img1", "img2", "img10", "IMG3", "メモ", "ＩＭＧ４", "file"];
-const EXTS = ["png", "txt", "pdf", "zzz"];
+const EXTS = ["png", "txt", "zzz"];
 
 /** 件数ぶんの相対パスと種類を、決まった順で返す（同じ引数なら同じ結果）。 */
 export function sampleEntries(count) {
@@ -52,14 +48,7 @@ export function sampleEntries(count) {
     const group = Math.floor(i / (FOLDERS.length * BASES.length));
     // 1 つのフォルダに数千件が並ぶように、深さを抑えて番号を足す
     const sub = group > 0 ? `${folder}/g${Math.floor(group / 500)}` : folder;
-    const kind =
-      ext === "png"
-        ? "image"
-        : ext === "txt"
-          ? "text"
-          : ext === "pdf"
-            ? "pdf"
-            : "unknown";
+    const kind = ext === "png" ? "image" : ext === "txt" ? "text" : "unknown";
     add(`${sub}/${base}-${group}-${i}.${ext}`, kind);
     i += 1;
   }
@@ -72,8 +61,6 @@ function contentOf(entry, index) {
       return PNG_1X1;
     case "image-broken":
       return Buffer.from("not really a png");
-    case "pdf":
-      return PDF_MIN;
     case "text-not-utf8":
       return Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a, 0xff, 0xfe]);
     case "text-large":

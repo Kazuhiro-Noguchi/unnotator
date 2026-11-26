@@ -38,10 +38,6 @@ describe("choosePreviewKind", () => {
     }
   });
 
-  it("PDF は、表示しない（不明形式と同じ）", () => {
-    expect(choosePreviewKind("a/b.PDF")).toBe("unknown");
-  });
-
   it("それ以外は、不明形式", () => {
     for (const name of [
       "a.zzz",

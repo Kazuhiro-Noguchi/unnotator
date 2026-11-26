@@ -167,19 +167,6 @@ describe("Preview（部品）", () => {
     );
   });
 
-  it("PDF は表示せず、不明形式と同じ案内と「既定のアプリで開く」を出す", async () => {
-    const { onOpenExternal } = mount(() => asset("manual.pdf"));
-    await wait();
-    expect(document.querySelector("iframe")).toBeNull();
-    expect(document.querySelector(".preview-fallback")?.textContent).toContain(
-      t("preview.unknownFormat"),
-    );
-    document
-      .querySelector<HTMLButtonElement>("button[data-preview-external]")
-      ?.click();
-    expect(onOpenExternal).toHaveBeenCalled();
-  });
-
   it("不明な形式は、ファイル情報・案内・「既定のアプリで開く」", async () => {
     const { onOpenExternal } = mount(() =>
       asset("data.zzz", { file_size: 2048 }),

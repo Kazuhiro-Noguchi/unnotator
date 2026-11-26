@@ -58,7 +58,6 @@ describe("sampleEntries", () => {
       "text",
       "text-not-utf8",
       "text-large",
-      "pdf",
       "unknown",
       "image-broken",
     ]) {
@@ -69,7 +68,7 @@ describe("sampleEntries", () => {
   it("件数が少なくても、種類の見本をすべて含む", () => {
     expect(sampleEntries(10).length).toBe(10);
     const kinds = new Set(sampleEntries(10).map((e) => e.kind));
-    expect(kinds.size).toBeGreaterThanOrEqual(7);
+    expect(kinds.size).toBeGreaterThanOrEqual(6);
   });
 });
 

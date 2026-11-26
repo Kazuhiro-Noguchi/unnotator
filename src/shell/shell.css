@@ -497,7 +497,6 @@ fieldset.ribbon-group {
   background: var(--color-selection);
   color: var(--color-on-selection);
   border-color: var(--color-accent);
-  text-decoration: underline;
 }
 
 .split,

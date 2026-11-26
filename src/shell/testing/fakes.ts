@@ -100,11 +100,14 @@ export function fakeElement(tag: string, editable = false) {
 
 import type { AssetRow, Status } from "../../ipc";
 import type {
+  Located,
   MediaSel,
   Neighbor,
   TreeFilter,
   TreeRow,
   TreeWindow,
+  ViewInfo,
+  ViewSpec,
 } from "../explorer/types";
 
 /** `AssetRow` を作る小さな工場。指定しない項目は、見本の値になる。 */
@@ -126,26 +129,16 @@ export function makeAsset(
   };
 }
 
-/** 窓の取得で版が古いときの印。実際の `IpcError::StaleView` と同じ名前で投げる。 */
-export class FakeStaleView extends Error {
-  readonly kind = "StaleView";
-  constructor() {
-    super("StaleView");
-  }
-}
-
-export interface FakeTreeViewArgs {
-  filter: TreeFilter;
-  expandedFolders: string[];
-  expandedAssets: Array<{ asset_id: string; item_total: number }>;
-  pinned: string | null;
+/** 窓の取得で版が古いときの印。実際の IPC が投げる `IpcError`（`code` と `message` の値）と同じ形。 */
+export function fakeStaleView(): { code: string; message: string } {
+  return { code: "stale_view", message: "StaleView" };
 }
 
 /** ツリーの偽の IPC。行は `setRows` で与え、版の進みと `StaleView` を再現できる。 */
 export class FakeTreeIpc {
   rows: TreeRow[] = [];
   version = 0;
-  viewCalls: FakeTreeViewArgs[] = [];
+  viewCalls: ViewSpec[] = [];
   rowCalls: Array<{ version: number; offset: number; limit: number }> = [];
   neighborCalls: Array<{
     from: string | null;
@@ -161,7 +154,7 @@ export class FakeTreeIpc {
     provider: string | null;
   }> = [];
   opened: string[] = [];
-  located = new Map<string, { row: number | null; ancestors: string[] }>();
+  located = new Map<string, Located>();
 
   setRows(rows: TreeRow[]): void {
     this.rows = rows;
@@ -173,8 +166,8 @@ export class FakeTreeIpc {
     this.version += 1;
   }
 
-  async treeViewSet(args: FakeTreeViewArgs) {
-    this.viewCalls.push(args);
+  async treeViewSet(spec: ViewSpec): Promise<ViewInfo> {
+    this.viewCalls.push(spec);
     return {
       version: this.version,
       total: this.rows.length,
@@ -188,7 +181,7 @@ export class FakeTreeIpc {
     limit: number,
   ): Promise<TreeWindow> {
     this.rowCalls.push({ version, offset, limit });
-    if (version !== this.version) throw new FakeStaleView();
+    if (version !== this.version) throw fakeStaleView();
     return {
       version,
       total: this.rows.length,
@@ -197,8 +190,8 @@ export class FakeTreeIpc {
     };
   }
 
-  async treeLocate(_version: number, assetId: string) {
-    return this.located.get(assetId) ?? { row: null, ancestors: [] };
+  async treeLocate(_version: number, assetId: string): Promise<Located | null> {
+    return this.located.get(assetId) ?? null;
   }
 
   async treeNeighbor(

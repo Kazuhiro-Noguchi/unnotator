@@ -52,6 +52,9 @@ export const commands = {
 	assetRelink: (assetId: string, rootKey: string, relPath: string, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("asset_relink", { assetId, rootKey, relPath }, options),
 	assetDelete: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("asset_delete", { assetId }, options),
 	assetSetMediaRules: (rules: MediaRules_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("asset_set_media_rules", { rules }, options),
+	treeViewSet: (spec: ViewSpec_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ViewInfo>("tree_view_set", { spec }, options),
+	treeRows: (version: number, offset: number, limit: number, options?: InvokeOptions) => __TAURI_INVOKE<TreeWindow_Serialize>("tree_rows", { version, offset, limit }, options),
+	treeLocate: (version: number, assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<Located_Serialize | null>("tree_locate", { version, assetId }, options),
 	settingsGet: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<EffectiveSetting>("settings_get", { key }, options),
 	settingsSet: (layer: Layer, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_set", { layer, key, valueJson }, options),
 	settingsUnset: (layer: Layer, key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_unset", { layer, key }, options),
@@ -296,6 +299,21 @@ export type EffectiveSetting = {
 
 export type Entity = "annotation" | "relation" | "group" | "group_member" | "label" | "attribute_schema" | "asset" | "item";
 
+/**  アイテムの枠を挟むアセット。`item_total` が未定なら「読み込み中」の行が 1 つ入る。 */
+export type ExpandedAsset = ExpandedAsset_Serialize | ExpandedAsset_Deserialize;
+
+/**  アイテムの枠を挟むアセット。`item_total` が未定なら「読み込み中」の行が 1 つ入る。 */
+export type ExpandedAsset_Deserialize = {
+	asset_id: string,
+	item_total?: number | null,
+};
+
+/**  アイテムの枠を挟むアセット。`item_total` が未定なら「読み込み中」の行が 1 つ入る。 */
+export type ExpandedAsset_Serialize = {
+	asset_id: string,
+	item_total: number | null,
+};
+
 export type ExtensionCheck = {
 	missing: RequiredExtension[],
 	version_mismatch: VersionMismatch[],
@@ -443,6 +461,25 @@ export type LabelUsage = {
 
 export type Layer = "user" | "project";
 
+/**  `locate` の結果。 */
+export type Located = Located_Serialize | Located_Deserialize;
+
+/**  `locate` の結果。 */
+export type Located_Deserialize = {
+	/**  見えているときの行の位置。 */
+	row?: number | null,
+	/**  開くべき祖先（ルートから順）。 */
+	ancestors: NodeKey[],
+};
+
+/**  `locate` の結果。 */
+export type Located_Serialize = {
+	/**  見えているときの行の位置。 */
+	row: number | null,
+	/**  開くべき祖先（ルートから順）。 */
+	ancestors: NodeKey[],
+};
+
 export type MediaFilter = { kind: "any" } | 
 /**  媒体種別が判定できない（「不明」）もの。 */
 { kind: "unknown" } | { kind: "is"; value: string };
@@ -503,6 +540,12 @@ export type NewAsset_Serialize = {
 	rel_path: string,
 	media_type: string | null,
 	stamp: AssetStamp,
+};
+
+/**  フォルダ（またはルート）の識別。ルートは `path` が空。 */
+export type NodeKey = {
+	root_key: string,
+	path: string,
 };
 
 /**  `project_open` の結果。 */
@@ -824,6 +867,38 @@ export type Target_Serialize = {
 	item: ItemRef | null,
 };
 
+/**  窓の 1 行。 */
+export type TreeRow = TreeRow_Serialize | TreeRow_Deserialize;
+
+/**  窓の 1 行。 */
+export type TreeRow_Deserialize = { kind: "root"; root_key: string; name: string; depth: number; expanded: boolean; total: number; done: number } | { kind: "folder"; root_key: string; path: string; name: string; depth: number; expanded: boolean; total: number; done: number } | { kind: "asset"; id: string; name: string; depth: number; media_type?: string | null; status: Status; missing: boolean; expanded: boolean; pinned: boolean } | 
+/**  アイテムの枠。中身は画面が提供元から埋める。 */
+{ kind: "item_slot"; asset_id: string; index: number; depth: number } | { kind: "item_loading"; asset_id: string; depth: number };
+
+/**  窓の 1 行。 */
+export type TreeRow_Serialize = { kind: "root"; root_key: string; name: string; depth: number; expanded: boolean; total: number; done: number } | { kind: "folder"; root_key: string; path: string; name: string; depth: number; expanded: boolean; total: number; done: number } | { kind: "asset"; id: string; name: string; depth: number; media_type: string | null; status: Status; missing: boolean; expanded: boolean; pinned: boolean } | 
+/**  アイテムの枠。中身は画面が提供元から埋める。 */
+{ kind: "item_slot"; asset_id: string; index: number; depth: number } | { kind: "item_loading"; asset_id: string; depth: number };
+
+/**  窓。 */
+export type TreeWindow = TreeWindow_Serialize | TreeWindow_Deserialize;
+
+/**  窓。 */
+export type TreeWindow_Deserialize = {
+	version: number,
+	total: number,
+	offset: number,
+	rows: TreeRow_Deserialize[],
+};
+
+/**  窓。 */
+export type TreeWindow_Serialize = {
+	version: number,
+	total: number,
+	offset: number,
+	rows: TreeRow_Serialize[],
+};
+
 export type UndoState = {
 	can_undo: boolean,
 	can_redo: boolean,
@@ -845,6 +920,35 @@ export type VersionMismatch = {
 	id: string,
 	required: string,
 	installed: string,
+};
+
+/**  `tree_view_set` の結果。 */
+export type ViewInfo = {
+	/**  窓の取得に渡す版。 */
+	version: number,
+	/**  見える行の総数。 */
+	total: number,
+	/**  索引の世代（作り直しのたびに進む）。 */
+	generation: number,
+};
+
+/**  見え方の指定。 */
+export type ViewSpec = ViewSpec_Serialize | ViewSpec_Deserialize;
+
+/**  見え方の指定。 */
+export type ViewSpec_Deserialize = {
+	expanded_folders?: NodeKey[],
+	expanded_assets?: ExpandedAsset_Deserialize[],
+	/**  条件から外れても残す、現在位置のアセット。 */
+	pinned?: string | null,
+};
+
+/**  見え方の指定。 */
+export type ViewSpec_Serialize = {
+	expanded_folders: NodeKey[],
+	expanded_assets: ExpandedAsset_Serialize[],
+	/**  条件から外れても残す、現在位置のアセット。 */
+	pinned: string | null,
 };
 
 /* Tauri Specta runtime */

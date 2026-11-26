@@ -55,6 +55,8 @@ pub struct ProjectState {
     user_settings_dir: Option<PathBuf>,
     /// 見張りの世代。開く・閉じるたびに進み、古い世代の見張りのスレッドは止まる。
     watch_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    /// アセットツリーの索引と見え方（007）。
+    tree: crate::tree_commands::SharedTree,
 }
 
 impl ProjectState {
@@ -65,6 +67,7 @@ impl ProjectState {
             scan_cancel: std::sync::Arc::default(),
             user_settings_dir: None,
             watch_generation: std::sync::Arc::default(),
+            tree: crate::tree_commands::SharedTree::default(),
         }
     }
 
@@ -88,6 +91,10 @@ impl ProjectState {
 
     pub(crate) fn user_settings_dir(&self) -> Option<&Path> {
         self.user_settings_dir.as_deref()
+    }
+
+    pub(crate) fn tree(&self) -> crate::tree_commands::SharedTree {
+        self.tree.clone()
     }
 
     pub(crate) fn scan_cancel(&self) -> &std::sync::atomic::AtomicBool {
@@ -215,6 +222,16 @@ fn info_of(store: &ProjectStore) -> ProjectInfo {
 }
 
 fn attach(store: &mut ProjectStore, hooks: Hooks, state: &ProjectState) {
+    // 前のプロジェクトの索引を捨て、以後の差分を索引へ伝える（ロックの順序は、プロジェクト → 索引）。
+    let tree = state.tree();
+    tree.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .reset();
+    store.subscribe(Box::new(move |set| {
+        tree.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .note(set);
+    }));
     if let Some(dir) = state.user_settings_dir() {
         store.attach_user_settings(dir);
     }

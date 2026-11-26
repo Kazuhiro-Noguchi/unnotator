@@ -4,7 +4,8 @@ import { fromStore, useT } from "../solid";
 import { NotificationCard } from "./NotificationCard";
 
 /**
- * 画面の右下に出るトースト（同時に 3 件まで。多いときは古いものから消え、通知センターに残る）。
+ * 画面の右下に出るトースト（同時に 3 件まで。多いときと、info の時間切れは、トーストだけ消えて通知センターに残る。
+ * 閉じるボタンで閉じたものは、通知センターからも消える）。
  * 通知センターを開いている間は、ストアがトーストを空にする（`setToastsEnabled`）。
  */
 export function Toasts() {
@@ -17,7 +18,8 @@ export function Toasts() {
           <NotificationCard
             item={item}
             closeLabel={t("notify.dismiss")}
-            onClose={() => notifyStore.dismiss(item.id)}
+            // 自分で閉じた通知は、通知センターにも残さない。
+            onClose={() => notifyStore.remove(item.id)}
             onAction={() => notifyStore.remove(item.id)}
           />
         )}

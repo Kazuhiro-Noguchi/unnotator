@@ -77,9 +77,17 @@ export function Shell(props: {
         {props.ribbon}
       </section>
       <div class="shell-main">
-        <ActivityBar />
-        <Show when={shown().primarySidebar.visible}>
-          <PrimarySidebar width={shown().primarySidebar.width} />
+        {/* アクティビティバーとプライマリサイドバーは、1 つのアイランド。サイドバーを出すと、アイランドが広がる。 */}
+        <div class="side-island">
+          <ActivityBar />
+          <Show when={shown().primarySidebar.visible}>
+            <PrimarySidebar width={shown().primarySidebar.width} />
+          </Show>
+        </div>
+        <Show
+          when={shown().primarySidebar.visible}
+          fallback={<div class="island-gap" aria-hidden="true" />}
+        >
           <Splitter
             orientation="vertical"
             value={shown().primarySidebar.width}

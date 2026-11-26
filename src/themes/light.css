@@ -9,6 +9,9 @@
   --color-border: #c3c7cf;
   --color-surface: #edf0f8;
   --color-surface-low: #f2f3fa;
+  /* アイランド（領域の面）と、その外側の枠の色。 */
+  --color-island: #f8f9ff;
+  --color-frame: #edf0f8;
   --color-surface-hover: #e1e5ee;
   --color-surface-active: #d4d9e4;
   --color-surface-high: #e6e8ee;

@@ -8,6 +8,8 @@
     --color-border: #43474e;
     --color-surface: #1d2024;
     --color-surface-low: #191c20;
+    --color-island: #1d2024;
+    --color-frame: #111318;
     --color-surface-hover: #282a2f;
     --color-surface-active: #33353a;
     --color-surface-high: #272a2f;
@@ -36,6 +38,8 @@
   --color-border: #43474e;
   --color-surface: #1d2024;
   --color-surface-low: #191c20;
+  --color-island: #1d2024;
+  --color-frame: #111318;
   --color-surface-hover: #282a2f;
   --color-surface-active: #33353a;
   --color-surface-high: #272a2f;

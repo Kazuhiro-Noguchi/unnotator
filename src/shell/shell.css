@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-bg);
+  background: var(--color-frame);
   color: var(--color-fg);
   overflow: hidden;
 }
@@ -13,16 +13,19 @@
   outline-offset: -2px;
 }
 
+/* リボン: タブの段は枠の色の上に置き、ボタンの段だけを、アイランドにする。 */
 .ribbon-slot {
   flex: none;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  padding-inline: 0 6px;
+  background: transparent;
 }
 
+/* アイランド: 領域は、枠の色の上に浮かぶ、角の丸い面。間の隙間（splitter）で、大きさを変える。 */
 .shell-main {
   flex: 1;
   display: flex;
   min-height: 0;
+  padding: 6px;
 }
 
 .shell-center {
@@ -37,7 +40,9 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--color-bg);
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -49,7 +54,7 @@
   gap: 2px;
   min-height: 30px;
   padding-inline: 8px;
-  background: var(--color-surface);
+  background: var(--color-island);
   border-bottom: 1px solid var(--color-border);
   font-weight: 600;
 }
@@ -86,7 +91,10 @@
   min-width: 0;
   display: grid;
   place-items: center;
-  background: var(--color-bg);
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .empty-state {
@@ -127,25 +135,44 @@
   background: var(--state-hover);
 }
 
+/* アイランドの間の隙間。ふだんは見えず、触れたときだけ、真ん中に線が出る。 */
 .splitter {
+  position: relative;
   flex: none;
-  background: var(--color-border);
+  background: transparent;
   touch-action: none;
 }
 
 .splitter[aria-orientation="vertical"] {
-  width: 4px;
+  width: 6px;
   cursor: col-resize;
 }
 
 .splitter[aria-orientation="horizontal"] {
-  height: 4px;
+  height: 6px;
   cursor: row-resize;
 }
 
-.splitter:hover,
-.splitter:focus-visible,
-.splitter[data-dragging="true"] {
+.splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.splitter[aria-orientation="vertical"]::after {
+  width: 2px;
+}
+
+.splitter[aria-orientation="horizontal"]::after {
+  height: 2px;
+}
+
+.splitter:hover::after,
+.splitter:focus-visible::after,
+.splitter[data-dragging="true"]::after {
   background: var(--color-accent);
 }
 
@@ -164,8 +191,7 @@
   display: flex;
   align-items: center;
   padding-inline: 8px;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-frame);
   color: var(--color-fg-muted);
 }
 
@@ -384,8 +410,9 @@
   box-sizing: border-box;
   height: 100px;
   padding: 2px;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   /* 縮退しても収まらないときは、横にスクロールする（縦にははみ出さない）。 */
   overflow: auto hidden;
   scrollbar-width: thin;
@@ -802,8 +829,33 @@ fieldset.ribbon-group {
   align-items: center;
   gap: 4px;
   padding-top: 4px;
-  background: var(--color-surface);
-  border-inline-end: 1px solid var(--color-border);
+  background: transparent;
+}
+
+/* アクティビティバー + プライマリサイドバー。1 つの面で、サイドバーを出すと右へ広がる。
+   サイドバーの面は、この面の中では、枠も丸みも持たない。 */
+.side-island {
+  flex: none;
+  display: flex;
+  min-height: 0;
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* サイドバーが無いときの、アクティビティバーとエディターの隙間（出ているときは splitter が担う）。 */
+.island-gap {
+  flex: none;
+  width: 6px;
+}
+
+/* サイドバーの面は、枠と丸みを持たない。アクティビティバーとの間に、縦線を引く。 */
+.side-island > .panel {
+  border: 0;
+  border-inline-start: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .activity-button {

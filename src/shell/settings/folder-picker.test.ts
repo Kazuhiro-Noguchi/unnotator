@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   addRecent,
+  createNativeFolderPicker,
   createProjectActions,
   type ProjectActionsDeps,
   removeRecent,
@@ -147,5 +148,37 @@ describe("プロジェクトの操作", () => {
     await expect(actions.save()).resolves.toBeUndefined();
     await expect(actions.undo()).resolves.toBeUndefined();
     expect(notify).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("OS 標準のフォルダ選択（createNativeFolderPicker）", () => {
+  it("OS のダイアログで選んだフォルダを返し、タイトルとフォルダ選択を指定する", async () => {
+    const openDialog = vi.fn().mockResolvedValue("/data/p");
+    const fallback = { pick: vi.fn() };
+    const picker = createNativeFolderPicker(openDialog, fallback);
+    expect(await picker.pick({ title: "開く" })).toBe("/data/p");
+    expect(openDialog).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      title: "開く",
+      canCreateDirectories: true,
+    });
+    expect(fallback.pick).not.toHaveBeenCalled();
+  });
+
+  it("キャンセルは null（簡易ダイアログには切り替えない）", async () => {
+    const openDialog = vi.fn().mockResolvedValue(null);
+    const fallback = { pick: vi.fn() };
+    const picker = createNativeFolderPicker(openDialog, fallback);
+    expect(await picker.pick({ title: "x" })).toBeNull();
+    expect(fallback.pick).not.toHaveBeenCalled();
+  });
+
+  it("OS のダイアログが使えない（例外）ときは、簡易ダイアログに切り替える", async () => {
+    const openDialog = vi.fn().mockRejectedValue(new Error("no tauri"));
+    const fallback = { pick: vi.fn().mockResolvedValue("/typed") };
+    const picker = createNativeFolderPicker(openDialog, fallback);
+    expect(await picker.pick({ title: "x" })).toBe("/typed");
+    expect(fallback.pick).toHaveBeenCalledWith({ title: "x" });
   });
 });

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "メインウィンドウの最小の権限",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-set-title"]
+  "permissions": ["core:default", "core:window:allow-set-title", "dialog:allow-open"]
 }

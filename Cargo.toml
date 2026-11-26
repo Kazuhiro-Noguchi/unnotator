@@ -31,6 +31,8 @@ jsonschema = { version = "0.63.1", default-features = false }
 # アプリ（src-tauri だけが使う）
 tauri = { version = "2.12.7", features = [] }
 tauri-build = { version = "2.7.6", features = [] }
+# 006: OS 標準のフォルダ選択（MIT / Apache-2.0）。承認済み（unno-jtd9）
+tauri-plugin-dialog = "2.8.4"
 tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }
 specta-typescript = "=0.0.15"

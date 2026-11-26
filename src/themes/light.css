@@ -1,4 +1,22 @@
-:root {
+/* ライトのトークン。色はすべてここで決め、部品はこの変数だけを使う（006 research.md R10）。 */
+:root,
+:root[data-theme="light"] {
   --color-bg: #ffffff;
   --color-fg: #1a1a1a;
+  --color-fg-muted: #52525b;
+  --color-fg-disabled: #6b6b73;
+  --color-border: #d4d4d8;
+  --color-surface: #f4f4f5;
+  --color-surface-hover: #e4e4e7;
+  --color-surface-active: #d4d4d8;
+  --color-accent: #1d4ed8;
+  --color-accent-fg: #ffffff;
+  --color-selection: #dbeafe;
+  --color-danger: #b91c1c;
+  --color-warning: #92400e;
+  --color-info: #0369a1;
+  --color-success: #166534;
+  --color-focus: #1d4ed8;
+  --color-backdrop: rgb(0 0 0 / 35%);
+  --color-shadow: rgb(0 0 0 / 18%);
 }

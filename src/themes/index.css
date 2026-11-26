@@ -1,8 +1,14 @@
 @import "./light.css";
 @import "./dark.css";
+@import "../shell/shell.css";
 
 body {
   margin: 0;
+  font:
+    13px / 1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
   background: var(--color-bg);
   color: var(--color-fg);
 }

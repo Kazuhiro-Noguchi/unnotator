@@ -140,7 +140,8 @@ provideExplorerCommands(commandRegistry, notify);
 appearance.applyTheme("system");
 appearance.applyLanguage("system");
 // 開発ビルドだけ: 画面の部品を押して確かめられるよう、仮の処理（デモ）を結ぶ。
-if (import.meta.env.DEV) {
+// 開発ビルド、または `VITE_UNNO_DEV_TOOLS=1` を付けてビルドしたときだけ（実機での確認・計測用）。
+if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
   void import("./shell/dev/demo-commands").then((demo) =>
     import("./shell/dev/item-demo").then((itemDemo) =>
       demo.installDemoCommands({

@@ -70,12 +70,12 @@ export async function measureLargeText(): Promise<number | null> {
   const page = await commands.assetList(
     {
       root_key: null,
-      path_prefix: null,
+      path_prefix: "specimen/",
       media_type: { kind: "any" },
       status: null,
       missing: null,
     },
-    { limit: 50_000, after: null },
+    { limit: 100, after: null },
   );
   const target = page.items.find((a) => a.rel_path.endsWith("large.txt"));
   if (!target) return null;

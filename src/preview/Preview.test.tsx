@@ -280,4 +280,19 @@ describe("Preview（部品）", () => {
     expect(rendered).toBeGreaterThan(0);
     expect(rendered).toBeLessThan(200);
   });
+
+  it("PDF を読み込んでも、元のフォーカスを奪わない（キー操作がシェルに届く）", async () => {
+    const tree = document.createElement("button");
+    document.body.appendChild(tree);
+    tree.focus();
+    mount(() => asset("manual.pdf"));
+    await wait();
+    const frame = document.querySelector("iframe");
+    if (!frame) throw new Error("iframe が無い");
+    // WebView の PDF ビューアが、読み込み時にフォーカスを取る
+    frame.focus();
+    expect(document.activeElement).toBe(frame);
+    frame.dispatchEvent(new Event("load"));
+    expect(document.activeElement).toBe(tree);
+  });
 });

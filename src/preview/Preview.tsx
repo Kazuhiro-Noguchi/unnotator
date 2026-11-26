@@ -42,8 +42,25 @@ type State =
   | { kind: "text"; lines: LineIndex; truncated: boolean }
   | { kind: "fallback"; reason: FallbackReason };
 
+/**
+ * PDF の `<iframe>` は、読み込むとフォーカスを奪い、以後のキー操作（PageDown・元に戻すなど）が
+ * シェルに届かなくなる。読み込み前にフォーカスのあった要素（ツリー）へ、フォーカスを戻す。
+ */
+function giveFocusBack(frame: HTMLIFrameElement, before: Element | null): void {
+  if (
+    document.activeElement === frame &&
+    before instanceof HTMLElement &&
+    before !== frame &&
+    before.isConnected
+  ) {
+    before.focus();
+  }
+}
+
 export function Preview(props: PreviewProps) {
   const t = useT();
+  /** 表示を切り替えた時点で、フォーカスのあった要素。 */
+  let focusBefore: Element | null = null;
   const [state, setState] = createSignal<State>({ kind: "loading" });
 
   createEffect(
@@ -53,6 +70,7 @@ export function Preview(props: PreviewProps) {
       ([id, relPath, missing]) => {
         const controller = new AbortController();
         onCleanup(() => controller.abort());
+        focusBefore = document.activeElement;
         // 古い読み込みの結果で、新しい表示を上書きしない（中断に加えて、完了時にも確かめる）。
         const stillCurrent = () => !controller.signal.aborted;
 
@@ -138,6 +156,7 @@ export function Preview(props: PreviewProps) {
             class="preview-pdf"
             src={(state() as { url: string }).url}
             title={t("preview.pdf.title")}
+            onLoad={(event) => giveFocusBack(event.currentTarget, focusBefore)}
           />
         </Match>
         <Match when={state().kind === "text"}>

@@ -9,6 +9,7 @@ pub mod order;
 pub mod view;
 
 pub use filter::{MediaSel, TreeFilter};
+pub use nav::{Direction, Neighbor};
 pub use view::{ExpandedAsset, FlatView, Located, MAX_WINDOW, NodeKey, TreeRow, ViewSpec};
 
 use std::collections::{HashMap, HashSet};

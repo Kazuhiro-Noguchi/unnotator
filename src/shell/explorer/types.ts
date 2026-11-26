@@ -3,9 +3,13 @@
 import type { Status } from "../../ipc";
 
 export type {
+  Direction,
   ExpandedAsset,
+  ItemStatusDto,
   Located,
   MediaSel,
+  MediaTraitsDto,
+  Neighbor,
   NodeKey,
   TreeRow,
   TreeWindow,
@@ -21,12 +25,6 @@ export interface TreeFilter {
   statuses: Status[];
   media_types: MediaSel[];
   missing: boolean | null;
-}
-
-export interface Neighbor {
-  asset_id: string | null;
-  skipped_missing: number;
-  reached_end: boolean;
 }
 
 export interface CurrentTarget {

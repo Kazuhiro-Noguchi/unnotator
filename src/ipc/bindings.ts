@@ -55,6 +55,9 @@ export const commands = {
 	treeViewSet: (spec: ViewSpec_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ViewInfo>("tree_view_set", { spec }, options),
 	treeRows: (version: number, offset: number, limit: number, options?: InvokeOptions) => __TAURI_INVOKE<TreeWindow_Serialize>("tree_rows", { version, offset, limit }, options),
 	treeLocate: (version: number, assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<Located_Serialize | null>("tree_locate", { version, assetId }, options),
+	treeNeighbor: (from: string | null, direction: Direction, unfinishedOnly: boolean, filter: TreeFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Neighbor_Serialize>("tree_neighbor", { from, direction, unfinishedOnly, filter }, options),
+	itemStatuses: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<ItemStatusDto[]>("item_statuses", { assetId }, options),
+	mediaTraits: (options?: InvokeOptions) => __TAURI_INVOKE<MediaTraitsDto_Serialize[]>("media_traits", undefined, options),
 	settingsGet: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<EffectiveSetting>("settings_get", { key }, options),
 	settingsSet: (layer: Layer, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_set", { layer, key, valueJson }, options),
 	settingsUnset: (layer: Layer, key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("settings_unset", { layer, key }, options),
@@ -291,6 +294,8 @@ export type DevModeDto = {
 	folders: string[],
 };
 
+export type Direction = "prev" | "next";
+
 /**  設定の実効値と、どの段のものか。 */
 export type EffectiveSetting = {
 	value_json: string,
@@ -421,6 +426,12 @@ export type ItemRef = {
 	provider: string,
 };
 
+/**  記録のあるアイテムのキーと状態。 */
+export type ItemStatusDto = {
+	key: string,
+	status: Status,
+};
+
 /**  使用中のラベルを削除するときの扱い。 */
 export type LabelDisposition = 
 /**  使っているものの `label_id` を別のラベルへ付け替える。 */
@@ -520,11 +531,51 @@ export type MediaSel =
 /**  媒体種別が判定できない（「不明」）もの。 */
 { kind: "unknown" } | { kind: "is"; value: string };
 
+/**  媒体種別の作業単位とアイテム提供の宣言。 */
+export type MediaTraitsDto = MediaTraitsDto_Serialize | MediaTraitsDto_Deserialize;
+
+/**  媒体種別の作業単位とアイテム提供の宣言。 */
+export type MediaTraitsDto_Deserialize = {
+	media_type: string,
+	work_unit: WorkUnitDto,
+	provider?: string | null,
+};
+
+/**  媒体種別の作業単位とアイテム提供の宣言。 */
+export type MediaTraitsDto_Serialize = {
+	media_type: string,
+	work_unit: WorkUnitDto,
+	provider: string | null,
+};
+
 /**  リンク切れにした理由。 */
 export type MissReason = {
 	asset_id: string,
 	/**  `file_not_found` / `root_not_found` / `root_not_configured` */
 	reason: string,
+};
+
+/**  探索の結果。 */
+export type Neighbor = Neighbor_Serialize | Neighbor_Deserialize;
+
+/**  探索の結果。 */
+export type Neighbor_Deserialize = {
+	/**  見つかったアセット。無ければ `None`（端に達した）。 */
+	asset_id?: string | null,
+	/**  条件に合ったのに、リンク切れで飛ばした数。 */
+	skipped_missing: number,
+	/**  端に達して、見つからなかった。 */
+	reached_end: boolean,
+};
+
+/**  探索の結果。 */
+export type Neighbor_Serialize = {
+	/**  見つかったアセット。無ければ `None`（端に達した）。 */
+	asset_id: string | null,
+	/**  条件に合ったのに、リンク切れで飛ばした数。 */
+	skipped_missing: number,
+	/**  端に達して、見つからなかった。 */
+	reached_end: boolean,
 };
 
 export type NewAsset = NewAsset_Serialize | NewAsset_Deserialize;
@@ -983,6 +1034,8 @@ export type ViewSpec_Serialize = {
 	/**  条件から外れても残す、現在位置のアセット。 */
 	pinned: string | null,
 };
+
+export type WorkUnitDto = "asset" | "item";
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;

@@ -174,6 +174,15 @@ impl ProjectStore {
         })
     }
 
+    /// 記録のあるアイテム（状態・属性・アノテーションが付いたもの）の、キーと状態。
+    /// 記録の無いアイテムは含まれない（未着手として扱う）。
+    pub fn item_statuses(
+        &self,
+        asset_id: &str,
+    ) -> Result<Vec<(String, crate::command::Status)>, StoreError> {
+        assets::item_statuses(&self.conn, asset_id)
+    }
+
     /// 一覧（読み取り）。
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)

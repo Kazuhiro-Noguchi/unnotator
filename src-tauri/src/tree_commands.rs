@@ -5,9 +5,14 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use unnotator_core::assets::tree::{FlatView, Located, TreeIndex, TreeRow, ViewSpec};
+use unnotator_core::assets::tree::{
+    Direction, FlatView, Located, Neighbor, TreeFilter, TreeIndex, TreeRow, ViewSpec,
+};
+use unnotator_core::command::Status;
 use unnotator_core::event::ChangeSet;
+use unnotator_extensions::registry::{Registry, WorkUnit};
 
+use crate::extension_commands::ExtensionRuntime;
 use crate::project_commands::{IpcError, ProjectState, with_store};
 
 /// 保持している見え方。`version` は呼び出しごとに進み、古い窓の取得を拒むために使う。
@@ -157,6 +162,94 @@ pub fn locate(
     with_view(state, version, |index, flat| {
         Some(flat.locate(index, asset_id))
     })
+}
+
+/// 前 / 次 / 次の未完了のアセット。ツリーの行と同じ順序・同じ条件で探す。
+pub fn neighbor(
+    state: &ProjectState,
+    from: Option<&str>,
+    direction: Direction,
+    unfinished_only: bool,
+    filter: &TreeFilter,
+) -> Result<Neighbor, IpcError> {
+    let tree = refresh(state)?;
+    let guard = lock(&tree);
+    let index = guard.index.as_ref().ok_or_else(IpcError::stale_view)?;
+    Ok(index.neighbor(from, direction, unfinished_only, filter))
+}
+
+/// 記録のあるアイテムのキーと状態。
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ItemStatusDto {
+    pub key: String,
+    pub status: Status,
+}
+
+pub fn statuses_of(state: &ProjectState, asset_id: &str) -> Result<Vec<ItemStatusDto>, IpcError> {
+    with_store(state, |store| {
+        Ok(store
+            .item_statuses(asset_id)?
+            .into_iter()
+            .map(|(key, status)| ItemStatusDto { key, status })
+            .collect())
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkUnitDto {
+    Asset,
+    Item,
+}
+
+/// 媒体種別の作業単位とアイテム提供の宣言。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct MediaTraitsDto {
+    pub media_type: String,
+    pub work_unit: WorkUnitDto,
+    pub provider: Option<String>,
+}
+
+pub fn traits_of(registry: &Registry) -> Vec<MediaTraitsDto> {
+    registry
+        .media_traits()
+        .into_iter()
+        .map(|t| MediaTraitsDto {
+            media_type: t.media_type,
+            work_unit: match t.work_unit {
+                WorkUnit::Asset => WorkUnitDto::Asset,
+                WorkUnit::Item => WorkUnitDto::Item,
+            },
+            provider: t.provider,
+        })
+        .collect()
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn tree_neighbor(
+    state: tauri::State<'_, ProjectState>,
+    from: Option<String>,
+    direction: Direction,
+    unfinished_only: bool,
+    filter: TreeFilter,
+) -> Result<Neighbor, IpcError> {
+    neighbor(&state, from.as_deref(), direction, unfinished_only, &filter)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn item_statuses(
+    state: tauri::State<'_, ProjectState>,
+    asset_id: String,
+) -> Result<Vec<ItemStatusDto>, IpcError> {
+    statuses_of(&state, &asset_id)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn media_traits(rt: tauri::State<'_, ExtensionRuntime>) -> Vec<MediaTraitsDto> {
+    traits_of(&rt.registry())
 }
 
 #[tauri::command(async)]
@@ -367,5 +460,94 @@ mod tests {
             rows(&state, info.version, 0, 5).unwrap_err().code,
             "stale_view"
         );
+    }
+
+    #[test]
+    fn neighbor_follows_the_tree_order_and_stops_at_the_end() {
+        let temp = Temp::new();
+        let state = open_with_files(&temp, &["b.txt", "d/a.txt", "d/c.txt"]);
+        let all = list(&state, &AssetFilter::default(), &Page::first(10)).expect("一覧");
+        let id = |path: &str| {
+            all.items
+                .iter()
+                .find(|a| a.rel_path == path)
+                .expect("ある")
+                .id
+                .clone()
+        };
+        let none = TreeFilter::default();
+        let first = neighbor(&state, None, Direction::Next, false, &none).expect("探せる");
+        assert_eq!(first.asset_id.as_deref(), Some(id("d/a.txt").as_str()));
+        let second = neighbor(
+            &state,
+            first.asset_id.as_deref(),
+            Direction::Next,
+            false,
+            &none,
+        )
+        .expect("探せる");
+        assert_eq!(second.asset_id.as_deref(), Some(id("d/c.txt").as_str()));
+        let last =
+            neighbor(&state, Some(&id("b.txt")), Direction::Next, false, &none).expect("探せる");
+        assert!(last.reached_end && last.asset_id.is_none());
+        // 状態を変えると、未完了の探索から外れる
+        apply(
+            &state,
+            Command::SetAssetStatus {
+                asset_id: id("d/a.txt"),
+                status: Status::Done,
+            },
+        )
+        .expect("適用できる");
+        let next = neighbor(&state, None, Direction::Next, true, &none).expect("探せる");
+        assert_eq!(next.asset_id.as_deref(), Some(id("d/c.txt").as_str()));
+    }
+
+    #[test]
+    fn item_statuses_list_only_recorded_items() {
+        let temp = Temp::new();
+        let state = open_with_files(&temp, &["b.txt"]);
+        let id = list(&state, &AssetFilter::default(), &Page::first(10))
+            .expect("一覧")
+            .items[0]
+            .id
+            .clone();
+        assert!(statuses_of(&state, &id).expect("読める").is_empty());
+        apply(
+            &state,
+            Command::SetItemStatus {
+                item: unnotator_core::command::ItemRef {
+                    asset_id: id.clone(),
+                    item_key: "page:2".to_owned(),
+                    provider: "com.example/pages".to_owned(),
+                },
+                status: Status::Done,
+            },
+        )
+        .expect("適用できる");
+        let got = statuses_of(&state, &id).expect("読める");
+        assert_eq!(got.len(), 1);
+        assert_eq!(
+            (got[0].key.as_str(), got[0].status),
+            ("page:2", Status::Done)
+        );
+    }
+
+    #[test]
+    fn neighbor_and_item_statuses_need_an_open_project() {
+        let temp = Temp::new();
+        let state = ProjectState::new(temp.0.join("recovery"));
+        assert_eq!(
+            neighbor(&state, None, Direction::Next, false, &TreeFilter::default())
+                .unwrap_err()
+                .code,
+            "not_open"
+        );
+        assert_eq!(statuses_of(&state, "x").unwrap_err().code, "not_open");
+    }
+
+    #[test]
+    fn media_traits_are_empty_for_an_empty_registry() {
+        assert!(traits_of(&Registry::default()).is_empty());
     }
 }

@@ -122,6 +122,23 @@ pub fn all_assets(conn: &Connection) -> Result<Vec<AssetRow>, StoreError> {
     Ok(rows)
 }
 
+/// 記録のあるアイテムの、キーと状態（キーの昇順）。
+pub fn item_statuses(
+    conn: &Connection,
+    asset_id: &str,
+) -> Result<Vec<(String, Status)>, StoreError> {
+    let mut stmt =
+        conn.prepare("SELECT item_key, status FROM items WHERE asset_id = ? ORDER BY item_key")?;
+    let rows = stmt
+        .query_map([asset_id], |row| {
+            let key: String = row.get(0)?;
+            let status: String = row.get(1)?;
+            Ok((key, Status::parse(&status).unwrap_or(Status::Todo)))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// 一覧（読み取り）。`(root_key, rel_path)` の順で、カーソルの続きから `limit` 件。
 pub fn list_assets(
     conn: &Connection,

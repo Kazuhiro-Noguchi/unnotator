@@ -249,8 +249,8 @@ mod tests {
     #[test]
     fn the_core_key_table_is_exposed_with_defaults() {
         let table = keys();
-        // assets.* の 4 項目と、画面の設定 ui.* の 6 項目。
-        assert_eq!(table.len(), 10);
+        // assets.* の 4 項目と、画面の設定 ui.* の 7 項目（006 の 6 項目と、007 の ui.explorer）。
+        assert_eq!(table.len(), 11);
         assert!(
             table
                 .iter()

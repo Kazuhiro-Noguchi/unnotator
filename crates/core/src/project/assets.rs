@@ -180,6 +180,17 @@ impl ProjectStore {
     }
 }
 
+/// ツリーの索引が、作業用コピーのアセットを読むための出どころ。
+impl assets::tree::AssetSource for ProjectStore {
+    fn all_assets(&self) -> Result<Vec<assets::AssetRow>, StoreError> {
+        assets::all_assets(&self.conn)
+    }
+
+    fn asset(&self, id: &str) -> Result<Option<assets::AssetRow>, StoreError> {
+        assets::get_asset(&self.conn, id)
+    }
+}
+
 /// 立てた適用の計画。`apply_step` で 1 まとまりずつ書く。
 #[derive(Debug)]
 pub struct ScanApply {

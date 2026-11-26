@@ -122,6 +122,7 @@ describe("RowsStore", () => {
     const ipc = ipcWith(300);
     const store = createRowsStore({
       treeViewSet: (spec) => ipc.treeViewSet(spec),
+      treeLocate: (version, assetId) => ipc.treeLocate(version, assetId),
       treeRows: async (version, offset, limit) => {
         const window = await ipc.treeRows(version, offset, limit);
         if (version === 1) await new Promise((r) => setTimeout(r, 30));
@@ -165,6 +166,7 @@ describe("RowsStore", () => {
       treeViewSet: async () => {
         throw { code: "not_open", message: "x" };
       },
+      treeLocate: async () => null,
       treeRows: async () => {
         throw new Error("unreachable");
       },

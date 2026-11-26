@@ -145,6 +145,7 @@ export class FakeTreeIpc {
     direction: "prev" | "next";
     unfinishedOnly: boolean;
     filter: TreeFilter;
+    itemMediaTypes: string[];
   }> = [];
   neighbors: Neighbor[] = [];
   recorded = new Map<string, Array<{ key: string; status: Status }>>();
@@ -199,11 +200,20 @@ export class FakeTreeIpc {
     direction: "prev" | "next",
     unfinishedOnly: boolean,
     filter: TreeFilter,
+    itemMediaTypes: string[],
   ): Promise<Neighbor> {
-    this.neighborCalls.push({ from, direction, unfinishedOnly, filter });
+    this.neighborCalls.push({
+      from,
+      direction,
+      unfinishedOnly,
+      filter,
+      itemMediaTypes,
+    });
     return (
       this.neighbors.shift() ?? {
         asset_id: null,
+        media_type: null,
+        status: null,
         skipped_missing: 0,
         reached_end: true,
       }

@@ -129,5 +129,12 @@
   "explorer.filter.unknown": "不明",
   "explorer.filter.label": "絞り込み",
   "explorer.empty.noMatch": "条件に合うアセットがありません。",
-  "explorer.empty.clear": "条件を解除"
+  "explorer.empty.clear": "条件を解除",
+  "explorer.nav.end": "最後です。",
+  "explorer.nav.start": "先頭です。",
+  "explorer.nav.nothingUnfinished": "未完了はありません。",
+  "explorer.nav.skippedMissing": "リンク切れのアセットを {count} 件飛ばしました。",
+  "explorer.nav.failedWrite": "状態を変えられなかったため、移動しませんでした。",
+  "explorer.nav.failedSource": "アイテムを読み込めなかったため、移動しませんでした。",
+  "explorer.status.failed": "状態を変えられませんでした。"
 }

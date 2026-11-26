@@ -47,6 +47,7 @@ export {
   type MediaTraitsDto,
   type MissReason,
   type Neighbor,
+  type Neighbor_Serialize,
   type NewAsset,
   type NodeKey,
   type OpenResult,

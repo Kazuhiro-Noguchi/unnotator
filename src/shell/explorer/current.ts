@@ -25,7 +25,12 @@ export function createCurrentStore(): CurrentStore {
   };
   return {
     get: () => current,
-    open: (target) => set({ assetId: target.assetId, itemKey: target.itemKey }),
+    open: (target) =>
+      set({
+        assetId: target.assetId,
+        itemKey: target.itemKey,
+        mediaType: target.mediaType,
+      }),
     clear: () => set(null),
     subscribe(listener) {
       listeners.add(listener);

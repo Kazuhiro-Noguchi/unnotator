@@ -18,6 +18,8 @@ export type WorkUnit = "asset" | "item";
 
 export interface MediaTraits {
   workUnit: WorkUnit;
+  /** アイテム提供元の完全な名前（状態を記録するときの `ItemRef.provider`）。 */
+  provider: string | null;
   /** アイテム提供の宣言があるか（展開の矢印を出すか）。 */
   hasItems: boolean;
 }
@@ -54,7 +56,11 @@ export interface ItemSource {
   ): Promise<ItemPage>;
 }
 
-const DEFAULT_TRAITS: MediaTraits = { workUnit: "asset", hasItems: false };
+const DEFAULT_TRAITS: MediaTraits = {
+  workUnit: "asset",
+  provider: null,
+  hasItems: false,
+};
 
 interface FakeAssetItems {
   count: number;
@@ -91,6 +97,13 @@ export class FakeItemSource implements ItemSource {
   failWith(assetId: string, kind: ItemSourceErrorKind | null): void {
     if (kind === null) this.failures.delete(assetId);
     else this.failures.set(assetId, kind);
+  }
+
+  /** 作業単位がアイテムの媒体種別。 */
+  itemMediaTypes(): string[] {
+    return [...this.traits.entries()]
+      .filter(([, traits]) => traits.workUnit === "item")
+      .map(([id]) => id);
   }
 
   traitsOf(mediaType: string | null): MediaTraits {
@@ -136,4 +149,68 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
       { once: true },
     );
   });
+}
+
+/** 拡張機能のアイテム提供元を呼ぶ関数（拡張機能ホスト（009）が結ぶ）。 */
+export type ItemLister = (
+  assetId: string,
+  range: ItemRange,
+  signal: AbortSignal,
+) => Promise<ItemPage>;
+
+export interface HostItemSource extends ItemSource {
+  /** 宣言の一覧を読み直す（拡張機能の導入・削除・有効化のあと）。 */
+  refresh(): Promise<void>;
+  /** 作業単位がアイテムの媒体種別。 */
+  itemMediaTypes(): string[];
+  /** 提供元の呼び出しを結ぶ（009）。 */
+  connect(lister: ItemLister | null): void;
+}
+
+export interface MediaTraitsEntry {
+  media_type: string;
+  work_unit: WorkUnit;
+  provider: string | null;
+}
+
+/** アプリで使う提供元。宣言は Rust の登録簿から、列挙は 009 が結ぶまで「未対応」。 */
+export function createHostItemSource(
+  load: () => Promise<MediaTraitsEntry[]>,
+): HostItemSource {
+  let traits = new Map<string, MediaTraits>();
+  let lister: ItemLister | null = null;
+  return {
+    async refresh() {
+      try {
+        const entries = await load();
+        traits = new Map(
+          entries.map((e) => [
+            e.media_type,
+            {
+              workUnit: e.work_unit,
+              provider: e.provider,
+              hasItems: e.provider !== null,
+            },
+          ]),
+        );
+      } catch {
+        // 読めなくても、既定（アセット単位・アイテム無し）で続ける。
+      }
+    },
+    traitsOf(mediaType) {
+      return (mediaType !== null && traits.get(mediaType)) || DEFAULT_TRAITS;
+    },
+    itemMediaTypes() {
+      return [...traits.entries()]
+        .filter(([, t]) => t.workUnit === "item")
+        .map(([id]) => id);
+    },
+    connect(next) {
+      lister = next;
+    },
+    async list(assetId, range, signal) {
+      if (!lister) throw new ItemSourceError("unsupported");
+      return lister(assetId, range, signal);
+    },
+  };
 }

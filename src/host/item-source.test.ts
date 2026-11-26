@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { FakeItemSource, ItemSourceError } from "./item-source";
+import {
+  createHostItemSource,
+  FakeItemSource,
+  ItemSourceError,
+} from "./item-source";
 
 const signal = new AbortController().signal;
 
@@ -8,22 +12,30 @@ describe("FakeItemSource", () => {
     const source = new FakeItemSource();
     expect(source.traitsOf(null)).toEqual({
       workUnit: "asset",
+      provider: null,
       hasItems: false,
     });
     expect(source.traitsOf("x/y")).toEqual({
       workUnit: "asset",
+      provider: null,
       hasItems: false,
     });
   });
 
   it("宣言した媒体だけが、指定の作業単位とアイテム有りになる", () => {
     const source = new FakeItemSource();
-    source.declare("x/doc", { workUnit: "item", hasItems: true });
+    source.declare("x/doc", {
+      workUnit: "item",
+      provider: "x/pages",
+      hasItems: true,
+    });
     expect(source.traitsOf("x/doc")).toEqual({
       workUnit: "item",
+      provider: "x/pages",
       hasItems: true,
     });
     expect(source.traitsOf("x/other").hasItems).toBe(false);
+    expect(source.itemMediaTypes()).toEqual(["x/doc"]);
   });
 
   it("範囲を指定して列挙し、total を返す", async () => {
@@ -101,5 +113,65 @@ describe("FakeItemSource", () => {
     expect(source.calls).toEqual([
       { assetId: "a1", range: { offset: 0, limit: 2 } },
     ]);
+  });
+});
+
+describe("HostItemSource", () => {
+  const traits = [
+    { media_type: "x/doc", work_unit: "item" as const, provider: "x/pages" },
+    {
+      media_type: "x/browse",
+      work_unit: "asset" as const,
+      provider: "x/pages",
+    },
+  ];
+
+  it("宣言の一覧から、作業単位とアイテム提供の有無を答える", async () => {
+    const source = createHostItemSource(async () => traits);
+    await source.refresh();
+    expect(source.traitsOf("x/doc")).toEqual({
+      workUnit: "item",
+      provider: "x/pages",
+      hasItems: true,
+    });
+    expect(source.traitsOf("x/browse").workUnit).toBe("asset");
+    expect(source.traitsOf("x/browse").hasItems).toBe(true);
+    expect(source.traitsOf("x/none")).toEqual({
+      workUnit: "asset",
+      provider: null,
+      hasItems: false,
+    });
+    expect(source.traitsOf(null).hasItems).toBe(false);
+    expect(source.itemMediaTypes()).toEqual(["x/doc"]);
+  });
+
+  it("読み込みに失敗しても、既定のまま続ける（画面を止めない）", async () => {
+    const source = createHostItemSource(async () => {
+      throw new Error("x");
+    });
+    await expect(source.refresh()).resolves.toBeUndefined();
+    expect(source.traitsOf("x/doc").hasItems).toBe(false);
+  });
+
+  it("提供元がまだ結ばれていないあいだの列挙は、unsupported", async () => {
+    const source = createHostItemSource(async () => traits);
+    const error = await source
+      .list("a", { offset: 0, limit: 1 }, new AbortController().signal)
+      .catch((e: unknown) => e);
+    expect((error as ItemSourceError).kind).toBe("unsupported");
+  });
+
+  it("結ばれた提供元へ、列挙を渡す", async () => {
+    const source = createHostItemSource(async () => traits);
+    source.connect(async (assetId) => ({
+      items: [{ key: assetId, title: "t" }],
+      total: 1,
+    }));
+    const page = await source.list(
+      "a",
+      { offset: 0, limit: 1 },
+      new AbortController().signal,
+    );
+    expect(page.items[0]?.key).toBe("a");
   });
 });

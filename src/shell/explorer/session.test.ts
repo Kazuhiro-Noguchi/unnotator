@@ -62,7 +62,7 @@ describe("ExplorerSession", () => {
     const { ctx, session } = setup();
     await session.open("/p");
     expect(ctx.get("hasCurrent")).toBe(false);
-    session.current.open({ assetId: "id1", itemKey: null });
+    session.current.open({ assetId: "id1", itemKey: null, mediaType: null });
     expect(ctx.get("hasCurrent")).toBe(true);
     session.current.clear();
     expect(ctx.get("hasCurrent")).toBe(false);
@@ -71,7 +71,7 @@ describe("ExplorerSession", () => {
   it("閉じると、現在位置を消し、開閉を書き出し、行を空にする", async () => {
     const { settings, ctx, session } = setup();
     await session.open("/p");
-    session.current.open({ assetId: "id1", itemKey: null });
+    session.current.open({ assetId: "id1", itemKey: null, mediaType: null });
     await session.controller.toggle({
       kind: "folder",
       root_key: "",

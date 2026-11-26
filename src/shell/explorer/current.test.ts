@@ -10,11 +10,11 @@ describe("CurrentStore", () => {
     const store = createCurrentStore();
     const seen: Array<unknown> = [];
     store.subscribe(() => seen.push(store.get()));
-    store.open({ assetId: "a1", itemKey: null });
-    store.open({ assetId: "a1", itemKey: "page:2" });
+    store.open({ assetId: "a1", itemKey: null, mediaType: null });
+    store.open({ assetId: "a1", itemKey: "page:2", mediaType: null });
     expect(seen).toEqual([
-      { assetId: "a1", itemKey: null },
-      { assetId: "a1", itemKey: "page:2" },
+      { assetId: "a1", itemKey: null, mediaType: null },
+      { assetId: "a1", itemKey: "page:2", mediaType: null },
     ]);
   });
 
@@ -24,8 +24,8 @@ describe("CurrentStore", () => {
     store.subscribe(() => {
       count += 1;
     });
-    store.open({ assetId: "a1", itemKey: null });
-    store.open({ assetId: "a1", itemKey: null });
+    store.open({ assetId: "a1", itemKey: null, mediaType: null });
+    store.open({ assetId: "a1", itemKey: null, mediaType: null });
     expect(count).toBe(1);
   });
 
@@ -37,7 +37,7 @@ describe("CurrentStore", () => {
     });
     store.clear();
     expect(count).toBe(0);
-    store.open({ assetId: "a1", itemKey: null });
+    store.open({ assetId: "a1", itemKey: null, mediaType: null });
     store.clear();
     expect(store.get()).toBeNull();
     expect(count).toBe(2);
@@ -50,13 +50,17 @@ describe("CurrentStore", () => {
       count += 1;
     });
     off();
-    store.open({ assetId: "a1", itemKey: null });
+    store.open({ assetId: "a1", itemKey: null, mediaType: null });
     expect(count).toBe(0);
   });
 
   it("渡した位置を後から書き換えても、保持している値は変わらない", () => {
     const store = createCurrentStore();
-    const target = { assetId: "a1", itemKey: null as string | null };
+    const target = {
+      assetId: "a1",
+      itemKey: null as string | null,
+      mediaType: null as string | null,
+    };
     store.open(target);
     target.assetId = "other";
     expect(store.get()?.assetId).toBe("a1");

@@ -1,6 +1,6 @@
 // ツリーの窓のキャッシュ。Rust の索引から、見える範囲の前後だけを取る（specs/007-tree-preview/research.md R4）。
 // 版（version）が古い応答は捨てる。見え方の更新（refresh）のあいだは、古い行を見せ続ける。
-import type { TreeRow, TreeWindow, ViewInfo, ViewSpec } from "./types";
+import type { Located, TreeRow, TreeWindow, ViewInfo, ViewSpec } from "./types";
 
 /** 1 回の取得の行数。 */
 export const PAGE_SIZE = 100;
@@ -8,6 +8,7 @@ export const PAGE_SIZE = 100;
 export interface RowsPort {
   treeViewSet(spec: ViewSpec): Promise<ViewInfo>;
   treeRows(version: number, offset: number, limit: number): Promise<TreeWindow>;
+  treeLocate(version: number, assetId: string): Promise<Located | null>;
 }
 
 export interface RowsStore {
@@ -22,6 +23,8 @@ export interface RowsStore {
   clear(): void;
   total(): number;
   rowAt(index: number): TreeRow | undefined;
+  /** アセットの行の位置と、開くべき祖先。知らないアセットは `null`。 */
+  locate(assetId: string): Promise<Located | null>;
   /** 見える範囲 `[start, end)` と、その前後の 1 ページを取る。 */
   ensure(start: number, end: number): Promise<void>;
   subscribe(listener: () => void): () => void;
@@ -77,6 +80,14 @@ export function createRowsStore(port: RowsPort): RowsStore {
     notify();
   }
 
+  /** 見え方を設定し直す（同時の呼び出しは 1 回にまとめる）。 */
+  function reviveView(current: ViewSpec): Promise<void> {
+    reviving ??= load(current, true).finally(() => {
+      reviving = null;
+    });
+    return reviving;
+  }
+
   async function fetchPage(page: number, retried = false): Promise<void> {
     const mine = epoch;
     const forVersion = version;
@@ -95,11 +106,7 @@ export function createRowsStore(port: RowsPort): RowsStore {
       if (epoch !== mine) return;
       if (!isStale(error) || retried || spec === null) throw error;
       // 索引が作り直された。同じ見え方を設定し直して（同時の失敗は 1 回にまとめて）、取り直す。
-      const current = spec;
-      reviving ??= load(current, true).finally(() => {
-        reviving = null;
-      });
-      await reviving;
+      await reviveView(spec);
       if (epoch !== mine) return;
       await fetchPage(page, true);
     }
@@ -119,6 +126,17 @@ export function createRowsStore(port: RowsPort): RowsStore {
       fetched = new Set();
       inflight = new Map();
       notify();
+    },
+    async locate(assetId) {
+      if (spec === null) return null;
+      try {
+        return await port.treeLocate(version, assetId);
+      } catch (error) {
+        if (!isStale(error)) throw error;
+        const revive = reviveView(spec);
+        await revive;
+        return port.treeLocate(version, assetId);
+      }
     },
     total: () => total,
     rowAt(index) {

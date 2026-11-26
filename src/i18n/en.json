@@ -129,5 +129,12 @@
   "explorer.filter.unknown": "Unknown",
   "explorer.filter.label": "Filter",
   "explorer.empty.noMatch": "No assets match the filter.",
-  "explorer.empty.clear": "Clear filter"
+  "explorer.empty.clear": "Clear filter",
+  "explorer.nav.end": "This is the last one.",
+  "explorer.nav.start": "This is the first one.",
+  "explorer.nav.nothingUnfinished": "Nothing left to do.",
+  "explorer.nav.skippedMissing": "Skipped {count} missing asset(s).",
+  "explorer.nav.failedWrite": "Could not change the status, so it did not move.",
+  "explorer.nav.failedSource": "Could not load the items, so it did not move.",
+  "explorer.status.failed": "Could not change the status."
 }

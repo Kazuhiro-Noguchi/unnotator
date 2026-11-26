@@ -6,7 +6,7 @@ import { openDirectoryDialog } from "./ipc/dialog";
 import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
-import { explorer } from "./shell/explorer/instance";
+import { explorer, provideExplorerCommands } from "./shell/explorer/instance";
 import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
@@ -130,6 +130,7 @@ provideCoreHandlers({
   openSettings: () => setSettingsOpen(true),
   openAbout: () => setAboutOpen(true),
 });
+provideExplorerCommands(commandRegistry, notify);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");

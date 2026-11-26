@@ -55,7 +55,7 @@ export const commands = {
 	treeViewSet: (spec: ViewSpec_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ViewInfo>("tree_view_set", { spec }, options),
 	treeRows: (version: number, offset: number, limit: number, options?: InvokeOptions) => __TAURI_INVOKE<TreeWindow_Serialize>("tree_rows", { version, offset, limit }, options),
 	treeLocate: (version: number, assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<Located_Serialize | null>("tree_locate", { version, assetId }, options),
-	treeNeighbor: (from: string | null, direction: Direction, unfinishedOnly: boolean, filter: TreeFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Neighbor_Serialize>("tree_neighbor", { from, direction, unfinishedOnly, filter }, options),
+	treeNeighbor: (from: string | null, direction: Direction, unfinishedOnly: boolean, filter: TreeFilter_Deserialize, itemMediaTypes: string[], options?: InvokeOptions) => __TAURI_INVOKE<Neighbor_Serialize>("tree_neighbor", { from, direction, unfinishedOnly, filter, itemMediaTypes }, options),
 	itemStatuses: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<ItemStatusDto[]>("item_statuses", { assetId }, options),
 	mediaTraits: (options?: InvokeOptions) => __TAURI_INVOKE<MediaTraitsDto_Serialize[]>("media_traits", undefined, options),
 	settingsGet: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<EffectiveSetting>("settings_get", { key }, options),
@@ -562,6 +562,10 @@ export type Neighbor = Neighbor_Serialize | Neighbor_Deserialize;
 export type Neighbor_Deserialize = {
 	/**  見つかったアセット。無ければ `None`（端に達した）。 */
 	asset_id?: string | null,
+	/**  見つかったアセットの媒体種別（画面が作業単位を決めるために使う）。 */
+	media_type?: string | null,
+	/**  見つかったアセットの状態。 */
+	status?: Status | null,
 	/**  条件に合ったのに、リンク切れで飛ばした数。 */
 	skipped_missing: number,
 	/**  端に達して、見つからなかった。 */
@@ -572,6 +576,10 @@ export type Neighbor_Deserialize = {
 export type Neighbor_Serialize = {
 	/**  見つかったアセット。無ければ `None`（端に達した）。 */
 	asset_id: string | null,
+	/**  見つかったアセットの媒体種別（画面が作業単位を決めるために使う）。 */
+	media_type: string | null,
+	/**  見つかったアセットの状態。 */
+	status: Status | null,
 	/**  条件に合ったのに、リンク切れで飛ばした数。 */
 	skipped_missing: number,
 	/**  端に達して、見つからなかった。 */

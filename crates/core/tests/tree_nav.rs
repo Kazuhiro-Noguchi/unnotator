@@ -37,7 +37,7 @@ fn none() -> TreeFilter {
 
 fn next(index: &TreeIndex, from: Option<&str>) -> Option<String> {
     index
-        .neighbor(from, Direction::Next, false, &none())
+        .neighbor(from, Direction::Next, false, &none(), &[])
         .asset_id
 }
 
@@ -67,7 +67,7 @@ fn the_order_matches_the_tree_rows() {
     let mut cursor = None;
     // 欠けたものも含めて辿るため、リンク切れの飛ばしを避けて確かめる（missing を許す別の探索）。
     while let Some(id) = index
-        .neighbor(cursor.as_deref(), Direction::Next, false, &none())
+        .neighbor(cursor.as_deref(), Direction::Next, false, &none(), &[])
         .asset_id
     {
         walked.push(id.clone());
@@ -84,7 +84,7 @@ fn the_order_matches_the_tree_rows() {
 fn next_walks_forward_in_order_and_skips_missing_files() {
     let index = sample();
     assert_eq!(next(&index, Some("a1")).as_deref(), Some("a2"));
-    let result = index.neighbor(Some("a2"), Direction::Next, false, &none());
+    let result = index.neighbor(Some("a2"), Direction::Next, false, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a4"));
     assert_eq!(result.skipped_missing, 1);
     assert!(!result.reached_end);
@@ -93,7 +93,7 @@ fn next_walks_forward_in_order_and_skips_missing_files() {
 #[test]
 fn prev_walks_backward_and_skips_missing_files() {
     let index = sample();
-    let result = index.neighbor(Some("a4"), Direction::Prev, false, &none());
+    let result = index.neighbor(Some("a4"), Direction::Prev, false, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a2"));
     assert_eq!(result.skipped_missing, 1);
 }
@@ -102,28 +102,28 @@ fn prev_walks_backward_and_skips_missing_files() {
 fn from_nothing_starts_at_the_first_or_last() {
     let index = sample();
     assert_eq!(next(&index, None).as_deref(), Some("a1"));
-    let last = index.neighbor(None, Direction::Prev, false, &none());
+    let last = index.neighbor(None, Direction::Prev, false, &none(), &[]);
     assert_eq!(last.asset_id.as_deref(), Some("a7"));
 }
 
 #[test]
 fn it_stops_at_the_ends_instead_of_wrapping() {
     let index = sample();
-    let end = index.neighbor(Some("a7"), Direction::Next, false, &none());
+    let end = index.neighbor(Some("a7"), Direction::Next, false, &none(), &[]);
     assert_eq!((end.asset_id, end.reached_end), (None, true));
-    let start = index.neighbor(Some("a1"), Direction::Prev, false, &none());
+    let start = index.neighbor(Some("a1"), Direction::Prev, false, &none(), &[]);
     assert_eq!((start.asset_id, start.reached_end), (None, true));
 }
 
 #[test]
 fn next_unfinished_skips_done_and_includes_review_and_in_progress() {
     let index = sample();
-    let result = index.neighbor(Some("a1"), Direction::Next, true, &none());
+    let result = index.neighbor(Some("a1"), Direction::Next, true, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a2"));
-    let result = index.neighbor(Some("a2"), Direction::Next, true, &none());
+    let result = index.neighbor(Some("a2"), Direction::Next, true, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a4"), "要確認は未完了");
     // a4 の次は、a5（作業中だがリンク切れ）を飛ばして a6（完了）も飛ばし、a7
-    let result = index.neighbor(Some("a4"), Direction::Next, true, &none());
+    let result = index.neighbor(Some("a4"), Direction::Next, true, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a7"));
     assert_eq!(result.skipped_missing, 1);
 }
@@ -132,7 +132,7 @@ fn next_unfinished_skips_done_and_includes_review_and_in_progress() {
 fn a_missing_file_that_would_not_qualify_is_not_counted_as_skipped() {
     let index = sample();
     // a3 は完了済みのリンク切れ。未完了の探索では、そもそも対象外なので数えない。
-    let result = index.neighbor(Some("a2"), Direction::Next, true, &none());
+    let result = index.neighbor(Some("a2"), Direction::Next, true, &none(), &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a4"));
     assert_eq!(result.skipped_missing, 0);
 }
@@ -140,7 +140,7 @@ fn a_missing_file_that_would_not_qualify_is_not_counted_as_skipped() {
 #[test]
 fn no_unfinished_left_reports_the_end() {
     let index = sample();
-    let result = index.neighbor(Some("a7"), Direction::Next, true, &none());
+    let result = index.neighbor(Some("a7"), Direction::Next, true, &none(), &[]);
     assert!(result.reached_end);
     assert_eq!(result.asset_id, None);
 }
@@ -152,9 +152,9 @@ fn the_filter_decides_what_is_walked() {
         media_types: vec![MediaSel::Is("x/image".to_owned()), MediaSel::Unknown],
         ..TreeFilter::default()
     };
-    let result = index.neighbor(Some("a2"), Direction::Next, false, &images_and_text);
+    let result = index.neighbor(Some("a2"), Direction::Next, false, &images_and_text, &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a4"));
-    let result = index.neighbor(Some("a4"), Direction::Next, false, &images_and_text);
+    let result = index.neighbor(Some("a4"), Direction::Next, false, &images_and_text, &[]);
     assert_eq!(
         result.asset_id.as_deref(),
         Some("a6"),
@@ -171,7 +171,7 @@ fn the_starting_point_may_be_outside_the_filter() {
         ..TreeFilter::default()
     };
     // a2 は Todo で条件の外。その次の、条件に合う a3 はリンク切れなので飛ばして a6
-    let result = index.neighbor(Some("a2"), Direction::Next, false, &only_done);
+    let result = index.neighbor(Some("a2"), Direction::Next, false, &only_done, &[]);
     assert_eq!(result.asset_id.as_deref(), Some("a6"));
 }
 
@@ -184,13 +184,59 @@ fn an_unknown_starting_asset_starts_from_the_beginning() {
 #[test]
 fn it_does_not_depend_on_which_folders_are_open() {
     let index = sample();
-    let closed = index.neighbor(Some("a1"), Direction::Next, false, &none());
+    let closed = index.neighbor(Some("a1"), Direction::Next, false, &none(), &[]);
     assert_eq!(closed.asset_id.as_deref(), Some("a2"));
 }
 
 #[test]
 fn an_empty_tree_has_no_neighbor() {
     let index = TreeIndex::build(vec![]);
-    let result = index.neighbor(None, Direction::Next, false, &none());
+    let result = index.neighbor(None, Direction::Next, false, &none(), &[]);
     assert!(result.asset_id.is_none() && result.reached_end);
+}
+
+#[test]
+fn item_unit_media_types_stay_in_the_unfinished_search_even_when_the_asset_is_done() {
+    let index = sample();
+    // a6 は完了の「不明」。a6 が item 単位の媒体なら、完了でも対象に残る（画面がアイテムで調べる）。
+    let with = index.neighbor(
+        Some("a4"),
+        Direction::Next,
+        true,
+        &none(),
+        &["x/image".to_owned(), "x/text".to_owned()],
+    );
+    assert_eq!(with.asset_id.as_deref(), Some("a7"));
+    let all_item = index.neighbor(
+        Some("a1"),
+        Direction::Next,
+        true,
+        &none(),
+        &["x/text".to_owned()],
+    );
+    assert_eq!(all_item.asset_id.as_deref(), Some("a2"));
+    let done_text = TreeIndex::build(vec![
+        row("d1", "a.txt", Status::Todo, false, Some("x/text")),
+        row("d2", "b.txt", Status::Done, false, Some("x/text")),
+    ]);
+    let kept = done_text.neighbor(
+        Some("d1"),
+        Direction::Next,
+        true,
+        &none(),
+        &["x/text".to_owned()],
+    );
+    assert_eq!(kept.asset_id.as_deref(), Some("d2"));
+    let dropped = done_text.neighbor(Some("d1"), Direction::Next, true, &none(), &[]);
+    assert!(dropped.reached_end);
+}
+
+#[test]
+fn the_found_asset_reports_its_media_type_and_status() {
+    let index = sample();
+    let found = index.neighbor(Some("a1"), Direction::Next, false, &none(), &[]);
+    assert_eq!(found.media_type.as_deref(), Some("x/text"));
+    assert_eq!(found.status, Some(Status::Todo));
+    let end = index.neighbor(Some("a7"), Direction::Next, false, &none(), &[]);
+    assert_eq!((end.media_type, end.status), (None, None));
 }

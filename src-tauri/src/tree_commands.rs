@@ -171,11 +171,12 @@ pub fn neighbor(
     direction: Direction,
     unfinished_only: bool,
     filter: &TreeFilter,
+    item_media_types: &[String],
 ) -> Result<Neighbor, IpcError> {
     let tree = refresh(state)?;
     let guard = lock(&tree);
     let index = guard.index.as_ref().ok_or_else(IpcError::stale_view)?;
-    Ok(index.neighbor(from, direction, unfinished_only, filter))
+    Ok(index.neighbor(from, direction, unfinished_only, filter, item_media_types))
 }
 
 /// 記録のあるアイテムのキーと状態。
@@ -233,8 +234,16 @@ pub fn tree_neighbor(
     direction: Direction,
     unfinished_only: bool,
     filter: TreeFilter,
+    item_media_types: Vec<String>,
 ) -> Result<Neighbor, IpcError> {
-    neighbor(&state, from.as_deref(), direction, unfinished_only, &filter)
+    neighbor(
+        &state,
+        from.as_deref(),
+        direction,
+        unfinished_only,
+        &filter,
+        &item_media_types,
+    )
 }
 
 #[tauri::command(async)]
@@ -476,7 +485,7 @@ mod tests {
                 .clone()
         };
         let none = TreeFilter::default();
-        let first = neighbor(&state, None, Direction::Next, false, &none).expect("探せる");
+        let first = neighbor(&state, None, Direction::Next, false, &none, &[]).expect("探せる");
         assert_eq!(first.asset_id.as_deref(), Some(id("d/a.txt").as_str()));
         let second = neighbor(
             &state,
@@ -484,11 +493,19 @@ mod tests {
             Direction::Next,
             false,
             &none,
+            &[],
         )
         .expect("探せる");
         assert_eq!(second.asset_id.as_deref(), Some(id("d/c.txt").as_str()));
-        let last =
-            neighbor(&state, Some(&id("b.txt")), Direction::Next, false, &none).expect("探せる");
+        let last = neighbor(
+            &state,
+            Some(&id("b.txt")),
+            Direction::Next,
+            false,
+            &none,
+            &[],
+        )
+        .expect("探せる");
         assert!(last.reached_end && last.asset_id.is_none());
         // 状態を変えると、未完了の探索から外れる
         apply(
@@ -499,7 +516,7 @@ mod tests {
             },
         )
         .expect("適用できる");
-        let next = neighbor(&state, None, Direction::Next, true, &none).expect("探せる");
+        let next = neighbor(&state, None, Direction::Next, true, &none, &[]).expect("探せる");
         assert_eq!(next.asset_id.as_deref(), Some(id("d/c.txt").as_str()));
     }
 
@@ -538,9 +555,16 @@ mod tests {
         let temp = Temp::new();
         let state = ProjectState::new(temp.0.join("recovery"));
         assert_eq!(
-            neighbor(&state, None, Direction::Next, false, &TreeFilter::default())
-                .unwrap_err()
-                .code,
+            neighbor(
+                &state,
+                None,
+                Direction::Next,
+                false,
+                &TreeFilter::default(),
+                &[],
+            )
+            .unwrap_err()
+            .code,
             "not_open"
         );
         assert_eq!(statuses_of(&state, "x").unwrap_err().code, "not_open");

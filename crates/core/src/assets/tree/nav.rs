@@ -21,6 +21,10 @@ pub enum Direction {
 pub struct Neighbor {
     /// 見つかったアセット。無ければ `None`（端に達した）。
     pub asset_id: Option<String>,
+    /// 見つかったアセットの媒体種別（画面が作業単位を決めるために使う）。
+    pub media_type: Option<String>,
+    /// 見つかったアセットの状態。
+    pub status: Option<Status>,
     /// 条件に合ったのに、リンク切れで飛ばした数。
     pub skipped_missing: u32,
     /// 端に達して、見つからなかった。
@@ -30,12 +34,15 @@ pub struct Neighbor {
 impl TreeIndex {
     /// `from` の次 / 前のアセットを返す。`from` が無い・知らないときは、先頭 / 末尾から探す。
     /// `filter` に合うものだけを辿る（`from` 自身は条件の外でもよい）。端では止まり、先頭に戻らない。
+    /// `unfinished_only` は、状態が完了でないものだけ。ただし `item_media_types` の媒体種別は、
+    /// アセット自身の状態ではなくアイテムの状態で決まる（画面が調べる）ので、完了でも対象に残す。
     pub fn neighbor(
         &self,
         from: Option<&str>,
         direction: Direction,
         unfinished_only: bool,
         filter: &TreeFilter,
+        item_media_types: &[String],
     ) -> Neighbor {
         let order = self.order();
         let compiled = filter.compile();
@@ -46,7 +53,12 @@ impl TreeIndex {
         let mut visit = |position: usize| -> Option<Neighbor> {
             let node = self.node(order[position]);
             let asset = node.asset.as_ref()?;
-            if !compiled.matches(node) || (unfinished_only && asset.status == Status::Done) {
+            let item_unit = asset
+                .media_type
+                .as_ref()
+                .is_some_and(|m| item_media_types.contains(m));
+            let finished = asset.status == Status::Done && !item_unit;
+            if !compiled.matches(node) || (unfinished_only && finished) {
                 return None;
             }
             if asset.missing {
@@ -55,6 +67,8 @@ impl TreeIndex {
             }
             Some(Neighbor {
                 asset_id: Some(asset.id.clone()),
+                media_type: asset.media_type.clone(),
+                status: Some(asset.status),
                 skipped_missing,
                 reached_end: false,
             })
@@ -71,6 +85,8 @@ impl TreeIndex {
         };
         found.unwrap_or(Neighbor {
             asset_id: None,
+            media_type: None,
+            status: None,
             skipped_missing,
             reached_end: true,
         })

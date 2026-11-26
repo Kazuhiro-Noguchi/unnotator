@@ -162,7 +162,11 @@ describe("Explorer（部品）", () => {
     press(tree, "ArrowDown");
     press(tree, "Enter");
     await flush();
-    expect(current.get()).toEqual({ assetId: "x1", itemKey: null });
+    expect(current.get()).toEqual({
+      assetId: "x1",
+      itemKey: null,
+      mediaType: "t/image",
+    });
     expect(items()[2]?.getAttribute("aria-selected")).toBe("true");
     expect(items()[3]?.getAttribute("aria-selected")).toBe("false");
   });
@@ -171,7 +175,11 @@ describe("Explorer（部品）", () => {
     const { current } = await mount();
     items()[3]?.click();
     await flush();
-    expect(current.get()).toEqual({ assetId: "x2", itemKey: null });
+    expect(current.get()).toEqual({
+      assetId: "x2",
+      itemKey: null,
+      mediaType: null,
+    });
   });
 
   it("左右でフォルダを開閉し、見え方に反映する", async () => {
@@ -320,10 +328,40 @@ describe("Explorer（部品）", () => {
         .querySelector<HTMLInputElement>('input[data-filter-status="todo"]')
         ?.click();
       await flush();
-      current.open({ assetId: "x1", itemKey: null });
+      current.open({ assetId: "x1", itemKey: null, mediaType: null });
       await flush();
       await flush();
       expect(ipc.viewCalls.at(-1)?.pinned).toBe("x1");
     });
+  });
+});
+
+describe("現在位置が変わったとき", () => {
+  it("そのアセットの行へフォーカスを移し、閉じたフォルダを開く（ナビゲーションの追従）", async () => {
+    const { ipc, current, tree } = await mount();
+    if (!tree) throw new Error("tree が無い");
+    ipc.located.set("x9", {
+      row: 4,
+      ancestors: [
+        { root_key: "", path: "" },
+        { root_key: "", path: "b" },
+      ],
+    });
+    current.open({ assetId: "x9", itemKey: null, mediaType: null });
+    await flush();
+    await flush();
+    expect(ipc.viewCalls.at(-1)?.expanded_folders).toContainEqual({
+      root_key: "",
+      path: "b",
+    });
+    expect(tree.getAttribute("aria-activedescendant")).toBe("explorer-row-4");
+  });
+
+  it("知らないアセットなら、何もしない", async () => {
+    const { current, tree } = await mount();
+    if (!tree) throw new Error("tree が無い");
+    current.open({ assetId: "nope", itemKey: null, mediaType: null });
+    await flush();
+    expect(tree.getAttribute("aria-activedescendant")).toBe("explorer-row-0");
   });
 });

@@ -140,9 +140,33 @@ export function createExplorerController(
     return index;
   }
 
-  // 絞り込み中に別のアセットを開いたら、残す対象を更新する。
+  /** 開いたアセットが見える位置まで、フォルダを開いてフォーカスを移す（FR-020）。 */
+  async function reveal(assetId: string): Promise<void> {
+    let located = await rows.locate(assetId);
+    if (located === null) return;
+    const closed = located.ancestors.filter(
+      (key) => !expanded.has(folderKeyToText(key)),
+    );
+    if (closed.length > 0 && isEmptyFilter(filter)) {
+      for (const key of closed) expanded.set(folderKeyToText(key), key);
+      save();
+      await applyViewChange();
+      located = await rows.locate(assetId);
+      if (located === null) return;
+    }
+    if (located.row !== null && located.row !== undefined)
+      moveFocus(located.row);
+  }
+
+  // 別のアセットを開いたら、見える位置へ。絞り込み中は、残す対象（現在位置）も更新する。
   current.subscribe(() => {
-    if (!isEmptyFilter(filter)) void applyViewChange().catch(() => {});
+    const target = current.get();
+    const refresh = isEmptyFilter(filter)
+      ? Promise.resolve()
+      : applyViewChange();
+    void refresh
+      .then(() => (target ? reveal(target.assetId) : undefined))
+      .catch(() => {});
   });
 
   const self: ExplorerController = {
@@ -191,7 +215,11 @@ export function createExplorerController(
       if (!row) return;
       moveFocus(index);
       if (row.kind === "asset") {
-        current.open({ assetId: row.id, itemKey: null });
+        current.open({
+          assetId: row.id,
+          itemKey: null,
+          mediaType: row.media_type ?? null,
+        });
       } else {
         await toggle(row);
       }

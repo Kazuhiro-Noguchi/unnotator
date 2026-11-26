@@ -9,7 +9,6 @@ export type {
   Located,
   MediaSel,
   MediaTraitsDto,
-  Neighbor,
   NodeKey,
   TreeRow,
   TreeWindow,
@@ -30,4 +29,9 @@ export interface TreeFilter {
 export interface CurrentTarget {
   assetId: string;
   itemKey: string | null;
+  /** アセットの媒体種別（作業単位を決めるため）。判定できなければ `null`。 */
+  mediaType: string | null;
 }
+
+/** 探索の結果（受け取る側は、省略のない形で扱う）。 */
+export type { Neighbor_Serialize as Neighbor } from "../../ipc";

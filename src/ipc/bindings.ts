@@ -515,6 +515,11 @@ export type MediaRules_Serialize = {
 	rules: MediaRule_Serialize[],
 };
 
+/**  媒体種別の選択。媒体の中身は知らず、ID（不透明な文字列）か「不明」だけを扱う。 */
+export type MediaSel = 
+/**  媒体種別が判定できない（「不明」）もの。 */
+{ kind: "unknown" } | { kind: "is"; value: string };
+
 /**  リンク切れにした理由。 */
 export type MissReason = {
 	asset_id: string,
@@ -867,6 +872,30 @@ export type Target_Serialize = {
 	item: ItemRef | null,
 };
 
+export type TreeFilter = TreeFilter_Serialize | TreeFilter_Deserialize;
+
+export type TreeFilter_Deserialize = {
+	/**  名前の一部（大文字小文字・全角半角を区別しない）。空白だけなら条件なし。 */
+	name?: string | null,
+	/**  空は条件なし。複数は OR。 */
+	statuses?: Status[],
+	/**  空は条件なし。複数は OR。 */
+	media_types?: MediaSel[],
+	/**  `Some(true)` = リンク切れだけ、`Some(false)` = 無いものだけ。 */
+	missing?: boolean | null,
+};
+
+export type TreeFilter_Serialize = {
+	/**  名前の一部（大文字小文字・全角半角を区別しない）。空白だけなら条件なし。 */
+	name: string | null,
+	/**  空は条件なし。複数は OR。 */
+	statuses: Status[],
+	/**  空は条件なし。複数は OR。 */
+	media_types: MediaSel[],
+	/**  `Some(true)` = リンク切れだけ、`Some(false)` = 無いものだけ。 */
+	missing: boolean | null,
+};
+
 /**  窓の 1 行。 */
 export type TreeRow = TreeRow_Serialize | TreeRow_Deserialize;
 
@@ -937,6 +966,8 @@ export type ViewSpec = ViewSpec_Serialize | ViewSpec_Deserialize;
 
 /**  見え方の指定。 */
 export type ViewSpec_Deserialize = {
+	/**  絞り込み。有効なときは、一致を含むフォルダだけが、開いた状態で残る。 */
+	filter?: TreeFilter_Deserialize,
 	expanded_folders?: NodeKey[],
 	expanded_assets?: ExpandedAsset_Deserialize[],
 	/**  条件から外れても残す、現在位置のアセット。 */
@@ -945,6 +976,8 @@ export type ViewSpec_Deserialize = {
 
 /**  見え方の指定。 */
 export type ViewSpec_Serialize = {
+	/**  絞り込み。有効なときは、一致を含むフォルダだけが、開いた状態で残る。 */
+	filter: TreeFilter_Serialize,
 	expanded_folders: NodeKey[],
 	expanded_assets: ExpandedAsset_Serialize[],
 	/**  条件から外れても残す、現在位置のアセット。 */

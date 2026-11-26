@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::command::Status;
 
-use super::{NodeKind, TreeIndex};
+use super::{NodeKind, TreeFilter, TreeIndex};
 
 /// 1 回の窓で返す行の上限。
 pub const MAX_WINDOW: u32 = 500;
@@ -35,6 +35,8 @@ pub struct ExpandedAsset {
 #[serde(default)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ViewSpec {
+    /// 絞り込み。有効なときは、一致を含むフォルダだけが、開いた状態で残る。
+    pub filter: TreeFilter,
     pub expanded_folders: HashSet<NodeKey>,
     pub expanded_assets: Vec<ExpandedAsset>,
     /// 条件から外れても残す、現在位置のアセット。
@@ -109,6 +111,8 @@ pub struct FlatView {
     expanded_assets: HashSet<String>,
     pinned: Option<String>,
     expanded_folders: HashSet<NodeKey>,
+    /// フィルターが有効なとき、見えているフォルダはすべて開いている。
+    filter_active: bool,
 }
 
 impl TreeIndex {
@@ -119,12 +123,16 @@ impl TreeIndex {
             .iter()
             .map(|e| (e.asset_id.as_str(), e.item_total))
             .collect();
+        let keep = self.keep_set(spec);
+        let active = keep.is_some();
+        let kept = |at: u32| keep.as_ref().is_none_or(|k| k[at as usize]);
         let mut rows = Vec::new();
         // 深さ優先。スタックには (添字, そのフォルダのパス) を積む。
         let mut stack: Vec<(u32, String)> = self
             .roots()
             .iter()
             .rev()
+            .filter(|at| kept(**at))
             .map(|at| (*at, String::new()))
             .collect();
         while let Some((at, path)) = stack.pop() {
@@ -150,8 +158,8 @@ impl TreeIndex {
                         root_key: self.root_key_of(at),
                         path: path.clone(),
                     };
-                    if spec.expanded_folders.contains(&key) {
-                        for child in node.children.iter().rev() {
+                    if active || spec.expanded_folders.contains(&key) {
+                        for child in node.children.iter().rev().filter(|c| kept(**c)) {
                             let child_node = self.node(*child);
                             let child_path = if child_node.kind == NodeKind::Folder {
                                 if path.is_empty() {
@@ -174,7 +182,34 @@ impl TreeIndex {
             expanded_assets: item_totals.keys().map(|s| (*s).to_owned()).collect(),
             pinned: spec.pinned.clone(),
             expanded_folders: spec.expanded_folders.clone(),
+            filter_active: active,
         }
+    }
+
+    /// フィルターが有効なとき、残すノード（一致するアセットと、現在位置のアセット、その祖先）。
+    fn keep_set(&self, spec: &ViewSpec) -> Option<Vec<bool>> {
+        if !spec.filter.is_active() {
+            return None;
+        }
+        let compiled = spec.filter.compile();
+        let mut keep = vec![false; self.nodes().len()];
+        for at in self.order() {
+            let node = self.node(*at);
+            let pinned = spec
+                .pinned
+                .as_deref()
+                .is_some_and(|id| node.asset.as_ref().is_some_and(|a| a.id == id));
+            keep[*at as usize] = pinned || compiled.matches(node);
+        }
+        // 親は子より前に作られているので、後ろから親へ伝える。
+        for at in (0..self.nodes().len()).rev() {
+            if keep[at]
+                && let Some(parent) = self.node(u32::try_from(at).unwrap_or(u32::MAX)).parent
+            {
+                keep[parent as usize] = true;
+            }
+        }
+        Some(keep)
     }
 
     /// ルートのキー（プロジェクトのフォルダは空）。
@@ -254,7 +289,7 @@ impl FlatView {
                             root_key: node.name.clone(),
                             name: node.name.clone(),
                             depth: node.depth,
-                            expanded: self.expanded_folders.contains(&key),
+                            expanded: self.filter_active || self.expanded_folders.contains(&key),
                             total: node.total,
                             done: node.done,
                         }
@@ -269,7 +304,7 @@ impl FlatView {
                             path: key.path.clone(),
                             name: node.name.clone(),
                             depth: node.depth,
-                            expanded: self.expanded_folders.contains(&key),
+                            expanded: self.filter_active || self.expanded_folders.contains(&key),
                             total: node.total,
                             done: node.done,
                         }

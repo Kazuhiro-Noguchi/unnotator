@@ -6,6 +6,7 @@ import {
   type ExplorerController,
 } from "./controller";
 import { type CurrentStore, createCurrentStore } from "./current";
+import { isEmptyFilter } from "./filter";
 import { createExplorerPersist, type ExplorerPersist } from "./persist";
 import { createRowsStore, type RowsPort, type RowsStore } from "./rows";
 
@@ -45,6 +46,9 @@ export function createExplorerSession(
   });
 
   current.subscribe(() => deps.ctx.set("hasCurrent", current.get() !== null));
+  controller.subscribe(() =>
+    deps.ctx.set("filterActive", !isEmptyFilter(controller.snapshot().filter)),
+  );
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   deps.onChanged(() => {

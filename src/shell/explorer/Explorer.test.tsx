@@ -7,7 +7,7 @@ import { createExplorerController } from "./controller";
 import { createCurrentStore } from "./current";
 import { Explorer } from "./Explorer";
 import { createRowsStore } from "./rows";
-import type { TreeRow } from "./types";
+import type { TreeFilter, TreeRow } from "./types";
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -72,14 +72,25 @@ const ROWS: TreeRow[] = [
   },
 ];
 
-async function mount(rows: TreeRow[] = ROWS) {
+async function mount(
+  rows: TreeRow[] = ROWS,
+  options: { mediaTypes?: string[] } = {},
+) {
   const ipc = new FakeTreeIpc();
   ipc.setRows(rows);
   const store = createRowsStore(ipc);
   const current = createCurrentStore();
   const controller = createExplorerController({ rows: store, current });
   dispose = render(
-    () => <Explorer controller={controller} rows={store} current={current} />,
+    () => (
+      <Explorer
+        controller={controller}
+        rows={store}
+        current={current}
+        filterDebounceMs={0}
+        mediaTypes={options.mediaTypes ?? []}
+      />
+    ),
     document.body,
   );
   await controller.start([]);
@@ -208,5 +219,111 @@ describe("Explorer（部品）", () => {
     expect(document.querySelector(".empty-state")?.textContent).toContain(
       t("explorer.empty.noAssets"),
     );
+  });
+
+  describe("フィルター", () => {
+    const lastFilter = (ipc: FakeTreeIpc): TreeFilter | undefined => {
+      const filter = ipc.viewCalls.at(-1)?.filter;
+      return filter as TreeFilter | undefined;
+    };
+
+    it("名前を入れると、その条件で見え方を設定し直す", async () => {
+      const { ipc } = await mount();
+      const input = document.querySelector<HTMLInputElement>(
+        'input[type="search"]',
+      );
+      if (!input) throw new Error("入力欄が無い");
+      input.value = "img";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await flush();
+      await flush();
+      expect(lastFilter(ipc)?.name).toBe("img");
+    });
+
+    it("状態の選択で、状態の条件が切り替わる", async () => {
+      const { ipc } = await mount();
+      const chip = document.querySelector<HTMLInputElement>(
+        'input[data-filter-status="todo"]',
+      );
+      if (!chip) throw new Error("状態の選択が無い");
+      chip.click();
+      await flush();
+      expect(lastFilter(ipc)?.statuses).toEqual(["todo"]);
+      chip.click();
+      await flush();
+      expect(lastFilter(ipc)?.statuses).toEqual([]);
+    });
+
+    it("リンク切れと「不明」の選択も、条件になる", async () => {
+      const { ipc } = await mount(ROWS, { mediaTypes: ["t/image"] });
+      const select = document.querySelector<HTMLSelectElement>(
+        "select[data-filter-missing]",
+      );
+      if (!select) throw new Error("選択が無い");
+      select.value = "only";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      document
+        .querySelector<HTMLInputElement>('input[data-filter-media="unknown"]')
+        ?.click();
+      document
+        .querySelector<HTMLInputElement>('input[data-filter-media="t/image"]')
+        ?.click();
+      await flush();
+      expect(lastFilter(ipc)?.missing).toBe(true);
+      expect(lastFilter(ipc)?.media_types).toEqual([
+        { kind: "unknown" },
+        { kind: "is", value: "t/image" },
+      ]);
+    });
+
+    it("一括解除で、すべての条件が消える", async () => {
+      const { ipc } = await mount();
+      document
+        .querySelector<HTMLInputElement>('input[data-filter-status="done"]')
+        ?.click();
+      await flush();
+      expect(lastFilter(ipc)?.statuses).toEqual(["done"]);
+      document
+        .querySelector<HTMLButtonElement>("button[data-filter-clear]")
+        ?.click();
+      await flush();
+      expect(lastFilter(ipc)).toMatchObject({
+        name: null,
+        statuses: [],
+        media_types: [],
+        missing: null,
+      });
+    });
+
+    it("一致が無いと、案内と解除の操作を出し、解除すると元に戻る", async () => {
+      const { ipc } = await mount();
+      document
+        .querySelector<HTMLInputElement>('input[data-filter-status="review"]')
+        ?.click();
+      ipc.setRows([]);
+      await flush();
+      await flush();
+      const empty = document.querySelector(".empty-state");
+      expect(empty?.textContent).toContain(t("explorer.empty.noMatch"));
+      expect(document.querySelector('[role="tree"]')).toBeNull();
+      ipc.setRows(ROWS);
+      empty?.querySelector("button")?.click();
+      await flush();
+      await flush();
+      expect(lastFilter(ipc)?.statuses).toEqual([]);
+      expect(document.querySelector('[role="tree"]')).not.toBeNull();
+    });
+
+    it("条件があるあいだ、開いているアセットを現在位置として残すよう伝える", async () => {
+      const { ipc, current } = await mount();
+      document
+        .querySelector<HTMLInputElement>('input[data-filter-status="todo"]')
+        ?.click();
+      await flush();
+      current.open({ assetId: "x1", itemKey: null });
+      await flush();
+      await flush();
+      expect(ipc.viewCalls.at(-1)?.pinned).toBe("x1");
+    });
   });
 });

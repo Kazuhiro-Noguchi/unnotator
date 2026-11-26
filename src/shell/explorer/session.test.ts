@@ -122,4 +122,24 @@ describe("ExplorerSession", () => {
       { root_key: "", path: "" },
     ]);
   });
+
+  it("フィルターが有効かどうかを、コンテキストに反映する", async () => {
+    const { ctx, session } = setup();
+    await session.open("/p");
+    expect(ctx.get("filterActive")).toBe(false);
+    await session.controller.setFilter({
+      name: "x",
+      statuses: [],
+      media_types: [],
+      missing: null,
+    });
+    expect(ctx.get("filterActive")).toBe(true);
+    await session.controller.setFilter({
+      name: null,
+      statuses: [],
+      media_types: [],
+      missing: null,
+    });
+    expect(ctx.get("filterActive")).toBe(false);
+  });
 });

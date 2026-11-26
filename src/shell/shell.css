@@ -1194,3 +1194,70 @@ fieldset.ribbon-group {
   border-color: var(--color-warning);
   background: var(--color-warning);
 }
+
+/* ---- エクスプローラーのフィルター（007） ---- */
+.explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.explorer > .tree,
+.explorer > .empty-state {
+  flex: 1;
+  min-height: 0;
+}
+
+.filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.filter-group legend {
+  padding: 0;
+  color: var(--color-fg-muted);
+  font-size: 0.85em;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+}
+
+.filter-missing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9em;
+}

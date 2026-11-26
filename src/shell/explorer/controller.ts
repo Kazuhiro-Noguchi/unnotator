@@ -1,14 +1,16 @@
 // エクスプローラーの操作（開閉・フォーカス・キー・開く）。DOM に触れない。
 // 画面（Explorer.tsx）はこのストアを購読して描く。specs/007-tree-preview/data-model.md の `ExplorerState`。
 import type { CurrentStore } from "./current";
+import { EMPTY_FILTER, isEmptyFilter, normalizeFilter } from "./filter";
 import { type ExplorerPersist, folderKeyToText } from "./persist";
 import type { RowsStore } from "./rows";
-import type { NodeKey, TreeRow, ViewSpec } from "./types";
+import type { NodeKey, TreeFilter, TreeRow, ViewSpec } from "./types";
 
 export interface ExplorerSnapshot {
   focus: number;
   /** 開いているフォルダ（符号化した鍵）。 */
   expanded: ReadonlySet<string>;
+  filter: TreeFilter;
 }
 
 export interface ExplorerController {
@@ -22,6 +24,8 @@ export interface ExplorerController {
   refresh(): Promise<void>;
   /** 描画している範囲 `[start, end)` を伝える。足りない行を取る。 */
   setViewport(start: number, end: number): Promise<void>;
+  /** 絞り込みの条件を設定する（空なら解除）。 */
+  setFilter(filter: TreeFilter): Promise<void>;
   setFocus(index: number): void;
   toggle(row: TreeRow): Promise<void>;
   /** アセットを開く・フォルダを開閉する。 */
@@ -61,6 +65,7 @@ export function createExplorerController(
   const typeaheadMs = deps.typeaheadMs ?? 700;
   const expanded = new Map<string, NodeKey>();
   let focus = 0;
+  let filter: TreeFilter = EMPTY_FILTER;
   let viewport = { start: 0, end: 30 };
   let typed = "";
   let typedAt = 0;
@@ -70,9 +75,11 @@ export function createExplorerController(
   };
 
   const spec = (): ViewSpec => ({
+    filter,
     expanded_folders: [...expanded.values()],
     expanded_assets: [],
-    pinned: null,
+    // 条件から外れても、開いているアセットは現在位置として残す。
+    pinned: isEmptyFilter(filter) ? null : (current.get()?.assetId ?? null),
   });
 
   const save = () => deps.persist?.()?.save([...expanded.values()]);
@@ -133,14 +140,25 @@ export function createExplorerController(
     return index;
   }
 
+  // 絞り込み中に別のアセットを開いたら、残す対象を更新する。
+  current.subscribe(() => {
+    if (!isEmptyFilter(filter)) void applyViewChange().catch(() => {});
+  });
+
   const self: ExplorerController = {
-    snapshot: () => ({ focus, expanded: new Set(expanded.keys()) }),
+    snapshot: () => ({ focus, expanded: new Set(expanded.keys()), filter }),
+    async setFilter(next) {
+      filter = normalizeFilter(next);
+      focus = 0;
+      await applyViewChange();
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     async start(saved) {
       expanded.clear();
+      filter = EMPTY_FILTER;
       const keys = saved.length > 0 ? saved : [{ root_key: "", path: "" }];
       for (const key of keys) expanded.set(folderKeyToText(key), key);
       focus = 0;
@@ -150,6 +168,7 @@ export function createExplorerController(
     },
     async reset() {
       expanded.clear();
+      filter = EMPTY_FILTER;
       focus = 0;
       rows.clear();
       notify();

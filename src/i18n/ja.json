@@ -117,5 +117,17 @@
   "explorer.empty.noAssets": "アセットがありません。フォルダにファイルを置くと、ここに並びます。",
   "explorer.loading": "読み込み中…",
   "explorer.unknownMedia": "不明な形式",
-  "explorer.root.project": "プロジェクト"
+  "explorer.root.project": "プロジェクト",
+  "explorer.filter.name": "名前で絞り込み",
+  "explorer.filter.clear": "条件をすべて解除",
+  "explorer.filter.status": "作業状態",
+  "explorer.filter.media": "媒体種別",
+  "explorer.filter.missing": "リンク切れ",
+  "explorer.filter.missing.any": "指定なし",
+  "explorer.filter.missing.only": "リンク切れだけ",
+  "explorer.filter.missing.without": "リンク切れを除く",
+  "explorer.filter.unknown": "不明",
+  "explorer.filter.label": "絞り込み",
+  "explorer.empty.noMatch": "条件に合うアセットがありません。",
+  "explorer.empty.clear": "条件を解除"
 }

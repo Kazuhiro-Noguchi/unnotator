@@ -5,6 +5,7 @@ import type { Status } from "../../ipc";
 export type {
   ExpandedAsset,
   Located,
+  MediaSel,
   NodeKey,
   TreeRow,
   TreeWindow,
@@ -12,9 +13,9 @@ export type {
   ViewSpec,
 } from "../../ipc";
 
-/** 媒体種別の選択。`null` は「不明」。 */
-export type MediaSel = { kind: "unknown" } | { kind: "is"; value: string };
+import type { MediaSel } from "../../ipc";
 
+/** フィルター条件（`ViewSpec.filter` と同じ形。省略のない形で持つ）。 */
 export interface TreeFilter {
   name: string | null;
   statuses: Status[];

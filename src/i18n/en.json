@@ -117,5 +117,17 @@
   "explorer.empty.noAssets": "No assets. Add files to the folder and they will appear here.",
   "explorer.loading": "Loading…",
   "explorer.unknownMedia": "Unknown format",
-  "explorer.root.project": "Project"
+  "explorer.root.project": "Project",
+  "explorer.filter.name": "Filter by name",
+  "explorer.filter.clear": "Clear all filters",
+  "explorer.filter.status": "Status",
+  "explorer.filter.media": "Media type",
+  "explorer.filter.missing": "Missing files",
+  "explorer.filter.missing.any": "Any",
+  "explorer.filter.missing.only": "Missing only",
+  "explorer.filter.missing.without": "Exclude missing",
+  "explorer.filter.unknown": "Unknown",
+  "explorer.filter.label": "Filter",
+  "explorer.empty.noMatch": "No assets match the filter.",
+  "explorer.empty.clear": "Clear filter"
 }

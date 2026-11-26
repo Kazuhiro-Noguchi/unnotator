@@ -3,10 +3,12 @@
 //! 媒体に関係しない（憲章 I）。パス・状態・媒体種別の ID（不透明な文字列）だけを扱う。
 //! 設計は `specs/007-tree-preview/data-model.md` の `TreeIndex`。
 
+pub mod filter;
 pub mod nav;
 pub mod order;
 pub mod view;
 
+pub use filter::{MediaSel, TreeFilter};
 pub use view::{ExpandedAsset, FlatView, Located, MAX_WINDOW, NodeKey, TreeRow, ViewSpec};
 
 use std::collections::{HashMap, HashSet};

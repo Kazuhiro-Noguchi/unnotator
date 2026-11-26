@@ -3,6 +3,8 @@ import { EmptyState } from "../layout/EmptyState";
 import { useT } from "../solid";
 import type { ExplorerController } from "./controller";
 import type { CurrentStore } from "./current";
+import { FilterBar } from "./FilterBar";
+import { isEmptyFilter } from "./filter";
 import type { RowsStore } from "./rows";
 import { ROW_HEIGHT, TreeRowView } from "./TreeRow";
 
@@ -15,6 +17,10 @@ export interface ExplorerProps {
   controller: ExplorerController;
   rows: RowsStore;
   current: CurrentStore;
+  /** 選べる媒体種別の ID。 */
+  mediaTypes?: readonly string[];
+  /** 名前の入力をまとめる待ち時間（ミリ秒）。 */
+  filterDebounceMs?: number;
 }
 
 export function Explorer(props: ExplorerProps) {
@@ -87,55 +93,93 @@ export function Explorer(props: ExplorerProps) {
     return current && current.itemKey === null ? current.assetId : null;
   };
 
+  const filter = () => {
+    tick();
+    return props.controller.snapshot().filter;
+  };
+
   return (
-    <Show
-      when={total() > 0}
-      fallback={<EmptyState message={t("explorer.empty.noAssets")} />}
-    >
-      <div
-        class="tree"
-        role="tree"
-        tabIndex={0}
-        aria-label={t("explorer.tree.label")}
-        aria-activedescendant={`explorer-row-${focusIndex()}`}
-        style={{ "--tree-row-height": `${ROW_HEIGHT}px` }}
-        ref={(element) => {
-          container = element;
-          queueMicrotask(() => setHeight(element.clientHeight));
-        }}
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-        onKeyDown={(event) => {
-          if (props.controller.key(event)) event.preventDefault();
-        }}
+    <div class="explorer">
+      <FilterBar
+        filter={filter()}
+        onChange={(next) => void props.controller.setFilter(next)}
+        mediaTypes={props.mediaTypes ?? []}
+        debounceMs={props.filterDebounceMs ?? 200}
+      />
+      <Show
+        when={total() > 0}
+        fallback={
+          <EmptyState
+            message={
+              isEmptyFilter(filter())
+                ? t("explorer.empty.noAssets")
+                : t("explorer.empty.noMatch")
+            }
+            action={
+              isEmptyFilter(filter())
+                ? undefined
+                : {
+                    label: t("explorer.empty.clear"),
+                    run: () =>
+                      void props.controller.setFilter({
+                        name: null,
+                        statuses: [],
+                        media_types: [],
+                        missing: null,
+                      }),
+                  }
+            }
+          />
+        }
       >
-        <div class="tree-body" style={{ height: `${total() * ROW_HEIGHT}px` }}>
-          <For each={indexes()}>
-            {(index) => {
-              const row = () => {
-                tick();
-                return props.rows.rowAt(index);
-              };
-              return (
-                <Show when={row()}>
-                  {(value) => (
-                    <TreeRowView
-                      row={value()}
-                      index={index}
-                      focused={focusIndex() === index}
-                      selected={
-                        value().kind === "asset" &&
-                        (value() as { id: string }).id === selectedId()
-                      }
-                      onActivate={() => void props.controller.activate(index)}
-                      onToggle={() => void props.controller.toggle(value())}
-                    />
-                  )}
-                </Show>
-              );
-            }}
-          </For>
+        <div
+          class="tree"
+          role="tree"
+          tabIndex={0}
+          aria-label={t("explorer.tree.label")}
+          aria-activedescendant={`explorer-row-${focusIndex()}`}
+          style={{ "--tree-row-height": `${ROW_HEIGHT}px` }}
+          ref={(element) => {
+            container = element;
+            queueMicrotask(() => setHeight(element.clientHeight));
+          }}
+          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          onKeyDown={(event) => {
+            if (props.controller.key(event)) event.preventDefault();
+          }}
+        >
+          <div
+            class="tree-body"
+            style={{ height: `${total() * ROW_HEIGHT}px` }}
+          >
+            <For each={indexes()}>
+              {(index) => {
+                const row = () => {
+                  tick();
+                  return props.rows.rowAt(index);
+                };
+                return (
+                  <Show when={row()}>
+                    {(value) => (
+                      <TreeRowView
+                        row={value()}
+                        index={index}
+                        focused={focusIndex() === index}
+                        selected={
+                          value().kind === "asset" &&
+                          (value() as { id: string }).id === selectedId()
+                        }
+                        onActivate={() => void props.controller.activate(index)}
+                        onToggle={() => void props.controller.toggle(value())}
+                      />
+                    )}
+                  </Show>
+                );
+              }}
+            </For>
+          </div>
         </div>
-      </div>
-    </Show>
+      </Show>
+    </div>
   );
 }

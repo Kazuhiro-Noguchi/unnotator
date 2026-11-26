@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use unnotator_core::assets::AssetRow;
-use unnotator_core::assets::tree::{AssetSource, NodeKey, TreeIndex, ViewSpec};
+use unnotator_core::assets::tree::{AssetSource, NodeKey, TreeFilter, TreeIndex, ViewSpec};
 use unnotator_core::command::Status;
 use unnotator_core::error::StoreError;
 use unnotator_core::event::{Change, ChangeKind, ChangeSet, Entity, Origin};
@@ -123,6 +123,23 @@ fn tree_perf_100k() {
     println!(
         "窓の取得（全部開いた、120 行 × 100 回）の平均: {:?}",
         started.elapsed() / 100
+    );
+
+    // フィルター（名前の一部 + 状態）
+    let filtered = ViewSpec {
+        filter: TreeFilter {
+            name: Some("ＩＭＧ99".to_owned()),
+            statuses: vec![Status::Todo],
+            ..TreeFilter::default()
+        },
+        ..ViewSpec::default()
+    };
+    let started = Instant::now();
+    let flat = index.flatten(&filtered);
+    println!(
+        "フィルター（名前 + 状態、行 {}）: {:?}",
+        flat.total(),
+        started.elapsed()
     );
 
     // 状態の部分更新（実際のストアは ID で 1 件読む。ここは表引きの偽物）

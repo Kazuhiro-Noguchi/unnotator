@@ -110,6 +110,32 @@ pub struct IpcError {
     pub message: String,
 }
 
+impl IpcError {
+    /// ツリーの窓の版が古い（アセットの増減などで索引が作り直された）。`tree_view_set` からやり直す。
+    pub fn stale_view() -> Self {
+        Self {
+            code: "stale_view".to_owned(),
+            message: "ツリーの表示の版が古い".to_owned(),
+        }
+    }
+
+    /// アセットのパスが、プロジェクトのルートと外部ルートの外に出る。
+    pub fn path_outside(detail: &str) -> Self {
+        Self {
+            code: "path_outside".to_owned(),
+            message: format!("パスがルートの外に出る: {detail}"),
+        }
+    }
+
+    /// リンク切れ（ファイルが見つからない）ため、開けない。
+    pub fn missing(detail: &str) -> Self {
+        Self {
+            code: "missing".to_owned(),
+            message: format!("ファイルが見つからない: {detail}"),
+        }
+    }
+}
+
 impl From<StoreError> for IpcError {
     fn from(error: StoreError) -> Self {
         Self {
@@ -529,6 +555,14 @@ pub fn recovery_delete(state: tauri::State<'_, ProjectState>, id: String) -> Res
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn tree_errors_have_stable_codes() {
+        assert_eq!(IpcError::stale_view().code, "stale_view");
+        assert_eq!(IpcError::path_outside("a").code, "path_outside");
+        assert_eq!(IpcError::missing("a").code, "missing");
+        assert!(IpcError::missing("x.png").message.contains("x.png"));
+    }
+
     use super::*;
     use std::sync::{Arc, Mutex};
     use unnotator_core::command::Command;

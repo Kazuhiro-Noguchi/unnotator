@@ -75,7 +75,7 @@ pub const CORE_KEYS: &[CoreKey] = &[
     CoreKey {
         name: "ui.quickAccess",
         kind: ValueKind::StringList,
-        default_json: r#"["core.undo","core.redo","core.project.save"]"#,
+        default_json: r#"["core.project.save","core.undo","core.redo"]"#,
     },
     CoreKey {
         name: "ui.keybindings",
@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(default_value("ui.layout"), Some(json!({})));
         assert_eq!(
             default_value("ui.quickAccess"),
-            Some(json!(["core.undo", "core.redo", "core.project.save"]))
+            Some(json!(["core.project.save", "core.undo", "core.redo"]))
         );
         assert_eq!(default_value("ui.keybindings"), Some(json!([])));
         assert_eq!(default_value("ui.recentProjects"), Some(json!([])));

@@ -8,6 +8,7 @@ pub mod path;
 pub mod relink;
 pub mod roots;
 pub mod scan;
+pub mod tree;
 pub mod watch;
 
 use rusqlite::Connection;

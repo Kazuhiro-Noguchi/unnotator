@@ -3,6 +3,7 @@
 pub mod asset_commands;
 pub mod commands;
 pub mod extension_commands;
+pub mod open_commands;
 pub mod project_commands;
 pub mod selftest;
 pub mod settings_commands;
@@ -65,6 +66,7 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::undo_state,
             project_commands::label_usage,
             asset_commands::asset_list,
+            asset_commands::asset_get,
             asset_commands::asset_scan,
             asset_commands::asset_scan_cancel,
             asset_commands::asset_relink_candidates,
@@ -77,6 +79,7 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             tree_commands::tree_neighbor,
             tree_commands::item_statuses,
             tree_commands::media_traits,
+            open_commands::open_in_default_app,
             settings_commands::settings_get,
             settings_commands::settings_set,
             settings_commands::settings_unset,

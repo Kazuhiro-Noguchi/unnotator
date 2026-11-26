@@ -281,6 +281,24 @@ fn run_watch(app: &tauri::AppHandle, generation: u64) {
     }
 }
 
+/// アセットを 1 件。知らない ID は `None`。
+pub fn get(
+    state: &ProjectState,
+    asset_id: &str,
+) -> Result<Option<unnotator_core::assets::AssetRow>, IpcError> {
+    use unnotator_core::assets::tree::AssetSource;
+    with_store(state, |store| store.asset(asset_id))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn asset_get(
+    state: tauri::State<'_, ProjectState>,
+    asset_id: String,
+) -> Result<Option<unnotator_core::assets::AssetRow>, IpcError> {
+    get(&state, &asset_id)
+}
+
 #[tauri::command(async)]
 #[specta::specta]
 pub fn asset_list(

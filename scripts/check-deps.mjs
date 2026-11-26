@@ -3,7 +3,7 @@
 //  2. `crates/*` の推移的な依存に `tauri` で始まる名前のクレートが無い。
 //  3. 各クレートの Cargo.toml が外部の依存の版を直接書いていない（版はルートの [workspace.dependencies] だけ）。
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const ALLOWED_EDGES = new Set([
@@ -79,6 +79,65 @@ export function checkDirectVersions(file, toml) {
   return problems;
 }
 
+/**
+ * 汎用プレビュー（`src/preview/`）は表示専用で、プロジェクトのデータを読み書きしない（憲章 I・III）。
+ * `ipc` から値（`commands` など）を import できるのは `external.ts` だけで、そこで呼べるのは
+ * `openInDefaultApp`（OS の既定のアプリで開く）だけ。型の import はどこでもよい。テストは検査しない。
+ */
+export function checkPreviewSource(file, source) {
+  if (/\.test\.(ts|tsx)$/.test(file)) return [];
+  const problems = [];
+  const isExternal = file.endsWith("/external.ts");
+  const importPattern =
+    /import\s+(type\s+)?[^;]*?from\s+["']((?:\.\.?\/)+ipc(?:\/[^"']*)?)["']/gs;
+  for (const match of source.matchAll(importPattern)) {
+    const isType = Boolean(match[1]);
+    if (!isType && !isExternal) {
+      problems.push(
+        `${file}: プレビューは ipc から値を import できない（external.ts だけが、既定のアプリで開く呼び出しに使う）`,
+      );
+    }
+  }
+  if (isExternal) {
+    for (const call of source.matchAll(/commands\.(\w+)/g)) {
+      if (call[1] !== "openInDefaultApp") {
+        problems.push(
+          `${file}: プレビューが呼べる IPC は openInDefaultApp だけ（commands.${call[1]}）`,
+        );
+      }
+    }
+  } else {
+    for (const call of source.matchAll(/commands\.(\w+)/g)) {
+      problems.push(
+        `${file}: プレビューは IPC を呼べない（commands.${call[1]}）`,
+      );
+    }
+  }
+  return problems;
+}
+
+function checkPreviewDir() {
+  const problems = [];
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const dir = `${root}src/preview`;
+  const walk = (d) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const path = `${d}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (/\.(ts|tsx)$/.test(entry.name)) {
+        problems.push(
+          ...checkPreviewSource(
+            path.slice(root.length),
+            readFileSync(path, "utf8"),
+          ),
+        );
+      }
+    }
+  };
+  if (existsSync(dir)) walk(dir);
+  return problems;
+}
+
 function main() {
   const result = spawnSync("cargo", ["metadata", "--format-version", "1"], {
     encoding: "utf8",
@@ -89,7 +148,7 @@ function main() {
     process.exit(1);
   }
   const metadata = JSON.parse(result.stdout);
-  const problems = checkMetadata(metadata);
+  const problems = [...checkMetadata(metadata), ...checkPreviewDir()];
   for (const p of metadata.packages.filter((p) =>
     metadata.workspace_members.includes(p.id),
   )) {

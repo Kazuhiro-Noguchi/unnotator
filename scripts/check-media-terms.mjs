@@ -38,6 +38,14 @@ export function findForbiddenTerms(file, source) {
   return hits;
 }
 
+/**
+ * 憲章 I が認める唯一の例外: 汎用プレビュー（表示専用）。`src/preview/` の中だけを検査から外す。
+ * 範囲を広げない（`src/previews/` なども対象のまま）。
+ */
+export function isExemptPreview(relativePath) {
+  return relativePath.replaceAll("\\", "/").startsWith("src/preview/");
+}
+
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -52,7 +60,11 @@ function main() {
   for (const dir of SCAN_DIRS) {
     for (const path of walk(join(root, dir))) {
       const relative = path.slice(root.length).replaceAll("\\", "/");
-      if (SKIP_FILES.has(relative) || !EXTENSIONS.some((e) => path.endsWith(e)))
+      if (
+        SKIP_FILES.has(relative) ||
+        isExemptPreview(relative) ||
+        !EXTENSIONS.some((e) => path.endsWith(e))
+      )
         continue;
       hits.push(...findForbiddenTerms(relative, readFileSync(path, "utf8")));
     }

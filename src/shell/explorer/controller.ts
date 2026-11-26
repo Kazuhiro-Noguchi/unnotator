@@ -1,7 +1,9 @@
 // エクスプローラーの操作（開閉・フォーカス・キー・開く）。DOM に触れない。
 // 画面（Explorer.tsx）はこのストアを購読して描く。specs/007-tree-preview/data-model.md の `ExplorerState`。
+import type { MediaTraits } from "../../host/item-source";
 import type { CurrentStore } from "./current";
 import { EMPTY_FILTER, isEmptyFilter, normalizeFilter } from "./filter";
+import type { ItemRows } from "./items";
 import { type ExplorerPersist, folderKeyToText } from "./persist";
 import type { RowsStore } from "./rows";
 import type { NodeKey, TreeFilter, TreeRow, ViewSpec } from "./types";
@@ -14,6 +16,8 @@ export interface ExplorerSnapshot {
 }
 
 export interface ExplorerController {
+  /** アイテムの行の中身（アイテムを扱わない構成では `undefined`）。 */
+  readonly items: ItemRows | undefined;
   snapshot(): ExplorerSnapshot;
   subscribe(listener: () => void): () => void;
   /** 保存された開閉を取り込んで、見え方を設定する。プロジェクトを開いたあとに 1 回。 */
@@ -26,6 +30,10 @@ export interface ExplorerController {
   setViewport(start: number, end: number): Promise<void>;
   /** 絞り込みの条件を設定する（空なら解除）。 */
   setFilter(filter: TreeFilter): Promise<void>;
+  /** アセットのアイテムを展開できるか（アイテム提供の宣言がある媒体）。 */
+  canExpand(row: TreeRow): boolean;
+  /** アイテムの取得の再試行。 */
+  retryItems(assetId: string): Promise<void>;
   setFocus(index: number): void;
   toggle(row: TreeRow): Promise<void>;
   /** アセットを開く・フォルダを開閉する。 */
@@ -44,6 +52,10 @@ export interface ControllerDeps {
   current: CurrentStore;
   /** 開いているプロジェクトの保存先。プロジェクトを閉じているあいだは `null`。 */
   persist?: () => ExplorerPersist | null;
+  /** アイテムの行の中身（無ければ、アイテムは展開できない）。 */
+  items?: ItemRows;
+  /** 媒体種別の宣言（作業単位・アイテム提供）。 */
+  traitsOf?: (mediaType: string | null) => MediaTraits;
   /** 先頭文字の検索の入力をまとめる時間（ミリ秒）。 */
   typeaheadMs?: number;
 }
@@ -64,6 +76,11 @@ export function createExplorerController(
   const { rows, current } = deps;
   const typeaheadMs = deps.typeaheadMs ?? 700;
   const expanded = new Map<string, NodeKey>();
+  /** 展開しているアセット（アイテムの枠を挟む）。`total` が `null` の間は、読み込み中の行が 1 つ。 */
+  const expandedAssets = new Map<
+    string,
+    { total: number | null; mediaType: string | null }
+  >();
   let focus = 0;
   let filter: TreeFilter = EMPTY_FILTER;
   let viewport = { start: 0, end: 30 };
@@ -77,7 +94,10 @@ export function createExplorerController(
   const spec = (): ViewSpec => ({
     filter,
     expanded_folders: [...expanded.values()],
-    expanded_assets: [],
+    expanded_assets: [...expandedAssets.entries()].map(([asset_id, e]) => ({
+      asset_id,
+      item_total: e.total,
+    })),
     // 条件から外れても、開いているアセットは現在位置として残す。
     pinned: isEmptyFilter(filter) ? null : (current.get()?.assetId ?? null),
   });
@@ -100,7 +120,43 @@ export function createExplorerController(
     notify();
   }
 
+  const hasItems = (mediaType: string | null | undefined): boolean =>
+    deps.items !== undefined &&
+    (deps.traitsOf?.(mediaType ?? null).hasItems ?? false);
+
+  /** 取得した総数を、見え方へ反映する。 */
+  async function settleItems(
+    assetId: string,
+    total: number | null,
+  ): Promise<void> {
+    const entry = expandedAssets.get(assetId);
+    if (!entry) return;
+    // 取れなかったとき（エラー・未対応）は、読み込み中の 1 行のまま、その行に案内を出す。
+    if (total !== null) entry.total = total;
+    await applyViewChange();
+  }
+
+  async function toggleAsset(row: TreeRow): Promise<void> {
+    if (row.kind !== "asset" || !deps.items || !hasItems(row.media_type))
+      return;
+    if (expandedAssets.has(row.id)) {
+      expandedAssets.delete(row.id);
+      deps.items.close(row.id);
+      await applyViewChange();
+      return;
+    }
+    expandedAssets.set(row.id, {
+      total: null,
+      mediaType: row.media_type ?? null,
+    });
+    const loading = applyViewChange();
+    const total = await deps.items.open(row.id);
+    await loading;
+    await settleItems(row.id, total);
+  }
+
   async function toggle(row: TreeRow): Promise<void> {
+    if (row.kind === "asset") return toggleAsset(row);
     const key = folderKeyOf(row);
     if (!key) return;
     const encoded = folderKeyToText(key);
@@ -158,6 +214,24 @@ export function createExplorerController(
       moveFocus(located.row);
   }
 
+  /** 見えているアイテムの枠のうち、まだ取っていないページを取る。 */
+  async function ensureItems(): Promise<void> {
+    if (!deps.items) return;
+    const ranges = new Map<string, { start: number; end: number }>();
+    for (let index = viewport.start; index < viewport.end; index += 1) {
+      const row = rows.rowAt(index);
+      if (row?.kind !== "item_slot") continue;
+      const range = ranges.get(row.asset_id);
+      if (range) range.end = row.index + 1;
+      else ranges.set(row.asset_id, { start: row.index, end: row.index + 1 });
+    }
+    await Promise.all(
+      [...ranges].map(([assetId, range]) =>
+        deps.items?.ensure(assetId, range.start, range.end),
+      ),
+    );
+  }
+
   // 別のアセットを開いたら、見える位置へ。絞り込み中は、残す対象（現在位置）も更新する。
   current.subscribe(() => {
     const target = current.get();
@@ -169,7 +243,12 @@ export function createExplorerController(
       .catch(() => {});
   });
 
+  // 行が届いたら、見えているアイテムの枠を埋める。アイテムの取得が進んだら、画面に知らせる。
+  rows.subscribe(() => void ensureItems().catch(() => {}));
+  deps.items?.subscribe(notify);
+
   const self: ExplorerController = {
+    items: deps.items,
     snapshot: () => ({ focus, expanded: new Set(expanded.keys()), filter }),
     async setFilter(next) {
       filter = normalizeFilter(next);
@@ -182,6 +261,8 @@ export function createExplorerController(
     },
     async start(saved) {
       expanded.clear();
+      for (const id of expandedAssets.keys()) deps.items?.close(id);
+      expandedAssets.clear();
       filter = EMPTY_FILTER;
       const keys = saved.length > 0 ? saved : [{ root_key: "", path: "" }];
       for (const key of keys) expanded.set(folderKeyToText(key), key);
@@ -192,12 +273,15 @@ export function createExplorerController(
     },
     async reset() {
       expanded.clear();
+      for (const id of expandedAssets.keys()) deps.items?.close(id);
+      expandedAssets.clear();
       filter = EMPTY_FILTER;
       focus = 0;
       rows.clear();
       notify();
     },
     async refresh() {
+      await deps.items?.refreshStatuses();
       await rows.refresh();
       await rows.ensure(viewport.start, viewport.end);
       focus = clampFocus(focus);
@@ -207,6 +291,13 @@ export function createExplorerController(
       viewport = { start, end };
       // 行が届けば、`rows` の購読者に知らされる。ここでは知らせない（描画の効果が回り続けるため）。
       await rows.ensure(start, end);
+      await ensureItems();
+    },
+    canExpand: (row) => row.kind === "asset" && hasItems(row.media_type),
+    async retryItems(assetId) {
+      if (!deps.items) return;
+      const total = await deps.items.retry(assetId);
+      await settleItems(assetId, total);
     },
     setFocus: moveFocus,
     toggle,
@@ -214,7 +305,16 @@ export function createExplorerController(
       const row = rows.rowAt(index);
       if (!row) return;
       moveFocus(index);
-      if (row.kind === "asset") {
+      if (row.kind === "item_slot") {
+        const cell = deps.items?.cell(row.asset_id, row.index);
+        if (cell?.kind === "item") {
+          current.open({
+            assetId: row.asset_id,
+            itemKey: cell.info.key,
+            mediaType: expandedAssets.get(row.asset_id)?.mediaType ?? null,
+          });
+        }
+      } else if (row.kind === "asset") {
         current.open({
           assetId: row.id,
           itemKey: null,
@@ -242,6 +342,11 @@ export function createExplorerController(
           return true;
         case "ArrowRight": {
           if (!row) return true;
+          if (row.kind === "asset") {
+            if (self.canExpand(row) && !expandedAssets.has(row.id))
+              void toggleAsset(row);
+            return true;
+          }
           const key = folderKeyOf(row);
           if (key && !expanded.has(folderKeyToText(key))) void toggle(row);
           else if (key) moveFocus(focus + 1);
@@ -249,6 +354,10 @@ export function createExplorerController(
         }
         case "ArrowLeft": {
           if (!row) return true;
+          if (row.kind === "asset" && expandedAssets.has(row.id)) {
+            void toggleAsset(row);
+            return true;
+          }
           const key = folderKeyOf(row);
           if (key && expanded.has(folderKeyToText(key))) void toggle(row);
           else moveFocus(parentIndex(focus));

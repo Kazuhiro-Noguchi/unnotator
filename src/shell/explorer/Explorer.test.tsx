@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
+import { FakeItemSource } from "../../host/item-source";
 import { t } from "../../i18n";
 import { FakeTreeIpc } from "../testing/fakes";
 import { createExplorerController } from "./controller";
 import { createCurrentStore } from "./current";
 import { Explorer } from "./Explorer";
+import { createItemRows } from "./items";
 import { createRowsStore } from "./rows";
 import type { TreeFilter, TreeRow } from "./types";
 
@@ -363,5 +365,208 @@ describe("現在位置が変わったとき", () => {
     current.open({ assetId: "nope", itemKey: null, mediaType: null });
     await flush();
     expect(tree.getAttribute("aria-activedescendant")).toBe("explorer-row-0");
+  });
+});
+
+describe("アイテムの展開", () => {
+  const DOC = "t/doc";
+  function docRow(id: string, name: string, expanded: boolean): TreeRow {
+    return {
+      kind: "asset",
+      id,
+      name,
+      depth: 1,
+      media_type: DOC,
+      status: "todo",
+      missing: false,
+      expanded,
+      pinned: false,
+    };
+  }
+  const plain: TreeRow = {
+    kind: "asset",
+    id: "pl",
+    name: "plain.txt",
+    depth: 1,
+    media_type: null,
+    status: "todo",
+    missing: false,
+    expanded: false,
+    pinned: false,
+  };
+
+  async function mountItems(
+    configure: (items: FakeItemSource) => void = () => {},
+  ) {
+    const items = new FakeItemSource();
+    items.declare(DOC, {
+      workUnit: "item",
+      provider: "t/pages",
+      hasItems: true,
+    });
+    items.setItems("d1", 3, { "item:1": "done" });
+    configure(items);
+    const ipc = new FakeTreeIpc();
+    ipc.rowsFn = (spec) => {
+      const open = new Map(
+        spec.expanded_assets?.map((e) => [e.asset_id, e.item_total ?? null]) ??
+          [],
+      );
+      const out: TreeRow[] = [
+        {
+          kind: "root",
+          root_key: "",
+          name: "",
+          depth: 0,
+          expanded: true,
+          total: 2,
+          done: 0,
+        },
+        docRow("d1", "doc1.doc", open.has("d1")),
+      ];
+      if (open.has("d1")) {
+        const total = open.get("d1");
+        if (total === null || total === undefined) {
+          out.push({ kind: "item_loading", asset_id: "d1", depth: 2 });
+        } else {
+          for (let index = 0; index < total; index += 1) {
+            out.push({ kind: "item_slot", asset_id: "d1", index, depth: 2 });
+          }
+        }
+      }
+      out.push(plain);
+      return out;
+    };
+    const store = createRowsStore(ipc);
+    const current = createCurrentStore();
+    const itemRows = createItemRows({
+      source: items,
+      recordedStatuses: async () => [],
+    });
+    const controller = createExplorerController({
+      rows: store,
+      current,
+      items: itemRows,
+      traitsOf: (m) => items.traitsOf(m),
+    });
+    dispose = render(
+      () => (
+        <Explorer
+          controller={controller}
+          rows={store}
+          current={current}
+          filterDebounceMs={0}
+        />
+      ),
+      document.body,
+    );
+    await controller.start([]);
+    await wait();
+    const tree = document.querySelector<HTMLElement>('[role="tree"]');
+    if (!tree) throw new Error("tree が無い");
+    return { ipc, items, tree, current, controller };
+  }
+
+  const wait = async () => {
+    for (let i = 0; i < 6; i += 1) await flush();
+  };
+
+  it("アイテムのある媒体のアセットにだけ、展開の矢印が出る", async () => {
+    await mountItems();
+    const rows = items().filter(
+      (el) =>
+        el.textContent?.includes(".doc") || el.textContent?.includes("plain"),
+    );
+    expect(rows[0]?.querySelector(".tree-chevron")).not.toBeNull();
+    expect(rows[0]?.getAttribute("aria-expanded")).toBe("false");
+    expect(rows[1]?.querySelector(".tree-chevron")).toBeNull();
+    expect(rows[1]?.getAttribute("aria-expanded")).toBeNull();
+  });
+
+  it("右キーで展開すると、アイテムが並び、状態の印が出る", async () => {
+    const { tree, ipc } = await mountItems();
+    press(tree, "ArrowDown"); // doc1.doc
+    press(tree, "ArrowRight");
+    await wait();
+    expect(
+      ipc.viewCalls.some((s) =>
+        s.expanded_assets?.some(
+          (e) => e.asset_id === "d1" && e.item_total === null,
+        ),
+      ),
+    ).toBe(true);
+    expect(ipc.viewCalls.at(-1)?.expanded_assets).toEqual([
+      { asset_id: "d1", item_total: 3 },
+    ]);
+    const names = items().map((el) => el.textContent ?? "");
+    expect(names.filter((n) => n.includes("Item "))).toHaveLength(3);
+    const dots = [...document.querySelectorAll<HTMLElement>(".status-dot")].map(
+      (d) => d.dataset.status,
+    );
+    expect(dots).toContain("done");
+  });
+
+  it("展開しているアセットは、左キーで閉じる（アイテムの取得も捨てる）", async () => {
+    const { tree, ipc } = await mountItems();
+    press(tree, "ArrowDown");
+    press(tree, "ArrowRight");
+    await wait();
+    press(tree, "ArrowLeft");
+    await wait();
+    expect(ipc.viewCalls.at(-1)?.expanded_assets).toEqual([]);
+    expect(items().some((el) => el.textContent?.includes("Item "))).toBe(false);
+  });
+
+  it("アイテム行を選ぶと、アイテムのキーつきで開く", async () => {
+    const { tree, current } = await mountItems();
+    press(tree, "ArrowDown");
+    press(tree, "ArrowRight");
+    await wait();
+    const second = items().find((el) => el.textContent?.includes("Item 1"));
+    second?.click();
+    await wait();
+    expect(current.get()).toEqual({
+      assetId: "d1",
+      itemKey: "item:1",
+      mediaType: DOC,
+    });
+  });
+
+  it("提供元が失敗したら、そのアセットの下に案内と再試行を出し、直ったら並ぶ", async () => {
+    const { tree, items: source } = await mountItems((s) =>
+      s.failWith("d1", "failed"),
+    );
+    press(tree, "ArrowDown");
+    press(tree, "ArrowRight");
+    await wait();
+    expect(document.body.textContent).toContain(
+      t("explorer.item.error.failed"),
+    );
+    expect(document.querySelector('[role="tree"]')).not.toBeNull();
+    source.failWith("d1", null);
+    document
+      .querySelector<HTMLButtonElement>("button[data-item-retry]")
+      ?.click();
+    await wait();
+    expect(
+      items().filter((el) => el.textContent?.includes("Item ")).length,
+    ).toBe(3);
+  });
+
+  it("提供元が外れていたら、未対応と表示する", async () => {
+    const { tree } = await mountItems((s) => s.failWith("d1", "unsupported"));
+    press(tree, "ArrowDown");
+    press(tree, "ArrowRight");
+    await wait();
+    expect(document.body.textContent).toContain(t("explorer.item.unsupported"));
+  });
+
+  it("アイテムの無い媒体では、右キーで見え方は変わらない", async () => {
+    const { tree, ipc } = await mountItems();
+    const before = ipc.viewCalls.length;
+    press(tree, "End"); // plain.txt
+    press(tree, "ArrowRight");
+    await wait();
+    expect(ipc.viewCalls.length).toBe(before);
   });
 });

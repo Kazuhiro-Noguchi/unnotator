@@ -174,4 +174,18 @@ describe("HostItemSource", () => {
     );
     expect(page.items[0]?.key).toBe("a");
   });
+
+  it("手元の宣言（デモ）は、宣言の読み直しで消えず、外せる", async () => {
+    const source = createHostItemSource(async () => traits);
+    source.declare("demo/x", {
+      workUnit: "item",
+      provider: "demo/p",
+      hasItems: true,
+    });
+    await source.refresh();
+    expect(source.traitsOf("demo/x").hasItems).toBe(true);
+    expect(source.itemMediaTypes()).toContain("demo/x");
+    source.undeclare("demo/x");
+    expect(source.traitsOf("demo/x").hasItems).toBe(false);
+  });
 });

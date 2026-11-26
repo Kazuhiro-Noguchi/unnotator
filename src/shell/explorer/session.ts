@@ -1,5 +1,6 @@
 // エクスプローラーの 1 セッション（プロジェクトを開いてから閉じるまで）。
 // 索引との通信・開いたフォルダの保存・現在位置・アセットの変化への追従を、1 か所に集める。
+import type { MediaTraits } from "../../host/item-source";
 import type { Context } from "../types";
 import {
   createExplorerController,
@@ -7,6 +8,7 @@ import {
 } from "./controller";
 import { type CurrentStore, createCurrentStore } from "./current";
 import { isEmptyFilter } from "./filter";
+import type { ItemRows } from "./items";
 import { createExplorerPersist, type ExplorerPersist } from "./persist";
 import { createRowsStore, type RowsPort, type RowsStore } from "./rows";
 
@@ -15,6 +17,9 @@ const REFRESH_DEBOUNCE_MS = 80;
 
 export interface ExplorerSessionDeps {
   ipc: RowsPort;
+  /** アイテムの行の中身（無ければ、アイテムは展開できない）。 */
+  items?: ItemRows;
+  traitsOf?: (mediaType: string | null) => MediaTraits;
   settings: {
     readUserLayer(): Promise<Record<string, unknown>>;
     write(key: string, value: unknown): Promise<void>;
@@ -43,6 +48,8 @@ export function createExplorerSession(
     rows,
     current,
     persist: () => persist,
+    ...(deps.items ? { items: deps.items } : {}),
+    ...(deps.traitsOf ? { traitsOf: deps.traitsOf } : {}),
   });
 
   current.subscribe(() => deps.ctx.set("hasCurrent", current.get() !== null));

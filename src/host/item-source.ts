@@ -165,6 +165,10 @@ export interface HostItemSource extends ItemSource {
   itemMediaTypes(): string[];
   /** 提供元の呼び出しを結ぶ（009）。 */
   connect(lister: ItemLister | null): void;
+  /** 宣言を足す（開発用のデモとテスト。登録簿の読み直しで消える）。 */
+  declare(mediaType: string, traits: MediaTraits): void;
+  /** `declare` で足した宣言を外す。 */
+  undeclare(mediaType: string): void;
 }
 
 export interface MediaTraitsEntry {
@@ -178,7 +182,13 @@ export function createHostItemSource(
   load: () => Promise<MediaTraitsEntry[]>,
 ): HostItemSource {
   let traits = new Map<string, MediaTraits>();
+  /** 読み直しで消えない、手元の宣言（開発用のデモ）。 */
+  const local = new Map<string, MediaTraits>();
   let lister: ItemLister | null = null;
+  const find = (mediaType: string | null): MediaTraits | undefined =>
+    mediaType === null
+      ? undefined
+      : (local.get(mediaType) ?? traits.get(mediaType));
   return {
     async refresh() {
       try {
@@ -198,15 +208,21 @@ export function createHostItemSource(
       }
     },
     traitsOf(mediaType) {
-      return (mediaType !== null && traits.get(mediaType)) || DEFAULT_TRAITS;
+      return find(mediaType) ?? DEFAULT_TRAITS;
     },
     itemMediaTypes() {
-      return [...traits.entries()]
+      return [...new Map([...traits, ...local]).entries()]
         .filter(([, t]) => t.workUnit === "item")
         .map(([id]) => id);
     },
     connect(next) {
       lister = next;
+    },
+    declare(mediaType, entry) {
+      local.set(mediaType, entry);
+    },
+    undeclare(mediaType) {
+      local.delete(mediaType);
     },
     async list(assetId, range, signal) {
       if (!lister) throw new ItemSourceError("unsupported");

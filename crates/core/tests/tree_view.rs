@@ -304,3 +304,103 @@ fn locate_follows_the_view_after_a_state_patch_without_changing_rows() {
         other => panic!("{other:?}"),
     }
 }
+
+// --- アイテムの枠（T046）---
+
+use unnotator_core::assets::tree::ExpandedAsset;
+
+fn with_items(open: &[(&str, &str)], items: &[(&str, Option<u32>)]) -> ViewSpec {
+    let mut s = spec(open);
+    s.expanded_assets = items
+        .iter()
+        .map(|(id, total)| ExpandedAsset {
+            asset_id: (*id).to_owned(),
+            item_total: *total,
+        })
+        .collect();
+    s
+}
+
+#[test]
+fn item_slots_follow_their_asset_one_level_deeper() {
+    let index = sample();
+    let rows = all(
+        &index,
+        &with_items(&[("", ""), ("", "a")], &[("a3", Some(3))]),
+    );
+    assert_eq!(
+        lines(&rows),
+        [
+            "0 ",
+            "1 a",
+            "2 sub",
+            "2 img2.png",
+            "3 #0",
+            "3 #1",
+            "3 #2",
+            "2 img10.png",
+            "1 b.txt",
+            "0 photos"
+        ]
+    );
+    match &rows[3] {
+        TreeRow::Asset { expanded, .. } => assert!(expanded),
+        other => panic!("{other:?}"),
+    }
+    match &rows[4] {
+        TreeRow::ItemSlot {
+            asset_id, index, ..
+        } => {
+            assert_eq!((asset_id.as_str(), *index), ("a3", 0));
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn an_unknown_total_gives_one_loading_row() {
+    let index = sample();
+    let rows = all(&index, &with_items(&[("", ""), ("", "a")], &[("a3", None)]));
+    assert_eq!(lines(&rows).iter().filter(|l| l.contains('…')).count(), 1);
+    assert!(
+        rows.iter()
+            .any(|r| matches!(r, TreeRow::ItemLoading { asset_id, depth: 3 } if asset_id == "a3"))
+    );
+}
+
+#[test]
+fn a_zero_total_adds_no_rows_and_a_closed_folder_hides_its_slots() {
+    let index = sample();
+    let with_zero = all(
+        &index,
+        &with_items(&[("", ""), ("", "a")], &[("a3", Some(0))]),
+    );
+    let plain = all(&index, &spec(&[("", ""), ("", "a")]));
+    assert_eq!(with_zero.len(), plain.len());
+    let hidden = all(&index, &with_items(&[("", "")], &[("a3", Some(5))]));
+    assert!(!hidden.iter().any(|r| matches!(r, TreeRow::ItemSlot { .. })));
+}
+
+#[test]
+fn items_do_not_change_folder_totals_and_count_in_the_window_offsets() {
+    let index = sample();
+    let spec = with_items(&[("", ""), ("", "a")], &[("a3", Some(4))]);
+    let flat = index.flatten(&spec);
+    assert_eq!(flat.total(), 7 + 4);
+    let rows = flat.window(&index, 4, 3).unwrap();
+    assert_eq!(lines(&rows), ["3 #0", "3 #1", "3 #2"]);
+    match &all(&index, &spec)[1] {
+        TreeRow::Folder { total, .. } => assert_eq!(*total, 3),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn several_assets_can_be_expanded_and_locate_counts_the_slots() {
+    let index = sample();
+    let spec = with_items(&[("", ""), ("", "a")], &[("a3", Some(2)), ("a2", Some(1))]);
+    let flat = index.flatten(&spec);
+    assert_eq!(flat.locate(&index, "a3").unwrap().row, Some(3));
+    assert_eq!(flat.locate(&index, "a2").unwrap().row, Some(6));
+    assert_eq!(flat.total(), 7 + 3);
+}

@@ -7,6 +7,7 @@ import { FilterBar } from "./FilterBar";
 import { isEmptyFilter } from "./filter";
 import type { RowsStore } from "./rows";
 import { ROW_HEIGHT, TreeRowView } from "./TreeRow";
+import type { TreeRow as TreeRowT } from "./types";
 
 /** 見える範囲の前後に、余分に描く行数。 */
 const OVERSCAN = 8;
@@ -81,6 +82,25 @@ export function Explorer(props: ExplorerProps) {
     else if (top + ROW_HEIGHT > container.scrollTop + view)
       container.scrollTop = top + ROW_HEIGHT - view;
   });
+
+  const assetIdOf = (row: TreeRowT): string =>
+    row.kind === "item_slot" || row.kind === "item_loading"
+      ? row.asset_id
+      : row.kind === "asset"
+        ? row.id
+        : "";
+  const itemCellOf = (row: TreeRowT) => {
+    tick();
+    return row.kind === "item_slot"
+      ? props.controller.items?.cell(row.asset_id, row.index)
+      : undefined;
+  };
+  const itemsStateOf = (row: TreeRowT) => {
+    tick();
+    return row.kind === "item_loading"
+      ? props.controller.items?.state(row.asset_id)
+      : undefined;
+  };
 
   const focusIndex = () => {
     tick();
@@ -164,6 +184,12 @@ export function Explorer(props: ExplorerProps) {
                       <TreeRowView
                         row={value()}
                         index={index}
+                        canExpand={props.controller.canExpand(value())}
+                        itemCell={itemCellOf(value())}
+                        itemsState={itemsStateOf(value())}
+                        onRetry={() =>
+                          void props.controller.retryItems(assetIdOf(value()))
+                        }
                         focused={focusIndex() === index}
                         selected={
                           value().kind === "asset" &&

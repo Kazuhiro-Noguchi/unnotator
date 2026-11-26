@@ -158,5 +158,9 @@
   "preview.image.alt": "プレビュー画像",
   "preview.relinkNone": "再接続の候補が見つかりません。同じ名前・サイズのファイルを、プロジェクトのフォルダに置いてください。",
   "preview.relinkPick": "{name} の再接続先を選んでください。",
-  "preview.relinkTo": "{path} に再接続"
+  "preview.relinkTo": "{path} に再接続",
+  "explorer.item.error.timeout": "アイテムの取得が時間切れになりました。",
+  "explorer.item.error.failed": "アイテムを取得できませんでした。",
+  "explorer.item.unsupported": "アイテムの提供元が使えません（未対応）。",
+  "explorer.item.retry": "再試行"
 }

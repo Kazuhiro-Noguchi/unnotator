@@ -158,5 +158,9 @@
   "preview.image.alt": "Preview image",
   "preview.relinkNone": "No relink candidate found. Put a file with the same name and size in the project folder.",
   "preview.relinkPick": "Choose where to relink {name}.",
-  "preview.relinkTo": "Relink to {path}"
+  "preview.relinkTo": "Relink to {path}",
+  "explorer.item.error.timeout": "Loading the items timed out.",
+  "explorer.item.error.failed": "Could not load the items.",
+  "explorer.item.unsupported": "The item provider is unavailable (unsupported).",
+  "explorer.item.retry": "Retry"
 }

@@ -2,6 +2,7 @@ import { Match, Show, Switch } from "solid-js";
 import { format } from "../../i18n";
 import { Icon } from "../Icon";
 import { useT } from "../solid";
+import type { AssetItemsState, ItemCell } from "./items";
 import type { TreeRow as Row } from "./types";
 
 /** 1 行の高さ（CSS の px）。仮想スクロールの計算と、CSS の変数 `--tree-row-height` の元。 */
@@ -14,6 +15,13 @@ export interface TreeRowProps {
   selected: boolean;
   onActivate: () => void;
   onToggle: () => void;
+  /** アセットの行で、アイテムを展開できるか。 */
+  canExpand?: boolean;
+  /** アイテムの行の中身。 */
+  itemCell?: ItemCell | undefined;
+  /** アイテムを展開したアセットの、取得の状態（読み込み中の行に使う）。 */
+  itemsState?: AssetItemsState | undefined;
+  onRetry?: () => void;
 }
 
 export function TreeRowView(props: TreeRowProps) {
@@ -41,7 +49,9 @@ export function TreeRowView(props: TreeRowProps) {
       aria-expanded={
         props.row.kind === "root" || props.row.kind === "folder"
           ? props.row.expanded
-          : undefined
+          : props.row.kind === "asset" && props.canExpand
+            ? props.row.expanded
+            : undefined
       }
       style={{
         top: `${props.index * ROW_HEIGHT}px`,
@@ -83,7 +93,30 @@ export function TreeRowView(props: TreeRowProps) {
           </Show>
         </Match>
         <Match when={props.row.kind === "asset"}>
-          <span class="tree-chevron-space" />
+          <Show
+            when={props.canExpand}
+            fallback={<span class="tree-chevron-space" />}
+          >
+            <button
+              type="button"
+              class="tree-chevron"
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onToggle();
+              }}
+            >
+              <Icon
+                name={
+                  (props.row as { expanded: boolean }).expanded
+                    ? "$(chevron-down)"
+                    : "$(chevron-right)"
+                }
+                size={16}
+              />
+            </button>
+          </Show>
           <Icon
             name={
               (props.row as { media_type: string | null }).media_type
@@ -108,11 +141,113 @@ export function TreeRowView(props: TreeRowProps) {
             )}
           />
         </Match>
+        <Match when={props.row.kind === "item_slot"}>
+          <ItemCellView
+            cell={props.itemCell}
+            onRetry={() => props.onRetry?.()}
+          />
+        </Match>
         <Match when={true}>
           <span class="tree-chevron-space" />
-          <span class="tree-name tree-loading">{t("explorer.loading")}</span>
+          <AssetItemsStatus
+            state={props.itemsState}
+            onRetry={() => props.onRetry?.()}
+          />
         </Match>
       </Switch>
     </div>
+  );
+}
+
+function ErrorLine(props: { text: string; onRetry: () => void }) {
+  const t = useT();
+  return (
+    <>
+      <span class="tree-name tree-error">{props.text}</span>
+      <button
+        type="button"
+        class="button"
+        data-item-retry
+        tabIndex={-1}
+        onClick={(event) => {
+          event.stopPropagation();
+          props.onRetry();
+        }}
+      >
+        {t("explorer.item.retry")}
+      </button>
+    </>
+  );
+}
+
+/** アイテム 1 件の行。 */
+function ItemCellView(props: {
+  cell: ItemCell | undefined;
+  onRetry: () => void;
+}) {
+  const t = useT();
+  return (
+    <>
+      <span class="tree-chevron-space" />
+      <Switch>
+        <Match when={props.cell?.kind === "item"}>
+          <Icon name="$(file)" size={16} />
+          <span class="tree-name">
+            {(props.cell as { info: { title: string } }).info.title}
+          </span>
+          <span
+            class="status-dot"
+            role="img"
+            data-status={(props.cell as { status: string }).status}
+            aria-label={t(
+              `explorer.status.${(props.cell as { status: "todo" | "in_progress" | "done" | "review" }).status}`,
+            )}
+          />
+        </Match>
+        <Match when={props.cell?.kind === "error"}>
+          <ErrorLine
+            text={t(
+              (props.cell as { error: string }).error === "timeout"
+                ? "explorer.item.error.timeout"
+                : "explorer.item.error.failed",
+            )}
+            onRetry={props.onRetry}
+          />
+        </Match>
+        <Match when={true}>
+          <span class="tree-name tree-loading">{t("explorer.loading")}</span>
+        </Match>
+      </Switch>
+    </>
+  );
+}
+
+/** アセットのアイテムの数がまだ分からないあいだの行（読み込み中・エラー・未対応）。 */
+function AssetItemsStatus(props: {
+  state: AssetItemsState | undefined;
+  onRetry: () => void;
+}) {
+  const t = useT();
+  return (
+    <Switch>
+      <Match when={props.state?.kind === "error"}>
+        <ErrorLine
+          text={t(
+            (props.state as { error: string }).error === "timeout"
+              ? "explorer.item.error.timeout"
+              : "explorer.item.error.failed",
+          )}
+          onRetry={props.onRetry}
+        />
+      </Match>
+      <Match when={props.state?.kind === "unsupported"}>
+        <span class="tree-name tree-loading">
+          {t("explorer.item.unsupported")}
+        </span>
+      </Match>
+      <Match when={true}>
+        <span class="tree-name tree-loading">{t("explorer.loading")}</span>
+      </Match>
+    </Switch>
   );
 }

@@ -1357,3 +1357,7 @@ fieldset.ribbon-group {
   margin: 0;
   word-break: break-all;
 }
+
+.tree-error {
+  color: var(--color-danger);
+}

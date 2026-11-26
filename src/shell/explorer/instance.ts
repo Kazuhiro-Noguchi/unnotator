@@ -6,6 +6,7 @@ import { settingsPort } from "../ipc-port";
 import { ctx } from "../services";
 import type { Disposable, NotifyLevel } from "../types";
 import { provideExplorerHandlers } from "./commands";
+import { createItemRows } from "./items";
 import type { NavPorts } from "./nav";
 import { createExplorerSession } from "./session";
 
@@ -18,7 +19,17 @@ function listen(
   return () => void off.then((fn) => fn());
 }
 
+/** 媒体種別の宣言（作業単位・アイテム提供）と、アイテム提供元の呼び出し口（009 が結ぶ）。 */
+export const itemSource = createHostItemSource(() => commands.mediaTraits());
+void itemSource.refresh();
+listen(events.extensionsChanged, () => void itemSource.refresh());
+
 export const explorer = createExplorerSession({
+  items: createItemRows({
+    source: itemSource,
+    recordedStatuses: (assetId) => commands.itemStatuses(assetId),
+  }),
+  traitsOf: (mediaType) => itemSource.traitsOf(mediaType),
   ipc: {
     treeViewSet: (spec) => commands.treeViewSet(spec),
     treeRows: (version, offset, limit) =>
@@ -37,11 +48,6 @@ export const explorer = createExplorerSession({
     };
   },
 });
-
-/** 媒体種別の宣言（作業単位・アイテム提供）と、アイテム提供元の呼び出し口（009 が結ぶ）。 */
-export const itemSource = createHostItemSource(() => commands.mediaTraits());
-void itemSource.refresh();
-listen(events.extensionsChanged, () => void itemSource.refresh());
 
 /** 状態を変える（`apply_command`）。アイテムは、提供元の名前が要る。 */
 async function applyStatus(

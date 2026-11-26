@@ -9,12 +9,15 @@ export interface DemoDeps {
   commands: CommandRegistry;
   ctx: Context;
   notify: (level: NotifyLevel, text: string, options?: NotifyOptions) => void;
+  /** アイテムのデモを有効にする（`.pages` のファイルを、アイテムのある媒体にする）。 */
+  enableItemDemo?: () => Promise<void>;
 }
 
 export function installDemoCommands({
   commands,
   ctx,
   notify,
+  enableItemDemo,
 }: DemoDeps): Disposable {
   // プロジェクトの状態を切り替えるデモのコマンド（パレットから実行する）。
   const declare = (
@@ -33,6 +36,14 @@ export function installDemoCommands({
       run,
     });
   };
+  if (enableItemDemo) {
+    declare(
+      "dev.demo.items",
+      "アイテムのデモを有効にする（.pages）",
+      "Enable item demo (.pages)",
+      () => void enableItemDemo().catch(() => {}),
+    );
+  }
   declare(
     "dev.demo.toggleProject",
     "プロジェクトの開閉",

@@ -157,6 +157,9 @@ export class FakeTreeIpc {
   opened: string[] = [];
   located = new Map<string, Located>();
 
+  /** 見え方から行を作る（アイテムの枠など、見え方に応じて行が変わる検査用）。 */
+  rowsFn: ((spec: ViewSpec) => TreeRow[]) | null = null;
+
   setRows(rows: TreeRow[]): void {
     this.rows = rows;
     this.version += 1;
@@ -169,6 +172,10 @@ export class FakeTreeIpc {
 
   async treeViewSet(spec: ViewSpec): Promise<ViewInfo> {
     this.viewCalls.push(spec);
+    if (this.rowsFn) {
+      this.rows = this.rowsFn(spec);
+      this.version += 1;
+    }
     return {
       version: this.version,
       total: this.rows.length,

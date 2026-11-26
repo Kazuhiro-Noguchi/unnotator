@@ -7,7 +7,11 @@ import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
 import { EditorSurface } from "./shell/explorer/EditorSurface";
-import { explorer, provideExplorerCommands } from "./shell/explorer/instance";
+import {
+  explorer,
+  itemSource,
+  provideExplorerCommands,
+} from "./shell/explorer/instance";
 import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
@@ -138,11 +142,14 @@ appearance.applyLanguage("system");
 // 開発ビルドだけ: 画面の部品を押して確かめられるよう、仮の処理（デモ）を結ぶ。
 if (import.meta.env.DEV) {
   void import("./shell/dev/demo-commands").then((demo) =>
-    demo.installDemoCommands({
-      commands: commandRegistry,
-      ctx,
-      notify,
-    }),
+    import("./shell/dev/item-demo").then((itemDemo) =>
+      demo.installDemoCommands({
+        commands: commandRegistry,
+        ctx,
+        notify,
+        enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
+      }),
+    ),
   );
 }
 registerCoreViews(

@@ -65,11 +65,6 @@ describe("コアのリボンの定義", () => {
     }
   });
 
-  it("タブのキーチップは、1 文字（H）", () => {
-    const chips = tabs.map((t) => t.keytip);
-    expect(chips).toEqual(["H"]);
-  });
-
   it("グループの priority（小さいほど先に縮退）が、表のとおり", () => {
     const priority = Object.fromEntries(
       tabs.flatMap((t) => t.groups).map((g) => [g.id, g.priority]),

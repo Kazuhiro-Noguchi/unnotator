@@ -28,5 +28,5 @@ export const dialogFolderPicker = {
   },
 };
 
-/** リボンで選んでいるタブ。キーチップからも切り替える。 */
+/** リボンで選んでいるタブ。 */
 export const [ribbonSelected, setRibbonSelected] = createSignal("home");

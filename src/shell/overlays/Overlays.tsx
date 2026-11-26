@@ -1,7 +1,6 @@
 import { createSignal, lazy, Show, Suspense } from "solid-js";
 import { format } from "../../i18n";
 import { commands } from "../../ipc";
-import { KeyTipLayer } from "../ribbon/KeyTipLayer";
 import { useT } from "../solid";
 import {
   aboutOpen,
@@ -100,7 +99,6 @@ export function Overlays() {
         <AboutDialog />
       </Show>
       <FolderDialog />
-      <KeyTipLayer />
     </>
   );
 }

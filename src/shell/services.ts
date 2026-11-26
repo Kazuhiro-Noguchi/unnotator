@@ -76,27 +76,3 @@ export const quickAccess = createQuickAccess({
   commands,
   save: (ids) => saveUiSetting("ui.quickAccess", ids),
 });
-
-import { currentLanguage } from "../i18n";
-// キーチップ（Alt）。リボンの部品とつなぐのは App で行う。
-import { createKeyTipController } from "./ribbon/keytips-controller";
-import { resolveTitle } from "./title";
-import {
-  ribbonSelected,
-  setBackstageOpen,
-  setRibbonSelected,
-} from "./ui-state";
-
-export const keyTips = createKeyTipController({
-  tabs: () => ribbon.tabs(),
-  quickAccess: () => quickAccess.visible(),
-  commandTitle: (id) => {
-    const spec = commands.get(id);
-    return spec ? resolveTitle(spec.title, currentLanguage()) : id;
-  },
-  language: currentLanguage,
-  selectedTab: ribbonSelected,
-  select: setRibbonSelected,
-  openBackstage: () => setBackstageOpen(true),
-  execute: (command, args) => void commands.execute(command, args),
-});

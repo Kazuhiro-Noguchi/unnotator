@@ -34,9 +34,6 @@ function GroupView(props: {
   const [open, setOpen] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
   const title = () => resolveTitle(props.group.title, language());
-  // キーチップの対象（開いているタブの最上位のコントロールを、順に数える）。
-  const targetOf = (index: number) =>
-    `control:${props.tab}/${props.group.controls.slice(0, index).filter((c) => c.kind !== "separator").length}`;
   return (
     <fieldset
       class="ribbon-group"
@@ -83,16 +80,7 @@ function GroupView(props: {
       >
         <div class="ribbon-controls">
           <For each={props.group.controls}>
-            {(control, index) => (
-              <span
-                class="keytip-target"
-                data-keytip={
-                  control.kind === "separator" ? undefined : targetOf(index())
-                }
-              >
-                <Control control={control} form={props.form} />
-              </span>
-            )}
+            {(control) => <Control control={control} form={props.form} />}
           </For>
         </div>
         <div class="ribbon-group-title">{title()}</div>
@@ -118,18 +106,16 @@ function QuickAccessBar() {
           const label = () =>
             spec() ? resolveTitle(spec()?.title ?? {}, language()) : id;
           return (
-            <span class="keytip-target" data-keytip={`qa:${id}`}>
-              <button
-                type="button"
-                class="ribbon-button quick"
-                disabled={!state().enabled}
-                title={label()}
-                aria-label={label()}
-                onClick={() => void commands.execute(id)}
-              >
-                <Icon name={spec()?.icon} size={18} />
-              </button>
-            </span>
+            <button
+              type="button"
+              class="ribbon-button quick"
+              disabled={!state().enabled}
+              title={label()}
+              aria-label={label()}
+              onClick={() => void commands.execute(id)}
+            >
+              <Icon name={spec()?.icon} size={18} />
+            </button>
           );
         }}
       </For>
@@ -223,7 +209,6 @@ export function Ribbon() {
                   contextual: tab.contextual,
                   "file-tab": tab.id === "file",
                 }}
-                data-keytip={`tab:${tab.id}`}
                 aria-selected={selected() === tab.id}
                 onClick={() =>
                   tab.id === "file"

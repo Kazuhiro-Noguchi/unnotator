@@ -152,7 +152,6 @@ export interface RibbonControl {
   iconOnly?: boolean;
   /** トグルの状態を表す when 式（真ならオン）。 */
   checked?: string;
-  keytip?: string;
   numberRange?: { min: number; max: number; step: number };
 }
 
@@ -173,7 +172,6 @@ export interface RibbonTab {
   when?: string;
   contextual: boolean;
   source: string;
-  keytip?: string;
 }
 
 // ---- 画面の配置 ----

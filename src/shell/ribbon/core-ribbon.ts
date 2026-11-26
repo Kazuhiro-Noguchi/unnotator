@@ -38,7 +38,6 @@ function tab(
   ja: string,
   en: string,
   order: number,
-  keytip: string,
   groups: RibbonGroup[],
 ): RibbonTab {
   return {
@@ -48,13 +47,12 @@ function tab(
     groups,
     contextual: false,
     source: "core",
-    keytip,
   };
 }
 
 export function coreRibbon(): RibbonTab[] {
   return [
-    tab("home", "ホーム", "Home", 10, "H", [
+    tab("home", "ホーム", "Home", 10, [
       group("home.clipboard", "クリップボード", "Clipboard", 10, [
         large("core.edit.paste"),
         iconButton("core.edit.cut"),

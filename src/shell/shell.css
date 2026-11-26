@@ -619,30 +619,6 @@ fieldset.ribbon-group {
   position: relative;
 }
 
-.keytip-target {
-  display: contents;
-}
-
-.keytip-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  pointer-events: none;
-}
-
-.keytip {
-  position: fixed;
-  transform: translateX(-50%);
-  padding: 0 5px;
-  border: 1px solid var(--color-fg);
-  border-radius: 3px;
-  background: var(--color-fg);
-  color: var(--color-bg);
-  font:
-    600 11px ui-monospace,
-    monospace;
-}
-
 .settings-row {
   display: flex;
   gap: 16px;

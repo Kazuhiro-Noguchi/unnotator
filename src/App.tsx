@@ -25,7 +25,6 @@ import {
   commands as commandRegistry,
   ctx,
   keymap,
-  keyTips,
   layout,
   notify,
   projectNameSignal,
@@ -172,8 +171,6 @@ export function App() {
     }
   });
   onMount(() => {
-    // キーチップは、キーマップより先にキーを受ける（先に登録する）。
-    keyTips.install(window);
     installKeyDispatcher(window, {
       keymap,
       commands: commandRegistry,

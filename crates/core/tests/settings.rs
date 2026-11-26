@@ -42,7 +42,14 @@ fn the_core_key_table_has_the_documented_names_types_and_defaults() {
             "assets.exclude",
             "assets.externalRoots",
             "assets.followSymlinks",
-            "assets.watch"
+            "assets.watch",
+            // 画面の設定（006）。
+            "ui.theme",
+            "ui.language",
+            "ui.layout",
+            "ui.quickAccess",
+            "ui.keybindings",
+            "ui.recentProjects"
         ]
     );
     let (_dir, store, _) = opened_with_user(&[]);

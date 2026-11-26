@@ -16,7 +16,14 @@ pub enum ValueKind {
     Bool,
     /// キー → 文字列のオブジェクト。
     StringMap,
+    /// 文字列（取り得る値の集合は、画面が決める）。
+    String,
+    /// 任意の JSON（形は画面が検査する。1 MiB まで）。
+    Json,
 }
+
+/// `Json` の項目の大きさの上限（バイト）。
+const JSON_VALUE_LIMIT: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -49,10 +56,41 @@ pub const CORE_KEYS: &[CoreKey] = &[
         kind: ValueKind::Bool,
         default_json: "true",
     },
+    // 画面の設定（006）。利用者の設定（user 層）だけに置く。
+    CoreKey {
+        name: "ui.theme",
+        kind: ValueKind::String,
+        default_json: r#""system""#,
+    },
+    CoreKey {
+        name: "ui.language",
+        kind: ValueKind::String,
+        default_json: r#""system""#,
+    },
+    CoreKey {
+        name: "ui.layout",
+        kind: ValueKind::Json,
+        default_json: "{}",
+    },
+    CoreKey {
+        name: "ui.quickAccess",
+        kind: ValueKind::StringList,
+        default_json: r#"["core.undo","core.redo","core.project.save"]"#,
+    },
+    CoreKey {
+        name: "ui.keybindings",
+        kind: ValueKind::Json,
+        default_json: "[]",
+    },
+    CoreKey {
+        name: "ui.recentProjects",
+        kind: ValueKind::StringList,
+        default_json: "[]",
+    },
 ];
 
 /// コアの項目の名前の領域。この領域の知らない名前は、打ち間違いとして拒む。
-const CORE_NAMESPACES: &[&str] = &["assets."];
+const CORE_NAMESPACES: &[&str] = &["assets.", "ui."];
 
 pub fn core_key(name: &str) -> Option<&'static CoreKey> {
     CORE_KEYS.iter().find(|k| k.name == name)
@@ -89,7 +127,25 @@ pub fn validate(key: &str, value: &Value) -> Result<(), String> {
                         .ok_or_else(|| "要素は文字列でなければならない".to_owned())
                 })
                 .collect::<Result<_, _>>()?;
+            if key.starts_with("ui.") {
+                // 画面の設定の配列は、パターンではなく ID やパス。空でなければよい。
+                if strings.iter().any(|s| s.is_empty()) {
+                    return Err("要素は空でない文字列でなければならない".to_owned());
+                }
+                return Ok(());
+            }
             ExcludeSet::new(&strings).map_err(|error| error.to_string())?;
+            Ok(())
+        }
+        ValueKind::String => value
+            .is_string()
+            .then_some(())
+            .ok_or_else(|| "文字列でなければならない".to_owned()),
+        ValueKind::Json => {
+            let size = serde_json::to_string(value).map_or(usize::MAX, |text| text.len());
+            if size > JSON_VALUE_LIMIT {
+                return Err("大きすぎる（1 MiB まで）".to_owned());
+            }
             Ok(())
         }
         ValueKind::StringMap => {
@@ -127,6 +183,59 @@ mod tests {
         for key in CORE_KEYS {
             validate(key.name, &default_value(key.name).unwrap()).unwrap();
         }
+    }
+
+    #[test]
+    fn ui_keys_exist_with_their_defaults() {
+        for name in [
+            "ui.theme",
+            "ui.language",
+            "ui.layout",
+            "ui.quickAccess",
+            "ui.keybindings",
+            "ui.recentProjects",
+        ] {
+            assert!(core_key(name).is_some(), "{name}");
+        }
+        assert_eq!(default_value("ui.theme"), Some(json!("system")));
+        assert_eq!(default_value("ui.language"), Some(json!("system")));
+        assert_eq!(default_value("ui.layout"), Some(json!({})));
+        assert_eq!(
+            default_value("ui.quickAccess"),
+            Some(json!(["core.undo", "core.redo", "core.project.save"]))
+        );
+        assert_eq!(default_value("ui.keybindings"), Some(json!([])));
+        assert_eq!(default_value("ui.recentProjects"), Some(json!([])));
+    }
+
+    #[test]
+    fn ui_typos_are_rejected() {
+        assert!(validate("ui.thme", &json!("dark")).is_err());
+    }
+
+    #[test]
+    fn ui_theme_must_be_a_string() {
+        assert!(validate("ui.theme", &json!("dark")).is_ok());
+        assert!(validate("ui.theme", &json!(1)).is_err());
+        assert!(validate("ui.language", &json!(true)).is_err());
+    }
+
+    #[test]
+    fn ui_json_values_accept_any_json_up_to_one_mib() {
+        assert!(validate("ui.layout", &json!({"version": 1})).is_ok());
+        assert!(validate("ui.keybindings", &json!([{"key": "a"}, 3])).is_ok());
+        let big = "x".repeat(1024 * 1024 + 1);
+        assert!(validate("ui.layout", &json!({ "big": big })).is_err());
+    }
+
+    #[test]
+    fn ui_string_lists_need_non_empty_strings_but_not_patterns() {
+        assert!(validate("ui.recentProjects", &json!(["/a/b", "C:\\x"])).is_ok());
+        assert!(validate("ui.recentProjects", &json!([""])).is_err());
+        assert!(validate("ui.recentProjects", &json!([1])).is_err());
+        assert!(validate("ui.recentProjects", &json!("x")).is_err());
+        // パターンとして解釈できない文字列も、`ui.` では通る（パスや ID を入れるため）。
+        assert!(validate("ui.quickAccess", &json!(["core.undo", "a[b"])).is_ok());
     }
 
     #[test]

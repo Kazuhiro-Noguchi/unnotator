@@ -16,7 +16,7 @@
 /* リボン: タブの段は枠の色の上に置き、ボタンの段だけを、アイランドにする。 */
 .ribbon-slot {
   flex: none;
-  padding-inline: 0 6px;
+  padding-inline: 6px;
   background: transparent;
 }
 

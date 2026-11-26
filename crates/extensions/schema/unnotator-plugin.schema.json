@@ -297,11 +297,11 @@
             "anyOf": [{ "required": ["group"] }, { "required": ["id", "title"] }],
             "properties": {
               "tab": {
-                "description": "コアのタブ（home / view / project / extensions）または完全 ID。",
-                "anyOf": [{ "enum": ["home", "view", "project", "extensions"] }, { "$ref": "#/$defs/ref" }]
+                "description": "コアのタブ（home）または完全 ID。",
+                "anyOf": [{ "enum": ["home"] }, { "$ref": "#/$defs/ref" }]
               },
               "group": {
-                "description": "既存グループへ追加する場合のグループ ID。コア: home.clipboard / home.edit / home.tools / home.labels / home.relations / home.navigation / home.status / view.panels / view.annotations / view.theme",
+                "description": "既存グループへ追加する場合のグループ ID。コア: home.clipboard / home.edit / home.tools / home.relations / home.status / home.view / home.project",
                 "type": "string"
               },
               "id": { "$ref": "#/$defs/localName" },
@@ -350,8 +350,8 @@
       "properties": {
         "id": { "$ref": "#/$defs/localName" },
         "title": { "$ref": "#/$defs/text" },
-        "location": { "enum": ["sidebar", "panel", "properties"] },
-        "icon": { "description": "sidebar の場合はアクティビティバーのアイコン（必須）。", "$ref": "#/$defs/icon" },
+        "location": { "enum": ["primarySidebar", "panel", "secondarySidebar"] },
+        "icon": { "description": "primarySidebar の場合はアクティビティバーのアイコン（必須）。", "$ref": "#/$defs/icon" },
         "kind": {
           "description": "module = 同じ WebView の DOM に描画 / iframe = html を sandbox 付き iframe で表示",
           "enum": ["module", "iframe"],
@@ -361,7 +361,7 @@
         "when": { "$ref": "#/$defs/when" }
       },
       "allOf": [
-        { "if": { "properties": { "location": { "const": "sidebar" } } }, "then": { "required": ["icon"] } },
+        { "if": { "properties": { "location": { "const": "primarySidebar" } } }, "then": { "required": ["icon"] } },
         { "if": { "properties": { "kind": { "const": "iframe" } }, "required": ["kind"] }, "then": { "required": ["html"] } }
       ]
     },

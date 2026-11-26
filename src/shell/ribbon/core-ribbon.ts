@@ -52,6 +52,8 @@ function tab(
 
 export function coreRibbon(): RibbonTab[] {
   return [
+    // ファイル（Backstage）。グループは持たず、押すと Backstage が開く。拡張機能は足せない。
+    tab("file", "ファイル", "File", 0, []),
     tab("home", "ホーム", "Home", 10, [
       group("home.clipboard", "クリップボード", "Clipboard", 10, [
         large("core.edit.paste"),
@@ -69,6 +71,10 @@ export function coreRibbon(): RibbonTab[] {
         small("core.group.create"),
         small("core.group.ungroup"),
       ]),
+      // スキーマ（ラベル・関係・グループ・属性の定義。008）。
+      group("home.schema", "スキーマ", "Schema", 32, [
+        large("core.project.schema"),
+      ]),
       group("home.status", "状態", "Status", 70, [
         small("core.status.markDone"),
         small("core.status.needsReview"),
@@ -78,10 +84,9 @@ export function coreRibbon(): RibbonTab[] {
         toggle("core.view.annotations.toggle"),
         toggle("core.view.labelNames.toggle"),
       ]),
-      // プロジェクトの定義（設定とスキーマ）。
-      group("home.project", "プロジェクト", "Project", 80, [
+      // プロジェクトの設定。新規・開く・最近・名前をつけて保存は、ファイルタブ（Backstage）にある。
+      group("home.project", "プロジェクト", "Project", 90, [
         large("core.project.settings"),
-        large("core.project.schema"),
       ]),
     ]),
   ];

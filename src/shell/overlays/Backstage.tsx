@@ -9,11 +9,9 @@ const ENTRIES = [
   "core.project.new",
   "core.project.open",
   "core.project.save",
-  "core.project.duplicate",
+  "core.project.saveAs",
   "core.project.import",
   "core.project.export",
-  "core.app.settings",
-  "core.app.about",
 ];
 
 /** ファイルタブ（Backstage）。 */
@@ -51,7 +49,7 @@ export default function Backstage(props: { onClose: () => void }) {
           <h3>{t("backstage.recent")}</h3>
           <Show
             when={recentProjects().length > 0}
-            fallback={<p>{t("backstage.noRecent")}</p>}
+            fallback={<p>{t("recent.none")}</p>}
           >
             <For each={recentProjects()}>
               {(path) => (

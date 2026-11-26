@@ -46,7 +46,6 @@
   "folder.title.open": "フォルダを開く",
   "folder.title.new": "新規プロジェクトのフォルダ",
   "folder.prompt": "プロジェクトのフォルダのパス",
-  "folder.recent": "最近使ったフォルダ",
   "about.title": "バージョン情報",
   "about.version": "バージョン {version}",
   "settings.title": "設定",
@@ -66,12 +65,8 @@
   "ribbon.group.more": "{group}（すべて表示）",
   "qa.add": "クイックアクセスに追加",
   "qa.remove": "クイックアクセスから削除",
-  "qa.full": "クイックアクセスは 20 件までです。",
-  "menu.more": "その他",
   "backstage.title": "ファイル",
   "backstage.recent": "最近使ったプロジェクト",
-  "backstage.noRecent": "最近使ったプロジェクトはありません。",
-  "backstage.close": "リボンに戻る",
   "settings.appearance": "外観",
   "settings.theme": "テーマ",
   "settings.language": "言語",
@@ -91,5 +86,7 @@
   "notify.error": "エラー",
   "problems.count": "{count} 件",
   "problems.times": "（{count} 回）",
-  "region.activityBar": "アクティビティバー"
+  "region.activityBar": "アクティビティバー",
+  "recent.none": "最近使ったプロジェクトはありません。",
+  "settings.category.general": "一般"
 }

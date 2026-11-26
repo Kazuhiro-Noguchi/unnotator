@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ICON_NAMES, iconShapes, parseIconRef } from "./icons";
+import {
+  ICON_NAMES,
+  ICON_STROKE_PX,
+  iconShapes,
+  parseIconRef,
+  strokeFor,
+} from "./icons";
 
 describe("アイコン集", () => {
   it("`$(name)` から名前を取り出せる", () => {
@@ -80,5 +86,18 @@ describe("アイコン集", () => {
     ]) {
       expect(ICON_NAMES, name).toContain(name);
     }
+  });
+});
+
+describe("アイコンの線の太さ", () => {
+  it("どの大きさでも、画面上の太さが同じになる", () => {
+    for (const size of [10, 12, 14, 18, 22, 28]) {
+      const onScreen = (strokeFor(size) * size) / 24;
+      expect(onScreen, `${size}px`).toBeCloseTo(ICON_STROKE_PX, 1);
+    }
+  });
+
+  it("小さいアイコンほど、24 の枠での値は大きい", () => {
+    expect(strokeFor(14)).toBeGreaterThan(strokeFor(28));
   });
 });

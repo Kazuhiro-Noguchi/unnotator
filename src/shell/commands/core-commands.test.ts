@@ -17,7 +17,7 @@ const EXPECTED_IDS = [
   "core.project.open",
   "core.project.new",
   "core.project.openRecent",
-  "core.project.duplicate",
+  "core.project.saveAs",
   "core.project.import",
   "core.project.export",
   "core.app.settings",

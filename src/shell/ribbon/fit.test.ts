@@ -88,6 +88,17 @@ describe("リボンの縮退 fit", () => {
     expect(forms.b).toBe("large");
   });
 
+  it("ドロップダウンの前に、全グループを小・アイコンのみまで縮める（段階ごと）", () => {
+    const allIcon = GROUPS.reduce((sum, g) => sum + g.widths.icon, 0);
+    const forms = fitGroups(GROUPS, allIcon);
+    for (const g of GROUPS) expect(forms[g.id], g.id).not.toBe("dropdown");
+    // アイコンのみに届く前に、全グループが「小」まで縮む。
+    const allSmall = GROUPS.reduce((sum, g) => sum + g.widths.small, 0);
+    const formsSmall = fitGroups(GROUPS, allSmall);
+    for (const g of GROUPS)
+      expect(["large", "small"], g.id).toContain(formsSmall[g.id]);
+  });
+
   it("全グループがドロップダウンでも収まらないときは、全部ドロップダウン", () => {
     const forms = fitGroups(GROUPS, 10);
     for (const g of GROUPS) expect(forms[g.id]).toBe("dropdown");

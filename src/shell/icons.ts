@@ -255,3 +255,11 @@ export function parseIconRef(ref: string | undefined): string | null {
 export function iconShapes(name: string): string[] {
   return ICONS[name] ?? ICONS.unknown ?? [];
 }
+
+/** 線の太さ（画面上の px）。どの大きさのアイコンでも、見た目の太さをそろえる。 */
+export const ICON_STROKE_PX = 1.5;
+
+/** アイコンの大きさ（px）から、24 の枠での線の太さを求める。 */
+export function strokeFor(size: number): number {
+  return Math.round(((ICON_STROKE_PX * 24) / size) * 100) / 100;
+}

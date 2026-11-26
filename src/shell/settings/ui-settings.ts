@@ -31,9 +31,9 @@ export interface SettingsPort {
 }
 
 export const DEFAULT_QUICK_ACCESS = [
+  "core.project.save",
   "core.undo",
   "core.redo",
-  "core.project.save",
 ];
 export const QUICK_ACCESS_MAX = 20;
 export const RECENT_PROJECTS_MAX = 10;

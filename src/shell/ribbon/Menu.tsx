@@ -45,7 +45,11 @@ export function Menu(props: {
       const height = root.offsetHeight;
       setPlace({
         left: Math.max(4, Math.min(box.left, window.innerWidth - width - 4)),
-        top: Math.max(4, Math.min(box.bottom, window.innerHeight - height - 4)),
+        // 下に収まらないときは、アンカーの上に出す（左下の歯車など）。
+        top:
+          box.bottom + height + 4 <= window.innerHeight
+            ? box.bottom
+            : Math.max(4, box.top - height),
       });
     }
     root?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();

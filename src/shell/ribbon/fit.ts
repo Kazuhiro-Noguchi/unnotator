@@ -13,7 +13,10 @@ export interface GroupMeasure {
 }
 
 /**
- * 全グループを「大」から始め、収まらない間、priority が最小（同じなら右）のグループを 1 段ずつ縮退させる。
+ * 全グループを「大」から始め、収まらない間、段階ごとに縮退させる。
+ * まず全グループを「小」まで（priority が小さいもの、同じなら右のものから 1 つずつ）、
+ * それでも収まらなければ全グループを「アイコンのみ」まで、最後に「ドロップダウン」まで。
+ * （1 つのグループを、ドロップダウンまで縮めてから次へ進むのではなく、小さいアイコンを先に出す。）
  * 毎回最初から計算するので、結果は履歴に依存せず、幅を広げれば単調に戻る。
  * 全部がドロップダウンでも収まらないときは、全部ドロップダウンを返す（残りははみ出し側で横スクロールにする）。
  */
@@ -24,19 +27,18 @@ export function fitGroups(
   const level = new Map<string, number>(groups.map((g) => [g.id, 0]));
   const widthOf = (g: GroupMeasure) =>
     g.widths[FORMS[level.get(g.id) ?? 0] as Form];
-  const last = FORMS.length - 1;
+  const total = () => groups.reduce((sum, g) => sum + widthOf(g), 0);
   // 縮退させる順（priority の昇順、同じなら右が先）。
   const order = groups
     .map((g, index) => ({ g, index }))
     .sort((a, b) => a.g.priority - b.g.priority || b.index - a.index)
     .map(({ g }) => g);
 
-  for (;;) {
-    const total = groups.reduce((sum, g) => sum + widthOf(g), 0);
-    if (total <= available) break;
-    const next = order.find((g) => (level.get(g.id) ?? 0) < last);
-    if (!next) break;
-    level.set(next.id, (level.get(next.id) ?? 0) + 1);
+  for (let stage = 1; stage < FORMS.length && total() > available; stage++) {
+    for (const g of order) {
+      if (total() <= available) break;
+      level.set(g.id, stage);
+    }
   }
   return Object.fromEntries(
     groups.map((g) => [g.id, FORMS[level.get(g.id) ?? 0] as Form]),

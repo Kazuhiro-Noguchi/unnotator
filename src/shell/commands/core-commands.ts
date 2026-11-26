@@ -60,10 +60,10 @@ export const CORE_COMMANDS: readonly CoreCommandDef[] = [
   def("core.project.new", "新規", "New", {
     icon: "$(new)",
   }),
-  def("core.project.openRecent", "最近のプロジェクト", "Recent", {
+  def("core.project.openRecent", "最近使ったプロジェクト", "Recent projects", {
     icon: "$(recent)",
   }),
-  def("core.project.duplicate", "フォルダへ複製", "Duplicate to folder", {
+  def("core.project.saveAs", "名前をつけて保存", "Save as", {
     icon: "$(duplicate)",
     enablement: "projectOpen",
   }),

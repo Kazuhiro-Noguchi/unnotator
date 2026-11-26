@@ -5,7 +5,7 @@ import { createContext } from "../when/context";
 import { createQuickAccess } from "./quick-access";
 
 function setup(
-  initial: string[] = ["core.undo", "core.redo", "core.project.save"],
+  initial: string[] = ["core.project.save", "core.undo", "core.redo"],
 ) {
   const ctx = createContext();
   const { sink } = makeProblemSink();
@@ -31,7 +31,7 @@ function setup(
 describe("クイックアクセス", () => {
   it("既定は、元に戻す・やり直し・保存", () => {
     const { qa } = setup();
-    expect(qa.ids()).toEqual(["core.undo", "core.redo", "core.project.save"]);
+    expect(qa.ids()).toEqual(["core.project.save", "core.undo", "core.redo"]);
   });
 
   it("追加すると末尾に入り、保存される", () => {
@@ -57,7 +57,7 @@ describe("クイックアクセス", () => {
   it("削除できる", () => {
     const { qa, save } = setup();
     qa.remove("core.redo");
-    expect(qa.ids()).toEqual(["core.undo", "core.project.save"]);
+    expect(qa.ids()).toEqual(["core.project.save", "core.undo"]);
     expect(save).toHaveBeenCalled();
     expect(qa.has("core.redo")).toBe(false);
   });

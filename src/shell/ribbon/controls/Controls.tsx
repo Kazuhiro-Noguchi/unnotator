@@ -9,6 +9,9 @@ import type { Form, RibbonControl } from "../../types";
 import { Menu, type MenuItem } from "../Menu";
 import { commitNumber, galleryInvocation, primaryInvocation } from "./logic";
 
+/** リボンの小ボタンのアイコンの大きさ（px）。 */
+const SMALL_ICON = 14;
+
 function commandTitle(control: RibbonControl, language: "ja" | "en"): string {
   const spec = control.command ? commands.get(control.command) : undefined;
   if (!spec) return control.command ?? "";
@@ -78,7 +81,7 @@ function ButtonControl(props: { control: RibbonControl; form: Form }) {
             setMenu({ x: event.clientX, y: event.clientY });
         }}
       >
-        <Icon name={iconOf(props.control)} size={large() ? 28 : 18} />
+        <Icon name={iconOf(props.control)} size={large() ? 28 : SMALL_ICON} />
         <Show when={!iconOnly()}>
           <span class="ribbon-label">{label()}</span>
         </Show>
@@ -130,7 +133,7 @@ function MenuButton(props: {
         title={props.label}
         onClick={() => setOpen(!open())}
       >
-        <Icon name={props.icon} size={18} />
+        <Icon name={props.icon} size={SMALL_ICON} />
         <Show when={props.showLabel}>
           <span class="ribbon-label">{props.label}</span>
         </Show>
@@ -166,7 +169,7 @@ function SplitControl(props: { control: RibbonControl; form: Form }) {
           if (call) void commands.execute(call.command, call.args);
         }}
       >
-        <Icon name={iconOf(props.control)} size={18} />
+        <Icon name={iconOf(props.control)} size={SMALL_ICON} />
         <Show when={props.form !== "icon"}>
           <span class="ribbon-label">{label()}</span>
         </Show>
@@ -249,7 +252,7 @@ function GalleryControl(props: { control: RibbonControl; form: Form }) {
                   if (c) void commands.execute(c.command, c.args);
                 }}
               >
-                <Icon name={iconOf(item)} size={18} />
+                <Icon name={iconOf(item)} size={SMALL_ICON} />
                 <span class="gallery-index">{index() + 1}</span>
               </button>
             );

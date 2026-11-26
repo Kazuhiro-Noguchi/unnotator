@@ -18,13 +18,17 @@ describe("コアのリボンの定義", () => {
   const tabs = coreRibbon();
 
   it("コアのタブは、ホームだけ（ファイルタブも置かない。ほかのタブは拡張機能が作る）", () => {
-    expect(tabs.map((t) => t.id)).toEqual(["home"]);
+    expect(tabs.map((t) => t.id)).toEqual(["file", "home"]);
     const orders = tabs.map((t) => t.order);
     expect([...orders].sort((a, b) => a - b)).toEqual(orders);
     for (const tab of tabs) {
       expect(tab.contextual).toBe(false);
       expect(tab.source).toBe("core");
     }
+  });
+
+  it("ファイルタブ（Backstage）は、グループを持たない", () => {
+    expect(tabs[0]?.groups).toEqual([]);
   });
 
   it("グループ ID が contracts/core-catalog.md と一致する", () => {
@@ -34,20 +38,24 @@ describe("コアのリボンの定義", () => {
       "home.edit",
       "home.tools",
       "home.relations",
+      "home.schema",
       "home.status",
       "home.view",
       "home.project",
     ]);
   });
 
-  it("スキーマの group の説明にあるコアのグループ ID と、コアの定義が一致する", () => {
+  it("スキーマの group の説明にあるコアのグループ ID は、すべてコアの定義にある", () => {
     const description: string =
       schema.$defs.ribbon.properties.groups.items.properties.group.description;
     const listed = [...description.matchAll(/\bhome\.[a-z]+\b/g)].map(
       (m) => m[0],
     );
     const ours = tabs.flatMap((t) => t.groups.map((g) => g.id));
-    expect([...listed].sort()).toEqual([...ours].sort());
+    expect(listed.length).toBeGreaterThan(0);
+    for (const id of listed) expect(ours, id).toContain(id);
+    // 契約に載せていないコアのグループ（拡張機能が項目を足す先にしない）。
+    expect(ours.filter((id) => !listed.includes(id))).toEqual(["home.schema"]);
   });
 
   it("リボンが指すコマンドは、すべてコアの一覧にある", () => {

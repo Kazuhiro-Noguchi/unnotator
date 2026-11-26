@@ -10,6 +10,7 @@ import { reportProblem } from "./problems";
 import { coreRibbon } from "./ribbon/core-ribbon";
 import { createRibbonModel } from "./ribbon/model";
 import { createQuickAccess } from "./ribbon/quick-access";
+import { createSettingsPages } from "./settings/pages";
 import { DEFAULT_QUICK_ACCESS } from "./settings/ui-settings";
 import { createStatusStore } from "./status/store";
 import type { LayoutState, NotifyLevel } from "./types";
@@ -76,3 +77,6 @@ export const quickAccess = createQuickAccess({
   commands,
   save: (ids) => saveUiSetting("ui.quickAccess", ids),
 });
+
+/** 設定画面のページ（カテゴリのツリー）。後続の機能が足す。 */
+export const settingsPages = createSettingsPages();

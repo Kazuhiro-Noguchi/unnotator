@@ -46,7 +46,6 @@
   "folder.title.open": "Open folder",
   "folder.title.new": "Folder for the new project",
   "folder.prompt": "Path of the project folder",
-  "folder.recent": "Recent folders",
   "about.title": "About",
   "about.version": "Version {version}",
   "settings.title": "Settings",
@@ -66,12 +65,8 @@
   "ribbon.group.more": "{group} (show all)",
   "qa.add": "Add to quick access",
   "qa.remove": "Remove from quick access",
-  "qa.full": "Quick access holds up to 20 commands.",
-  "menu.more": "More",
   "backstage.title": "File",
   "backstage.recent": "Recent projects",
-  "backstage.noRecent": "No recent projects.",
-  "backstage.close": "Back to the ribbon",
   "settings.appearance": "Appearance",
   "settings.theme": "Theme",
   "settings.language": "Language",
@@ -91,5 +86,7 @@
   "notify.error": "Error",
   "problems.count": "{count} items",
   "problems.times": "({count} times)",
-  "region.activityBar": "Activity bar"
+  "region.activityBar": "Activity bar",
+  "recent.none": "No recent projects.",
+  "settings.category.general": "General"
 }

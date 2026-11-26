@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetUrl, detectPdfSupport } from "./url";
+import { assetUrl } from "./url";
 
 describe("assetUrl", () => {
   it("macOS・Linux は unno://localhost/、Windows は http://unno.localhost/", () => {
@@ -28,29 +28,5 @@ describe("assetUrl（表示用）", () => {
       "http://unno.localhost/asset/a?preview=1",
     );
     expect(assetUrl("a", "Mac")).not.toContain("?");
-  });
-});
-
-describe("detectPdfSupport", () => {
-  it("pdfViewerEnabled があれば、それに従う", () => {
-    expect(
-      detectPdfSupport({ pdfViewerEnabled: true, userAgent: "Linux" }),
-    ).toBe(true);
-    expect(
-      detectPdfSupport({ pdfViewerEnabled: false, userAgent: "Mac" }),
-    ).toBe(false);
-  });
-
-  it("無ければ、Linux だけ非対応とみなす", () => {
-    expect(
-      detectPdfSupport({ userAgent: "Mozilla/5.0 (X11; Linux x86_64)" }),
-    ).toBe(false);
-    expect(detectPdfSupport({ userAgent: "Mozilla/5.0 (Macintosh)" })).toBe(
-      true,
-    );
-    expect(
-      detectPdfSupport({ userAgent: "Mozilla/5.0 (Windows NT 10.0)" }),
-    ).toBe(true);
-    expect(detectPdfSupport({})).toBe(true);
   });
 });

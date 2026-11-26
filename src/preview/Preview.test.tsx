@@ -60,7 +60,6 @@ function mount(
         asset={getAsset()}
         onOpenExternal={onOpenExternal}
         onRelink={onRelink}
-        pdfSupported={true}
         {...props}
       />
     ),
@@ -168,21 +167,17 @@ describe("Preview（部品）", () => {
     );
   });
 
-  it("PDF を、<iframe> で表示する（表示できる環境）", async () => {
-    mount(() => asset("manual.pdf"));
-    await wait();
-    const frame = document.querySelector("iframe");
-    expect(frame?.getAttribute("src")).toContain("asset/");
-    expect(frame?.getAttribute("title")).toBeTruthy();
-  });
-
-  it("PDF を表示できない環境では、案内に落とす", async () => {
-    mount(() => asset("manual.pdf"), { pdfSupported: false });
+  it("PDF は表示せず、不明形式と同じ案内と「既定のアプリで開く」を出す", async () => {
+    const { onOpenExternal } = mount(() => asset("manual.pdf"));
     await wait();
     expect(document.querySelector("iframe")).toBeNull();
     expect(document.querySelector(".preview-fallback")?.textContent).toContain(
-      t("preview.noPdf"),
+      t("preview.unknownFormat"),
     );
+    document
+      .querySelector<HTMLButtonElement>("button[data-preview-external]")
+      ?.click();
+    expect(onOpenExternal).toHaveBeenCalled();
   });
 
   it("不明な形式は、ファイル情報・案内・「既定のアプリで開く」", async () => {
@@ -279,20 +274,5 @@ describe("Preview（部品）", () => {
     const rendered = document.querySelectorAll(".preview-line").length;
     expect(rendered).toBeGreaterThan(0);
     expect(rendered).toBeLessThan(200);
-  });
-
-  it("PDF を読み込んでも、元のフォーカスを奪わない（キー操作がシェルに届く）", async () => {
-    const tree = document.createElement("button");
-    document.body.appendChild(tree);
-    tree.focus();
-    mount(() => asset("manual.pdf"));
-    await wait();
-    const frame = document.querySelector("iframe");
-    if (!frame) throw new Error("iframe が無い");
-    // WebView の PDF ビューアが、読み込み時にフォーカスを取る
-    frame.focus();
-    expect(document.activeElement).toBe(frame);
-    frame.dispatchEvent(new Event("load"));
-    expect(document.activeElement).toBe(tree);
   });
 });

@@ -38,8 +38,8 @@ describe("choosePreviewKind", () => {
     }
   });
 
-  it("PDF", () => {
-    expect(choosePreviewKind("a/b.PDF")).toBe("pdf");
+  it("PDF は、表示しない（不明形式と同じ）", () => {
+    expect(choosePreviewKind("a/b.PDF")).toBe("unknown");
   });
 
   it("それ以外は、不明形式", () => {

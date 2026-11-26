@@ -17,17 +17,3 @@ export function assetUrl(
     ? `http://unno.localhost/asset/${id}${query}`
     : `unno://localhost/asset/${id}${query}`;
 }
-
-/** PDF を、WebView が表示できるか。`navigator.pdfViewerEnabled` があればそれに従い、無ければ OS で決める。 */
-export function detectPdfSupport(
-  env: { pdfViewerEnabled?: boolean; userAgent?: string } = typeof navigator ===
-  "undefined"
-    ? {}
-    : navigator,
-): boolean {
-  if (typeof env.pdfViewerEnabled === "boolean") return env.pdfViewerEnabled;
-  // Linux の WebKitGTK は、PDF を表示できない見込み（実機で確認する。specs/007 の research.md R7）。
-  return (
-    !/linux/i.test(env.userAgent ?? "") || /android/i.test(env.userAgent ?? "")
-  );
-}

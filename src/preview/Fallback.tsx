@@ -5,7 +5,6 @@ import { useT } from "../shell/solid";
 /** 表示できないときの理由。 */
 export type FallbackReason =
   | "not-utf8"
-  | "no-pdf-support"
   | "image-failed"
   | "read-failed"
   | "unknown-format"
@@ -13,7 +12,6 @@ export type FallbackReason =
 
 const MESSAGE = {
   "not-utf8": "preview.notUtf8",
-  "no-pdf-support": "preview.noPdf",
   "image-failed": "preview.imageFailed",
   "read-failed": "preview.readFailed",
   "unknown-format": "preview.unknownFormat",

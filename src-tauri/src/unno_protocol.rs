@@ -123,7 +123,6 @@ fn has_preview_flag(path: &str) -> bool {
 fn preview_content_type(file_name: &str) -> Option<&'static str> {
     let ext = file_name.rsplit_once('.')?.1.to_ascii_lowercase();
     Some(match ext.as_str() {
-        "pdf" => "application/pdf",
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
         "gif" => "image/gif",
@@ -154,7 +153,7 @@ fn respond(
                 let name = file.rel_path.rsplit('/').next().unwrap_or(&file.rel_path);
                 let mut content_type = serve.content_type_of(name);
                 let mut extra = Vec::new();
-                // 汎用プレビュー（表示専用）: 拡張機能が種別を宣言していないアセットでも、画像・PDF を
+                // 汎用プレビュー（表示専用）: 拡張機能が種別を宣言していないアセットでも、画像を
                 // ブラウザが表示できるよう、`?preview=1` のときだけ、拡張子から表示用の種別を付ける。
                 if content_type == FALLBACK_CONTENT_TYPE
                     && has_preview_flag(request.path)
@@ -412,7 +411,11 @@ mod tests {
                 r.header("content-security-policy").map(str::to_owned),
             )
         };
-        assert_eq!(ct("m.pdf", true).0.as_deref(), Some("application/pdf"));
+        // PDF は表示用の種別を付けない（プレビューは PDF を表示しない）
+        assert_eq!(
+            ct("m.pdf", true).0.as_deref(),
+            Some("application/octet-stream")
+        );
         assert_eq!(ct("p.png", true).0.as_deref(), Some("image/png"));
         let (svg, csp) = ct("v.svg", true);
         assert_eq!(svg.as_deref(), Some("image/svg+xml"));

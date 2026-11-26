@@ -91,7 +91,7 @@ A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so y
 - **Filters.** Narrow the tree by part of the name, status, media type and missing files. Conditions combine with AND; one button clears them all. Folders that contain a match stay open.
 - **Navigation.** Previous / next (PageUp / PageDown), next unfinished (Ctrl+Shift+N) and done-and-next (Ctrl+Enter) follow the order you see in the tree and your filter. They move by the unit each media type declares (a whole asset, or its items, such as the pages of a document). Missing files are skipped and counted; at the end it stops instead of wrapping around. Marking done is one undoable step.
 - **Items.** Assets of a media type that provides items get an expand arrow. Items load in pages; if a provider fails, only that asset's row shows the error and a retry button.
-- **Preview.** When no extension supplies an editor, the editor area shows a read-only preview: images, UTF-8 text (the first 10 MB), PDF (where the system web view supports it). Anything else shows the file's details and "Open in default app". Opening a file in the preview never changes the project.
+- **Preview.** When no extension supplies an editor, the editor area shows a read-only preview: images and UTF-8 text (the first 10 MB). PDF and anything else shows the file's details and "Open in default app". Opening a file in the preview never changes the project.
 
 ## Development
 

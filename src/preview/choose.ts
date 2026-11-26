@@ -1,8 +1,9 @@
 // 汎用プレビューの種類の判定（specs/007-tree-preview/research.md R7）。
 // 媒体種別の登録簿ではなく、プレビュー自身の「拡張子 → 種類」の表で決める
 // （媒体種別を持たないアセットにも、プレビューは出るため）。表示専用。
+// PDF は表示しない（注釈を付けるなら、拡張機能のエディターが自前で描く。不明形式と同じ案内にする）。
 
-export type PreviewKind = "image" | "text" | "pdf" | "unknown";
+export type PreviewKind = "image" | "text" | "unknown";
 
 const IMAGE = new Set([
   "png",
@@ -39,6 +40,5 @@ export function choosePreviewKind(relPath: string): PreviewKind {
   const ext = name.slice(dot + 1).toLowerCase();
   if (IMAGE.has(ext)) return "image";
   if (TEXT.has(ext)) return "text";
-  if (ext === "pdf") return "pdf";
   return "unknown";
 }

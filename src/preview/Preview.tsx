@@ -21,7 +21,7 @@ import {
   loadTextHead,
   TextLoadError,
 } from "./text";
-import { assetUrl, detectPdfSupport } from "./url";
+import { assetUrl } from "./url";
 
 export interface PreviewProps {
   asset: AssetRow;
@@ -29,8 +29,6 @@ export interface PreviewProps {
   onOpenExternal: () => void;
   /** リンク切れのときの再接続（004 の画面へ）。 */
   onRelink: () => void;
-  /** PDF を表示できる環境か（省略すると、実行環境から調べる）。 */
-  pdfSupported?: boolean;
   /** テストで差し替える。 */
   fetchFn?: FetchFn;
 }
@@ -38,29 +36,11 @@ export interface PreviewProps {
 type State =
   | { kind: "loading" }
   | { kind: "image"; url: string }
-  | { kind: "pdf"; url: string }
   | { kind: "text"; lines: LineIndex; truncated: boolean }
   | { kind: "fallback"; reason: FallbackReason };
 
-/**
- * PDF の `<iframe>` は、読み込むとフォーカスを奪い、以後のキー操作（PageDown・元に戻すなど）が
- * シェルに届かなくなる。読み込み前にフォーカスのあった要素（ツリー）へ、フォーカスを戻す。
- */
-function giveFocusBack(frame: HTMLIFrameElement, before: Element | null): void {
-  if (
-    document.activeElement === frame &&
-    before instanceof HTMLElement &&
-    before !== frame &&
-    before.isConnected
-  ) {
-    before.focus();
-  }
-}
-
 export function Preview(props: PreviewProps) {
   const t = useT();
-  /** 表示を切り替えた時点で、フォーカスのあった要素。 */
-  let focusBefore: Element | null = null;
   const [state, setState] = createSignal<State>({ kind: "loading" });
 
   createEffect(
@@ -70,7 +50,6 @@ export function Preview(props: PreviewProps) {
       ([id, relPath, missing]) => {
         const controller = new AbortController();
         onCleanup(() => controller.abort());
-        focusBefore = document.activeElement;
         // 古い読み込みの結果で、新しい表示を上書きしない（中断に加えて、完了時にも確かめる）。
         const stillCurrent = () => !controller.signal.aborted;
 
@@ -85,13 +64,6 @@ export function Preview(props: PreviewProps) {
             kind: "image",
             url: assetUrl(id, undefined, { display: true }),
           });
-        } else if (kind === "pdf") {
-          const supported = props.pdfSupported ?? detectPdfSupport();
-          setState(
-            supported
-              ? { kind: "pdf", url: assetUrl(id, undefined, { display: true }) }
-              : { kind: "fallback", reason: "no-pdf-support" },
-          );
         } else if (kind === "text") {
           setState({ kind: "loading" });
           void loadTextHead({
@@ -149,14 +121,6 @@ export function Preview(props: PreviewProps) {
             onError={() =>
               setState({ kind: "fallback", reason: "image-failed" })
             }
-          />
-        </Match>
-        <Match when={state().kind === "pdf"}>
-          <iframe
-            class="preview-pdf"
-            src={(state() as { url: string }).url}
-            title={t("preview.pdf.title")}
-            onLoad={(event) => giveFocusBack(event.currentTarget, focusBefore)}
           />
         </Match>
         <Match when={state().kind === "text"}>

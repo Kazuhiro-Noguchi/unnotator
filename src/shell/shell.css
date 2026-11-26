@@ -1301,12 +1301,6 @@ fieldset.ribbon-group {
   object-fit: contain;
 }
 
-.preview-pdf {
-  flex: 1;
-  width: 100%;
-  border: 0;
-}
-
 .preview-loading,
 .preview-note {
   margin: 0;
@@ -1381,12 +1375,4 @@ fieldset.ribbon-group {
 
 .tree-error {
   color: var(--color-danger);
-}
-
-/*
- * PDF のビューア（拡大縮小のボタンなど）は、WebView が別の層で描くため、通知やダイアログの上に出てしまう
- * （z-index では前に出せない）。通知・通知センター・ダイアログが出ているあいだは、PDF を隠す。
- */
-body:has(.center, .overlay, .toasts > *) .preview-pdf {
-  visibility: hidden;
 }

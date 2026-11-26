@@ -1,0 +1,1080 @@
+/* シェルの枠。色は src/themes/ の変数だけを使う。 */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-frame);
+  color: var(--color-fg);
+  overflow: hidden;
+}
+
+.shell *:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* リボン: タブの段は枠の色の上に置き、ボタンの段だけを、アイランドにする。 */
+.ribbon-slot {
+  flex: none;
+  padding-inline: 6px;
+  background: transparent;
+}
+
+/* アイランド: 領域は、枠の色の上に浮かぶ、角の丸い面。間の隙間（splitter）で、大きさを変える。 */
+.shell-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 6px;
+}
+
+.shell-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.panel-header,
+.tab-strip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+  padding-inline: 8px;
+  background: var(--color-island);
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+.tab-strip button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-fg-muted);
+  padding: 6px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tab-strip button:hover {
+  color: var(--color-fg);
+  background: var(--state-hover);
+}
+
+.tab-strip button[aria-selected="true"] {
+  color: var(--color-fg);
+  border-bottom-color: var(--color-accent);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.editor-area {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: var(--color-fg-muted);
+  text-align: center;
+}
+
+/* 枠つきボタン（outlined）。枠は背景との対比 3:1 以上（WCAG 1.4.11）。主な操作は .primary（塗りつぶし）。 */
+.button {
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-accent);
+  padding: 4px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.button.primary {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
+.button:disabled {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-fg-disabled);
+  cursor: default;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--state-hover);
+}
+
+/* アイランドの間の隙間。ふだんは見えず、触れたときだけ、真ん中に線が出る。 */
+.splitter {
+  position: relative;
+  flex: none;
+  background: transparent;
+  touch-action: none;
+}
+
+.splitter[aria-orientation="vertical"] {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.splitter[aria-orientation="horizontal"] {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.splitter[aria-orientation="vertical"]::after {
+  width: 2px;
+}
+
+.splitter[aria-orientation="horizontal"]::after {
+  height: 2px;
+}
+
+.splitter:hover::after,
+.splitter:focus-visible::after,
+.splitter[data-dragging="true"]::after {
+  background: var(--color-accent);
+}
+
+/* 大きさは、Icon の width / height の属性（size）で決める。ここでは指定しない。 */
+.icon {
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.status-slot {
+  flex: none;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  padding-inline: 8px;
+  background: var(--color-frame);
+  color: var(--color-fg-muted);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: var(--color-backdrop);
+}
+
+.dialog {
+  width: min(560px, 92vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-high);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+}
+
+.dialog.wide {
+  width: min(760px, 94vw);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+.dialog-body {
+  padding: 12px;
+  overflow: auto;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.palette-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.palette-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.palette-item.selected {
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+  font-weight: 700;
+}
+
+/* 実行できないものは、色だけでなく取り消し線と文言でも示す。 */
+.palette-item.disabled {
+  color: var(--color-fg-disabled);
+}
+
+.palette-item.disabled .palette-title {
+  text-decoration: line-through;
+}
+
+.palette-title {
+  flex: 1;
+}
+
+.palette-note {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
+.palette-key {
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-fg-muted);
+  font:
+    12px ui-monospace,
+    monospace;
+}
+
+.palette-empty {
+  padding: 8px;
+  color: var(--color-fg-muted);
+}
+
+.settings-editor {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font:
+    12px ui-monospace,
+    monospace;
+}
+
+.settings-error {
+  color: var(--color-danger);
+}
+
+.settings-help,
+.settings-when {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.settings-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ---- リボン ---- */
+.ribbon {
+  display: flex;
+  flex-direction: column;
+}
+
+.ribbon-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-inline: 4px;
+}
+
+.quick-access {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 2px;
+}
+
+.ribbon-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.ribbon-tab {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--color-fg-muted);
+  padding: 4px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ribbon-tab:hover {
+  background: var(--state-hover);
+  color: var(--color-fg);
+}
+
+.ribbon-tab[aria-selected="true"] {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  background: transparent;
+}
+
+/* コンテキストタブは、色だけでなく枠でも目立たせる。 */
+.ribbon-tab.contextual {
+  border: 1px solid var(--color-accent);
+  border-bottom-width: 3px;
+}
+
+.ribbon-body {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  /* 高さはタブによらず一定にする（3 段のグループが入るぶん）。 */
+  box-sizing: border-box;
+  height: 100px;
+  padding: 2px;
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  /* 縮退しても収まらないときは、横にスクロールする（縦にははみ出さない）。 */
+  overflow: auto hidden;
+  scrollbar-width: thin;
+}
+
+fieldset.ribbon-group,
+fieldset.gallery {
+  margin: 0;
+  min-width: 0;
+  border: 0;
+}
+
+/* グループの区切りの縦線。fieldset の枠の初期化より後に書く。 */
+fieldset.ribbon-group {
+  border-inline-end: 1px solid var(--color-border);
+}
+
+.ribbon-group {
+  flex: none;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-inline: 2px;
+  border-inline-end: 1px solid var(--color-border);
+}
+
+.ribbon-controls {
+  display: grid;
+  grid-auto-flow: column;
+  /* 3 段の高さを固定し、上づめにする（ブロックによって、アイコンの高さがずれないように）。 */
+  grid-template-rows: repeat(3, 22px);
+  align-content: start;
+  justify-items: start;
+  gap: 0 2px;
+  flex: 1;
+}
+
+.ribbon-group-title {
+  /* コントロールとブロック名の間の余白。 */
+  margin-top: 4px;
+  text-align: center;
+  color: var(--color-fg-muted);
+  font-size: 11px;
+}
+
+.ribbon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg);
+  padding: 1px 3px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ribbon-button.large {
+  grid-row: span 3;
+  flex-direction: column;
+  /* 3 段の高さ（66px）に近い、正方形に近い大きさにして、中身を中央に置く。
+     ラベルは 2 行ぶんの高さを確保しているので、アイコンの高さは、どの大ボタンでも同じになる。 */
+  justify-content: center;
+  min-width: 52px;
+  padding: 1px 2px;
+}
+
+.ribbon-button:disabled {
+  color: var(--color-fg-disabled);
+  cursor: default;
+}
+
+.ribbon-button:hover:not(:disabled) {
+  background: var(--state-hover);
+}
+
+/* オンのトグルは、色に加えて枠と下線でも示す。 */
+.ribbon-button.checked {
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+  border-color: var(--color-accent);
+}
+
+.split,
+.menu-host {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.gallery {
+  grid-row: span 3;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  align-content: center;
+  gap: 2px;
+}
+
+.gallery-index {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+}
+
+.ribbon-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ribbon-number input {
+  width: 56px;
+  padding: 2px 4px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.ribbon-separator {
+  align-self: stretch;
+  width: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--color-border);
+}
+
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+
+.context-menu-anchor {
+  position: fixed;
+  z-index: 60;
+}
+
+.context-menu-anchor .menu {
+  top: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg);
+  padding: 3px 6px;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--color-selection);
+}
+
+.menu-item:disabled {
+  color: var(--color-fg-disabled);
+  cursor: default;
+}
+
+.menu-item[data-checked="true"] {
+  font-weight: 600;
+}
+
+.menu-check {
+  width: 10px;
+}
+
+.backstage {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+
+.backstage-list,
+.backstage-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backstage-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg);
+  padding: 6px 8px;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+
+.backstage-entry:hover:not(:disabled) {
+  background: var(--state-hover);
+}
+
+.backstage-entry:disabled {
+  color: var(--color-fg-disabled);
+  cursor: default;
+}
+
+.backstage-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ribbon-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  inset-inline-start: 0;
+  top: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.ribbon-measure-cell {
+  display: inline-block;
+}
+
+.ribbon {
+  position: relative;
+}
+
+.settings-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.status-spacer {
+  flex: 1;
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-fg-muted);
+}
+
+.status-item.clickable {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-bell {
+  gap: 4px;
+  padding: 0 6px;
+  color: var(--color-fg);
+}
+
+.status-bell[aria-expanded="true"] {
+  background: var(--state-hover);
+}
+
+.status-bell-count {
+  font-size: 11px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.status-item progress {
+  width: 80px;
+  height: 8px;
+}
+
+.toasts {
+  position: fixed;
+  inset-block-end: 32px;
+  inset-inline-end: 12px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(420px, 90vw);
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: start;
+  padding: 10px 8px 8px 12px;
+  background: var(--color-surface-high);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+
+.toast.info .toast-mark {
+  color: var(--color-info);
+}
+
+.toast.warn .toast-mark {
+  color: var(--color-warning);
+}
+
+.toast.error .toast-mark {
+  color: var(--color-danger);
+}
+
+/* 画面には出さず、スクリーンリーダーにだけ段階を伝える。 */
+.toast-level {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.toast-mark {
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+}
+
+.toast-body {
+  min-width: 0;
+}
+
+.toast-text {
+  margin: 0;
+  line-height: 20px;
+  /* 長い文字列（パスなど）も、カードの中で折り返す。 */
+  overflow-wrap: anywhere;
+}
+
+/* トーストの本文は 3 行まで。全文は、ボタンで開く。 */
+.toast-text.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.toast-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toast-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.toast-tools .button {
+  color: var(--color-fg);
+}
+
+.toast-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toast-source {
+  color: var(--color-fg-muted);
+  font-size: 11px;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.problems {
+  padding: 6px 10px;
+}
+
+.problems ul {
+  margin: 0;
+  padding-inline-start: 18px;
+}
+
+.problems-times {
+  color: var(--color-fg-muted);
+}
+
+.menu.floating {
+  position: fixed;
+  z-index: 400;
+}
+
+.activity-bar {
+  flex: none;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+  background: transparent;
+}
+
+/* アクティビティバー + プライマリサイドバー。1 つの面で、サイドバーを出すと右へ広がる。
+   サイドバーの面は、この面の中では、枠も丸みも持たない。 */
+.side-island {
+  flex: none;
+  display: flex;
+  min-height: 0;
+  background: var(--color-island);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* サイドバーが無いときの、アクティビティバーとエディターの隙間（出ているときは splitter が担う）。 */
+.island-gap {
+  flex: none;
+  width: 6px;
+}
+
+/* サイドバーの面は、枠と丸みを持たない。アクティビティバーとの間に、縦線を引く。 */
+.side-island > .panel {
+  border: 0;
+  border-inline-start: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.activity-button {
+  position: relative;
+  width: 40px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+}
+
+.activity-button:hover {
+  background: var(--state-hover);
+  color: var(--color-fg);
+}
+
+.activity-button[aria-pressed="true"] {
+  color: var(--color-on-selection);
+  background: var(--color-selection);
+}
+
+/* 設定ボタンは、アクティビティバーの下端に置く。 */
+.activity-button.settings {
+  margin-top: auto;
+  margin-bottom: 4px;
+}
+
+/* 領域の表示切替は、リボンの右端（クイックアクセスの反対側）。 */
+.layout-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: auto;
+  padding-bottom: 2px;
+}
+
+/* アイコンだけのボタン（クイックアクセス・領域の切替）は、正方形にして、左右の余白を詰める。 */
+.ribbon-button.quick {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+}
+
+.quick-access,
+.layout-toggles {
+  gap: 2px;
+}
+
+/* 大ボタンのラベルは、長いときだけ 2 行に折り返す（6 文字ぶんの幅。例: プロジェクト / 設定）。 */
+.ribbon-button.large .ribbon-label {
+  max-width: 6em;
+  min-height: 2.4em;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* アイコンだけの閉じるボタン（正方形）。 */
+.button.icon-button {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-fg);
+}
+
+.button.icon-button:hover:not(:disabled) {
+  background: var(--state-hover);
+}
+
+/* メニューを開いている間は、ホバーしているときと同じ見た目にする。 */
+.activity-button[aria-expanded="true"] {
+  background: var(--state-hover);
+  color: var(--color-fg);
+}
+
+.ribbon-button[aria-expanded="true"] {
+  background: var(--state-hover);
+}
+
+.dialog:focus {
+  outline: none;
+}
+
+/* 設定画面: 左に目次（ツリー）、右にページ。 */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.settings-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--color-border);
+}
+
+.settings-category-title,
+.settings-page-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg);
+  padding: 3px 6px;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-category-title {
+  font-weight: 600;
+}
+
+.settings-page-link {
+  padding-inline-start: 22px;
+}
+
+.settings-category-title:hover,
+.settings-page-link:hover {
+  background: var(--state-hover);
+}
+
+/* 選択中は、背景の色だけでなく、文字を太くして示す（背景だけでは、周りとの対比が 1.1:1 で見えない）。 */
+.settings-page-link[aria-current="page"] {
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+  font-weight: 700;
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.settings-content h3 {
+  margin-top: 0;
+}
+
+/* 通知センター: 右下に開く一覧。開いている間、トーストは出さない。 */
+.center {
+  position: fixed;
+  inset-block-end: 32px;
+  inset-inline-end: 12px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 90vw);
+  max-height: 70vh;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+}
+
+.center-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 6px 12px;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.center-title {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.center-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.center-empty {
+  margin: 12px;
+  text-align: center;
+  color: var(--color-fg-muted);
+}

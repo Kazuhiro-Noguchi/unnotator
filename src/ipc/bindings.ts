@@ -835,7 +835,11 @@ export type ValueKind =
 /**  文字列の配列。 */
 "string_list" | "bool" | 
 /**  キー → 文字列のオブジェクト。 */
-"string_map";
+"string_map" | 
+/**  文字列（取り得る値の集合は、画面が決める）。 */
+"string" | 
+/**  任意の JSON（形は画面が検査する。1 MiB まで）。 */
+"json";
 
 export type VersionMismatch = {
 	id: string,

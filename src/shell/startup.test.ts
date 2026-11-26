@@ -53,4 +53,34 @@ describe("startup", () => {
     });
     await expect(startup(deps)).resolves.toBeUndefined();
   });
+
+  it("設定の適用は、最初の描画を待たせない（描画の登録のあとに始める）", async () => {
+    const order: string[] = [];
+    let release: () => void = () => {};
+    const { deps } = makeDeps({
+      onFirstRender: () => order.push("onFirstRender"),
+      applySettings: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            order.push("applySettings");
+            release = resolve;
+          }),
+      ),
+    });
+    await startup(deps);
+    expect(order).toEqual(["onFirstRender", "applySettings"]);
+    release();
+  });
+
+  it("設定の適用が失敗しても、例外を外に出さず、ready も妨げない", async () => {
+    const { deps, renderDone } = makeDeps({
+      applySettings: vi.fn(async () => {
+        throw new Error("settings");
+      }),
+    });
+    await expect(startup(deps)).resolves.toBeUndefined();
+    renderDone();
+    await Promise.resolve();
+    expect(deps.reportReady).toHaveBeenCalledTimes(1);
+  });
 });

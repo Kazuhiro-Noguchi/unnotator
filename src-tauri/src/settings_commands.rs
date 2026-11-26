@@ -249,11 +249,17 @@ mod tests {
     #[test]
     fn the_core_key_table_is_exposed_with_defaults() {
         let table = keys();
-        assert_eq!(table.len(), 4);
+        // assets.* の 4 項目と、画面の設定 ui.* の 6 項目。
+        assert_eq!(table.len(), 10);
         assert!(
             table
                 .iter()
                 .any(|k| k.name == "assets.watch" && k.default_json == "true")
+        );
+        assert!(
+            table
+                .iter()
+                .any(|k| k.name == "ui.theme" && k.default_json == r#""system""#)
         );
     }
 

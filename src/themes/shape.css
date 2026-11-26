@@ -1,0 +1,15 @@
+/* 形（角の丸み）と陰影のトークン。Material Design 3 の考え方に近づけた。
+   色はライト・ダークのトークン（light.css・dark.css）で決める。 */
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+  /* 状態の層（state layer）。文字の色を、ホバー 8%・押下 10%・フォーカス 10% で重ねる。 */
+  --state-hover: color-mix(in srgb, var(--color-fg) 8%, transparent);
+  --state-pressed: color-mix(in srgb, var(--color-fg) 10%, transparent);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 30%), 0 1px 3px 1px rgb(0 0 0 / 15%);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / 30%), 0 2px 6px 2px rgb(0 0 0 / 15%);
+  --shadow-3: 0 1px 3px rgb(0 0 0 / 30%), 0 4px 8px 3px rgb(0 0 0 / 15%);
+}

@@ -262,7 +262,7 @@ export interface EditorContext {
 }
 
 export interface EditorInstance {
-  /** プロパティパネルなどで選ばれたアノテーションを見える位置に出す */
+  /** セカンダリサイドバーなどで選ばれたアノテーションを見える位置に出す */
   reveal(annotationId: Id): void;
   /** アイテムの切り替え（ItemProvider を持つ媒体のみ） */
   setItem?(itemKey: string): Promise<void>;
@@ -446,7 +446,7 @@ export interface Host {
   /** labels.read / labels.write */
   labels: {
     list(filter?: LabelFilter): Promise<Label[]>;
-    /** リボンのギャラリーや 1〜9 キーで選ばれているラベル */
+    /** サイドバーのラベルや 1〜9 キーで選ばれているラベル */
     active(): Label | null;
     onDidChangeActive: Event<Label | null>;
     onDidChange: Event<void>;

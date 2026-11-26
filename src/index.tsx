@@ -4,6 +4,6 @@ import "./themes/index.css";
 
 const root = document.getElementById("root");
 if (root === null) {
-  throw new Error("#root が見つからない");
+  throw new Error("#root element not found");
 }
 render(() => <App />, root);

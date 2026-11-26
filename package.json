@@ -25,7 +25,7 @@
   "scripts": {
     "test": "vitest run --config config/vitest.config.ts",
     "typecheck": "tsc -p src --noEmit && tsc -p crates/worker && tsc -p packages/plugin-api",
-    "lint": "biome check --config-path=config/biome.config.json . && node scripts/check-deps.mjs && node scripts/check-media-terms.mjs",
+    "lint": "biome check --config-path=config/biome.config.json . && node scripts/check-deps.mjs && node scripts/check-media-terms.mjs && node scripts/check-theme.mjs",
     "schema:check": "node scripts/schema-check/index.mjs",
     "ipc:gen": "cargo run -p unnotator --example gen_bindings",
     "measure:startup": "node scripts/measure-startup.mjs"

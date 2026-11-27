@@ -1,6 +1,6 @@
 // S-02 技術検証（unno-5da）。開発ビルドだけ。拡張機能の動的 import・Shadow DOM・拡張機能間 API・CSP・隔離を、実機の WebView で確かめる。
 // 使い方: `VITE_S02_DIR=$PWD/scripts/spikes/s02 pnpm tauri dev` → パレットで「S-02 検証」。結果は画面の重ねた表示とコンソールに出る。
-// 検証が済んだら、この全体（と scripts/spikes/s02/）は消してよい。結果は docs/spikes/s02-extension-loading.md に残す。
+// 検証が済んだら、この全体（と scripts/spikes/s02/）は消してよい。結果の記録は、リポジトリには入れていない（ローカルの .agent/spikes/）。
 import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc";
 

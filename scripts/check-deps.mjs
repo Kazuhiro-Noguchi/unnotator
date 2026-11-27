@@ -116,6 +116,44 @@ export function checkPreviewSource(file, source) {
   return problems;
 }
 
+/**
+ * 008: ラベル・プロパティ・スキーマの画面（`src/shell/{labels,properties,schema}/`）は、
+ * `ipc` から値（`commands` など）を直接 import しない。読み書きは `src/shell/project-data/` を通す。型の import は許す。
+ */
+export function checkProjectDataSource(file, source) {
+  if (/\.test\.(ts|tsx)$/.test(file)) return [];
+  if (!/^src\/shell\/(labels|properties|schema)\//.test(file)) return [];
+  const problems = [];
+  const importPattern =
+    /import\s+(type\s+)?[^;]*?from\s+["']((?:\.\.?\/)+ipc(?:\/[^"']*)?)["']/gs;
+  for (const match of source.matchAll(importPattern)) {
+    if (!match[1]) {
+      problems.push(
+        `${file}: 画面は ipc から値を import できない（src/shell/project-data/ を通す）`,
+      );
+    }
+  }
+  return problems;
+}
+
+function walkSource(root, rel, check) {
+  const problems = [];
+  const dir = `${root}${rel}`;
+  const walk = (d) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const path = `${d}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (/\.(ts|tsx)$/.test(entry.name)) {
+        problems.push(
+          ...check(path.slice(root.length), readFileSync(path, "utf8")),
+        );
+      }
+    }
+  };
+  if (existsSync(dir)) walk(dir);
+  return problems;
+}
+
 function checkPreviewDir() {
   const problems = [];
   const root = fileURLToPath(new URL("..", import.meta.url));
@@ -148,7 +186,15 @@ function main() {
     process.exit(1);
   }
   const metadata = JSON.parse(result.stdout);
-  const problems = [...checkMetadata(metadata), ...checkPreviewDir()];
+  const problems = [
+    ...checkMetadata(metadata),
+    ...checkPreviewDir(),
+    ...walkSource(
+      fileURLToPath(new URL("..", import.meta.url)),
+      "src/shell",
+      checkProjectDataSource,
+    ),
+  ];
   for (const p of metadata.packages.filter((p) =>
     metadata.workspace_members.includes(p.id),
   )) {

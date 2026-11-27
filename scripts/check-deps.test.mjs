@@ -3,6 +3,7 @@ import {
   checkDirectVersions,
   checkMetadata,
   checkPreviewSource,
+  checkProjectDataSource,
 } from "./check-deps.mjs";
 
 // 作り物の `cargo metadata` の出力を組み立てる。
@@ -170,5 +171,41 @@ describe("checkPreviewSource（src/preview/ はプロジェクトのデータを
         `import { commands } from "../../ipc";`,
       ).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("checkProjectDataSource（008: 画面は ipc を直接 import せず、project-data を通す）", () => {
+  const value = `import { commands } from "../../ipc";\ncommands.labelsList();`;
+
+  it("labels・properties・schema が ipc から値を import したら、検出する", () => {
+    for (const dir of ["labels", "properties", "schema"]) {
+      expect(
+        checkProjectDataSource(`src/shell/${dir}/X.tsx`, value).length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("型の import は、許す", () => {
+    expect(
+      checkProjectDataSource(
+        "src/shell/labels/X.tsx",
+        `import type { LabelRow } from "../../ipc";`,
+      ),
+    ).toEqual([]);
+  });
+
+  it("project-data は ipc を使える", () => {
+    expect(
+      checkProjectDataSource("src/shell/project-data/store.ts", value),
+    ).toEqual([]);
+  });
+
+  it("テストファイルと、対象外のフォルダーは検査しない", () => {
+    expect(
+      checkProjectDataSource("src/shell/labels/X.test.tsx", value),
+    ).toEqual([]);
+    expect(checkProjectDataSource("src/shell/explorer/X.ts", value)).toEqual(
+      [],
+    );
   });
 });

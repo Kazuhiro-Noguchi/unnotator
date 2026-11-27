@@ -28,6 +28,7 @@ import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
 import { Overlays } from "./shell/overlays/Overlays";
 import { reportProblem } from "./shell/problems";
+import { projectData } from "./shell/project-data/instance";
 import { Ribbon } from "./shell/ribbon/Ribbon";
 import {
   commands as commandRegistry,
@@ -92,6 +93,7 @@ const actions = createProjectActions({
     await commands.projectClose(null);
     setProjectName(null);
     await explorer.close();
+    projectData.reset();
     await projectContext.setOpen(false);
   },
   save: async () => {
@@ -114,6 +116,7 @@ const actions = createProjectActions({
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
     await explorer.open(folder);
+    await projectData.refresh();
   },
   notify,
 });

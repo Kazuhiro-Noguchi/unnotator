@@ -1402,12 +1402,12 @@ fieldset.ribbon-group {
 
 /* ラベル（008）。色はラベル自身の値（swatch）だけ。ほかはテーマの変数。 */
 .labels-view {
-  /* カード同士の間隔と、一覧の外側の余白（そろえる）。並べ替えの線の位置も、この値から決める。 */
-  --label-gap: 8px;
+  /* カード同士の間隔。並べ替えの線の位置も、この値から決める。 */
+  --label-gap: 4px;
   display: flex;
   flex-direction: column;
-  gap: var(--label-gap);
-  padding: var(--label-gap);
+  gap: 8px;
+  padding: 8px;
 }
 
 .label-list {

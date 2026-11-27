@@ -12,7 +12,14 @@ import type { NotifyLevel } from "../types";
 import { AnnotationList } from "./AnnotationList";
 import { type DraftStore, targetKeyOf } from "./draft";
 import { draftCommands } from "./draft-commit";
+import { Links } from "./Links";
 import { loadAllPages } from "./paging";
+import {
+  addToGroup,
+  createGroup,
+  createRelation,
+  moveMember,
+} from "./relations";
 import type { Selection } from "./selection";
 
 const STATUSES: Status[] = ["todo", "in_progress", "done", "review"];
@@ -216,6 +223,20 @@ export function Properties(props: PropertiesProps) {
     });
   };
 
+  const link = (result: ReturnType<typeof createRelation>) => {
+    if (result.kind === "apply") return void run(result.command);
+    props.notify(
+      "error",
+      t(
+        result.reason === "needTwo"
+          ? "relations.needTwo"
+          : result.reason === "self"
+            ? "relations.self"
+            : "groups.needSome",
+      ),
+    );
+  };
+
   const resolve = (choice: "apply" | "discard") => {
     const draft = props.drafts.resolvePending(choice);
     if (draft !== null) for (const c of draftCommands(draft)) void run(c);
@@ -371,6 +392,30 @@ export function Properties(props: PropertiesProps) {
                   />
                 </Show>
               </section>
+              <Links
+                relations={d().relations}
+                groups={d().groups}
+                rows={rows()}
+                labels={labels()}
+                schemas={schemas()}
+                selected={selected()}
+                run={(command) => void run(command)}
+                onCreateRelation={() => link(createRelation([...selected()]))}
+                onCreateGroup={() => link(createGroup([...selected()]))}
+                onAddToGroup={(groupId) =>
+                  link(
+                    addToGroup(
+                      groupId,
+                      [...selected()],
+                      d().groups.find((g) => g.id === groupId)?.members ?? [],
+                    ),
+                  )
+                }
+                onMove={(group, annotationId, dir) => {
+                  const command = moveMember(group, annotationId, dir);
+                  if (command !== null) void run(command);
+                }}
+              />
             </>
           )}
         </Show>

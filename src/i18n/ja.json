@@ -271,5 +271,12 @@
   "labels.moveUp": "上へ",
   "labels.moveDown": "下へ",
   "labels.delete.target": "付け替え先",
-  "labels.delete.schemas": "このラベル専用の属性スキーマも一緒に消えます。"
+  "labels.delete.schemas": "このラベル専用の属性スキーマも一緒に消えます。",
+  "relations.needTwo": "関係を作るには、アノテーションを 2 つ選んでください。",
+  "groups.needSome": "対象のアノテーションを選んでください。",
+  "relations.none": "関係はありません。",
+  "groups.none": "グループはありません。",
+  "groups.ungroup": "グループから外す",
+  "relations.arrow": "→",
+  "links.failed": "関係・グループを保存できませんでした: {reason}"
 }

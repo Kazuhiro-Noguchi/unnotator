@@ -271,5 +271,12 @@
   "labels.moveUp": "Move up",
   "labels.moveDown": "Move down",
   "labels.delete.target": "Reassign to",
-  "labels.delete.schemas": "Attribute schemas specific to this label are deleted too."
+  "labels.delete.schemas": "Attribute schemas specific to this label are deleted too.",
+  "relations.needTwo": "Select two annotations to create a relation.",
+  "groups.needSome": "Select annotations first.",
+  "relations.none": "There are no relations.",
+  "groups.none": "There are no groups.",
+  "groups.ungroup": "Remove from groups",
+  "relations.arrow": "→",
+  "links.failed": "Could not save the relation or group: {reason}"
 }

@@ -178,19 +178,28 @@ registerCoreViews(views, {
   openFolder: () => void commandRegistry.execute("core.project.open"),
 });
 
-// 走査の進み具合を、ステータスバーのメッセージに出す（終わったら消す）。
+// 新規ファイルの確認（走査）の進み具合を、ステータスバーのメッセージに出す。
+// 終わったら完了を知らせ、少し待ってから消す。
+const SCAN_DONE_VISIBLE_MS = 4000;
+let scanDoneTimer: ReturnType<typeof setTimeout> | undefined;
 void events.scanProgressEvent
   .listen((event) => {
     const { found, phase } = event.payload;
+    clearTimeout(scanDoneTimer);
+    if (phase === "done") {
+      statusStore.setMessage(t("status.scanDone"));
+      scanDoneTimer = setTimeout(
+        () => statusStore.setMessage(null),
+        SCAN_DONE_VISIBLE_MS,
+      );
+      return;
+    }
     statusStore.setMessage(
       phase === "walking"
         ? format(t("status.scanning"), { found })
         : t("status.applying"),
     );
   })
-  .catch(() => {});
-void events.assetsChanged
-  .listen(() => statusStore.setMessage(null))
   .catch(() => {});
 
 async function applySettings(): Promise<void> {

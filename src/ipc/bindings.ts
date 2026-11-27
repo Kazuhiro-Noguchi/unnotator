@@ -1030,7 +1030,13 @@ export type ScanPath = {
 	rel_path: string,
 };
 
-export type ScanPhase = "walking" | "applying";
+export type ScanPhase = 
+/**  フォルダを歩いて、ファイルを探している。 */
+"walking" | 
+/**  見つけた結果を、プロジェクトへ登録している。 */
+"applying" | 
+/**  終わった（変化が無くても送る。画面が完了を知らせるのに使う）。 */
+"done";
 
 export type ScanProgress = {
 	/**  これまでに見つけたファイルの数。 */

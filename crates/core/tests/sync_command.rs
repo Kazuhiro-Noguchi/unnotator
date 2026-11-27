@@ -40,7 +40,7 @@ fn stamp(file_size: i64, mtime_ms: i64) -> AssetStamp {
 }
 
 #[test]
-fn sync_writes_the_working_copy_counts_as_unsaved_and_is_journaled() {
+fn sync_writes_both_files_and_is_neither_unsaved_nor_journaled() {
     let dir = support::TempDir::new();
     let mut store = support::create_and_open(&dir);
     let before = store.save_state();
@@ -58,14 +58,13 @@ fn sync_writes_the_working_copy_counts_as_unsaved_and_is_journaled() {
     assert!(!assets[0].missing);
     assert_eq!(assets[0].media_type.as_deref(), Some("test/text"));
 
-    assert_eq!(store.save_state().unsaved_count, 1);
-    let entries = support::journal_entries(dir.path());
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].1, "sync");
-    // `project.db` は保存するまで変わらない
+    // 内部の扱い: 未保存にも変更履歴にも入れず、project.db へは直接書く
+    let state = store.save_state();
+    assert!(!state.dirty && state.unsaved_count == 0);
+    assert!(support::journal_entries(dir.path()).is_empty());
     assert_eq!(
         support::count(&support::read_saved_conn(dir.path()), "assets"),
-        0
+        2
     );
 }
 
@@ -221,7 +220,7 @@ fn invalid_paths_are_rejected_and_nothing_is_written() {
 }
 
 #[test]
-fn journal_marks_sync_entries_so_undo_rebuild_can_skip_them() {
+fn only_the_users_edits_are_journaled_around_a_sync() {
     let dir = support::TempDir::new();
     let mut store = support::create_and_open(&dir);
     store
@@ -232,13 +231,11 @@ fn journal_marks_sync_entries_so_undo_rebuild_can_skip_them() {
         .apply_command(sync(vec![new_asset("b.txt", 2)]))
         .unwrap();
     let entries = support::journal_entries(dir.path());
-    assert_eq!(entries.iter().filter(|e| e.1 == "sync").count(), 2);
-    assert_eq!(entries.iter().filter(|e| e.1 == "user").count(), 1);
-    // 自動登録の記録は、元に戻す情報を持たない
-    assert!(
-        entries
-            .iter()
-            .filter(|e| e.1 == "sync")
-            .all(|e| e.3 == "[]")
-    );
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].1, "user");
+    assert_eq!(store.save_state().unsaved_count, 1);
+    // 利用者の編集（ラベル）は project.db に入らない。走査の結果は入る
+    let saved = support::read_saved_conn(dir.path());
+    assert_eq!(support::count(&saved, "labels"), 0);
+    assert_eq!(support::count(&saved, "assets"), 2);
 }

@@ -9,7 +9,7 @@ use tauri_specta::Event;
 use unnotator_core::assets::exclude::ExcludeSet;
 use unnotator_core::assets::media::MediaRules;
 use unnotator_core::assets::relink::RelinkCandidate;
-use unnotator_core::assets::scan::{ScanProgress, ScanScope};
+use unnotator_core::assets::scan::{ScanPhase, ScanProgress, ScanScope};
 use unnotator_core::assets::watch::{NotifyWatcher, PollingWatcher, Throttled, Watcher};
 use unnotator_core::assets::{AssetFilter, AssetPage, Page};
 use unnotator_core::command::Command;
@@ -35,10 +35,23 @@ pub fn scan(
 ) -> Result<ScanSummary, IpcError> {
     state.scan_cancel().store(false, Ordering::SeqCst);
     let job = with_store(state, |store| store.begin_scan(scope))?;
-    let report = job.run(state.scan_cancel(), progress);
+    let found = std::sync::atomic::AtomicU32::new(0);
+    let report = job.run(state.scan_cancel(), &|p| {
+        found.store(p.found, Ordering::SeqCst);
+        progress(p);
+    });
+    let found = found.load(Ordering::SeqCst);
+    progress(ScanProgress {
+        found,
+        phase: ScanPhase::Applying,
+    });
     // 適用は、小さなまとまりごとにロックを手放す（画面の操作が待たされない）
     let mut apply = with_store(state, |store| Ok(store.plan_apply(report)))?;
     while with_store(state, |store| store.apply_step(&mut apply))? {}
+    progress(ScanProgress {
+        found,
+        phase: ScanPhase::Done,
+    });
     Ok(apply.into_summary())
 }
 
@@ -474,6 +487,33 @@ mod tests {
         let changed = AssetsChanged::from_summary(&summary).expect("変化がある");
         assert_eq!((changed.added, changed.origin.as_str()), (2, "sync"));
         assert!(AssetsChanged::from_summary(&again).is_none());
+    }
+
+    #[test]
+    fn a_scan_reports_applying_then_done_even_when_nothing_changed() {
+        use unnotator_core::assets::scan::ScanPhase;
+        let temp = Temp::new();
+        std::fs::write(temp.project().join("a.txt"), b"abc").expect("書ける");
+        let state = temp.state();
+        open_project(&state, &temp.project(), true, Hooks::default()).expect("作れる");
+
+        for expected_found in [1, 1] {
+            let phases = std::sync::Mutex::new(Vec::new());
+            scan(&state, ScanScope::Full, &|p| {
+                phases.lock().expect("lock").push((p.phase, p.found));
+            })
+            .expect("走査できる");
+            let phases = phases.lock().expect("lock");
+            let n = phases.len();
+            assert!(n >= 3, "{phases:?}");
+            assert_eq!(phases[n - 2], (ScanPhase::Applying, expected_found));
+            assert_eq!(phases[n - 1], (ScanPhase::Done, expected_found));
+            assert!(
+                phases[..n - 2]
+                    .iter()
+                    .all(|(phase, _)| *phase == ScanPhase::Walking)
+            );
+        }
     }
 
     #[test]

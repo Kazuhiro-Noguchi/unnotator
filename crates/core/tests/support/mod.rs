@@ -424,3 +424,103 @@ pub fn rules_for_tests() -> unnotator_core::assets::media::MediaRules {
         .expect("規則を足せる");
     rules
 }
+
+/// `seeded_project` が作ったものの ID。
+pub struct Seed {
+    pub assets: Vec<String>,
+    pub labels: Vec<String>,
+    /// 0: a1 の分類（labels[0]）、1: a1 の未対応種別（labels[1]）、2: a2 の未対応種別。
+    pub annotations: Vec<String>,
+    pub relation: String,
+    pub group: String,
+}
+
+/// 008 の往復テスト用: ラベル 3 つ・アノテーション 3 つ（分類 1、拡張機能が無い種別 2）・関係 1・グループ 1（メンバー 2）。
+/// 作った後の Undo の履歴は残る（`new_project` と同じ。Undo で空に戻せる）。
+pub fn seeded_project() -> (TempDir, ProjectStore, Seed) {
+    let (dir, mut store) = new_project(&["a1", "a2"]);
+    let mut labels = Vec::new();
+    for (i, name) in ["cat", "dog", "bird"].iter().enumerate() {
+        let id = format!("label-{i}");
+        store
+            .apply_command(Command::CreateLabel {
+                id: Some(id.clone()),
+                name: (*name).to_owned(),
+                name_i18n_json: None,
+                color: "#112233".to_owned(),
+                hotkey: u8::try_from(i + 1).ok(),
+                sort_order: i32::try_from(i).ok(),
+                hidden: None,
+                applies_to_json: None,
+            })
+            .unwrap();
+        labels.push(id);
+    }
+    let make = |id: &str, asset: &str, kind: &str, selector: &str, label: &str| {
+        Command::CreateAnnotation {
+            id: Some(id.to_owned()),
+            target: target(asset),
+            annotation_type: kind.to_owned(),
+            type_version: None,
+            selector_json: selector.to_owned(),
+            label_id: Some(label.to_owned()),
+            attributes_json: None,
+            summary: None,
+            z_order: None,
+            source: None,
+        }
+    };
+    let annotations = vec!["ann-0".to_owned(), "ann-1".to_owned(), "ann-2".to_owned()];
+    store
+        .apply_command(make("ann-0", "a1", "core/classification", "{}", &labels[0]))
+        .unwrap();
+    store
+        .apply_command(make(
+            "ann-1",
+            "a1",
+            "com.example.shape/shape",
+            "{\"x\":1}",
+            &labels[1],
+        ))
+        .unwrap();
+    store
+        .apply_command(make(
+            "ann-2",
+            "a2",
+            "com.example.shape/shape",
+            "{\"x\":2}",
+            &labels[1],
+        ))
+        .unwrap();
+    store
+        .apply_command(Command::CreateRelation {
+            id: Some("rel-0".to_owned()),
+            relation_type: "com.example.shape/link".to_owned(),
+            from_id: annotations[1].clone(),
+            to_id: annotations[2].clone(),
+            directed: None,
+            label_id: None,
+            attributes_json: None,
+            source: None,
+        })
+        .unwrap();
+    store
+        .apply_command(Command::CreateGroup {
+            id: Some("grp-0".to_owned()),
+            group_type: "com.example.shape/set".to_owned(),
+            ordered: None,
+            label_id: None,
+            attributes_json: None,
+            members: vec![annotations[1].clone(), annotations[2].clone()],
+            source: None,
+        })
+        .unwrap();
+    let seed = Seed {
+        assets: vec!["a1".to_owned(), "a2".to_owned()],
+        labels,
+        annotations,
+        relation: "rel-0".to_owned(),
+        group: "grp-0".to_owned(),
+    };
+    (dir, store, seed)
+}

@@ -46,6 +46,7 @@ function setup(
   const handlers = new Map<string, () => unknown>();
   const applied: Command[] = [];
   const notes: Array<[string, string]> = [];
+  const selected: string[] = [];
   provideLabelHandlers({
     commands: {
       provide(id, run) {
@@ -71,8 +72,9 @@ function setup(
     multiple: async () => false,
     providerOf: () => null,
     notify: (level, text) => notes.push([level, text]),
+    select: (id) => selected.push(id),
   });
-  return { handlers, applied, notes };
+  return { handlers, applied, notes, selected };
 }
 
 describe("core.label.pick1〜9", () => {
@@ -121,5 +123,21 @@ describe("core.label.pick1〜9", () => {
     const { handlers, notes } = setup({ fail: true });
     await handlers.get("core.label.pick1")?.();
     expect(notes[0]?.[0]).toBe("error");
+  });
+
+  it("キーで選んだラベルは、有効なラベルになる（非表示・割り当てなしは、ならない）", async () => {
+    const t = setup();
+    await t.handlers.get("core.label.pick1")?.();
+    expect(t.selected).toEqual(["l1"]);
+    await t.handlers.get("core.label.pick2")?.(); // 非表示
+    await t.handlers.get("core.label.pick5")?.(); // 割り当てなし
+    expect(t.selected).toEqual(["l1"]);
+  });
+
+  it("現在位置が無くても、有効なラベルは選べる（分類は付けない）", async () => {
+    const t = setup({ current: null });
+    await t.handlers.get("core.label.pick1")?.();
+    expect(t.selected).toEqual(["l1"]);
+    expect(t.applied).toEqual([]);
   });
 });

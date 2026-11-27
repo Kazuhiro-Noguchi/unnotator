@@ -15,6 +15,8 @@ export interface LabelCommandDeps {
   /** アイテムの提供元（アイテムの位置のとき）。分からなければ `null`。 */
   providerOf(mediaType: string | null): string | null;
   notify(level: NotifyLevel, text: string): void;
+  /** キーで選んだラベルを、有効なラベル（サイドバーの選択）にする。 */
+  select(labelId: string): void;
 }
 
 const REFUSAL: Record<
@@ -41,11 +43,15 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
 }
 
 async function pick(deps: LabelCommandDeps, key: number): Promise<void> {
+  const label = labelForKey(deps.data.labels(), key);
+  // キーで選んだラベルは、有効なラベルになる（拡張機能が、BBOX などを作るときに使う）。非表示は、選ばない。
+  // 現在位置が無くても、選べる。
+  if (label !== undefined && !label.hidden) deps.select(label.id);
   const current = deps.current.get();
-  // 現在位置が無いときは、何もしない（知らせもしない）。
+  // 現在位置が無いときは、分類は付けない（知らせもしない）。
   if (current === null) return;
   const result = classify({
-    label: labelForKey(deps.data.labels(), key),
+    label,
     current,
     details: deps.data.details(),
     provider: deps.providerOf(current.mediaType),

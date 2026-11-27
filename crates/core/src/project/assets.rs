@@ -212,6 +212,16 @@ impl ProjectStore {
         crate::query::page::annotations_page_for(&self.conn, asset_id, item_key, cursor)
     }
 
+    /// 属性スキーマを変えるときの影響の件数（読み取り。008）。
+    pub fn attribute_usage(
+        &self,
+        scope: crate::command::AttributeScope,
+        target: &str,
+        names: &[String],
+    ) -> Result<u32, StoreError> {
+        crate::query::usage::attribute_usage(&self.conn, scope, target, names)
+    }
+
     /// 一覧（読み取り）。
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)

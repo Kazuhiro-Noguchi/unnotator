@@ -260,5 +260,12 @@
   "groups.members": "メンバー",
   "groups.addMember": "メンバーを追加",
   "groups.removeMember": "メンバーを外す",
-  "groups.empty": "メンバーがありません。"
+  "groups.empty": "メンバーがありません。",
+  "schema.scope": "対象の種類",
+  "schema.target": "対象（種別 ID・媒体種別・提供元。空ですべて）",
+  "schema.delete": "スキーマを削除",
+  "schema.itemError.name": "名前を入力してください。",
+  "schema.itemError.duplicate": "同じ名前の属性があります。",
+  "schema.itemError.options": "選択肢を 1 つ以上、重複なしで入力してください。",
+  "schema.itemError.default": "既定値が型に合いません。"
 }

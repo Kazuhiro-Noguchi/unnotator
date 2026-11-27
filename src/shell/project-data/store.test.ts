@@ -78,6 +78,7 @@ function setup() {
       return details(assetId, notes[assetId] ?? null);
     },
     annotationsPage: async () => emptyPage,
+    attributeUsage: async () => 0,
     apply: async () => changeSet([]),
   };
   const current = createCurrentStore();

@@ -8,9 +8,11 @@ import {
   closeRequest,
   folderRequest,
   paletteOpen,
+  schemaOpen,
   setAboutOpen,
   setBackstageOpen,
   setPaletteOpen,
+  setSchemaOpen,
   setSettingsOpen,
   settingsOpen,
 } from "../ui-state";
@@ -19,6 +21,7 @@ import { Dialog } from "./Dialog";
 const Palette = lazy(() => import("./Palette"));
 const SettingsPage = lazy(() => import("./SettingsPage"));
 const Backstage = lazy(() => import("./Backstage"));
+const SchemaDialog = lazy(() => import("./SchemaDialog"));
 
 function FolderDialog() {
   const t = useT();
@@ -130,6 +133,9 @@ export function Overlays() {
         </Show>
         <Show when={backstageOpen()}>
           <Backstage onClose={() => setBackstageOpen(false)} />
+        </Show>
+        <Show when={schemaOpen()}>
+          <SchemaDialog onClose={() => setSchemaOpen(false)} />
         </Show>
         <Show when={settingsOpen()}>
           <SettingsPage onClose={() => setSettingsOpen(false)} />

@@ -78,6 +78,7 @@ function mount(fail = false) {
   let details: TargetDetails | null = null;
   const data: PropertiesProps["data"] = {
     labels: () => [label],
+    schemas: () => [],
     details: () => details,
     error: () => null,
     subscribe: (listener) => {

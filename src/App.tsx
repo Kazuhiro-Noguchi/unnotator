@@ -32,6 +32,7 @@ import { reportProblem } from "./shell/problems";
 import { projectData } from "./shell/project-data/instance";
 import { provideEditCommands } from "./shell/properties/instance";
 import { Ribbon } from "./shell/ribbon/Ribbon";
+import { provideSchemaCommands } from "./shell/schema/instance";
 import {
   commands as commandRegistry,
   ctx,
@@ -145,6 +146,7 @@ provideCoreHandlers({
 provideExplorerCommands(commandRegistry, notify);
 provideLabelCommands(commandRegistry, notify);
 provideEditCommands(commandRegistry, notify);
+provideSchemaCommands(commandRegistry);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");

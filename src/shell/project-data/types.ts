@@ -4,6 +4,7 @@ export type {
   AnnotationPage_Serialize as AnnotationPage,
   AnnotationRow_Serialize as AnnotationRow,
   AssetDetails_Serialize as AssetDetails,
+  AttributeScope,
   ChangeSet,
   Command,
   GroupRow_Serialize as GroupRow,

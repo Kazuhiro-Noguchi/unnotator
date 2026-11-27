@@ -4,6 +4,7 @@ import type { CurrentTarget } from "../explorer/types";
 import type {
   AnnotationCursor,
   AnnotationPage,
+  AttributeScope,
   ChangeSet,
   Command,
   LabelRow,
@@ -24,6 +25,12 @@ export interface ProjectDataIpc {
     itemKey: string | null,
     cursor: AnnotationCursor | null,
   ): Promise<AnnotationPage>;
+  /** 属性スキーマを変えるときの、値が入っているものの件数。 */
+  attributeUsage(
+    scope: AttributeScope,
+    target: string,
+    names: string[],
+  ): Promise<number>;
   /** 書き込みは `apply_command` だけ（憲章 III）。 */
   apply(command: Command): Promise<ChangeSet>;
 }
@@ -52,6 +59,11 @@ export interface ProjectData {
   reset(): void;
   apply(command: Command): Promise<ChangeSet>;
   annotationsPage(cursor: AnnotationCursor | null): Promise<AnnotationPage>;
+  attributeUsage(
+    scope: AttributeScope,
+    target: string,
+    names: string[],
+  ): Promise<number>;
   dispose(): void;
 }
 
@@ -147,6 +159,8 @@ export function createProjectData(deps: ProjectDataDeps): ProjectData {
       if (target === null) return Promise.resolve({ rows: [], next: null });
       return deps.ipc.annotationsPage(target.assetId, target.itemKey, cursor);
     },
+    attributeUsage: (scope, target, names) =>
+      deps.ipc.attributeUsage(scope, target, names),
     dispose() {
       offCurrent();
       offChanged();

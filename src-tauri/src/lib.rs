@@ -70,6 +70,7 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             query_commands::schemas_list,
             query_commands::target_details,
             query_commands::annotations_page,
+            query_commands::attribute_usage,
             asset_commands::asset_list,
             asset_commands::asset_get,
             asset_commands::asset_scan,

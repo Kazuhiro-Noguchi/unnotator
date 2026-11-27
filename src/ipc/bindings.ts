@@ -49,6 +49,7 @@ export const commands = {
 	schemasList: (options?: InvokeOptions) => __TAURI_INVOKE<SchemaRow[]>("schemas_list", undefined, options),
 	targetDetails: (assetId: string, itemKey: string | null, options?: InvokeOptions) => __TAURI_INVOKE<TargetDetails_Serialize>("target_details", { assetId, itemKey }, options),
 	annotationsPage: (assetId: string, itemKey: string | null, cursor: AnnotationCursor | null, options?: InvokeOptions) => __TAURI_INVOKE<AnnotationPage_Serialize>("annotations_page", { assetId, itemKey, cursor }, options),
+	attributeUsage: (scope: AttributeScope, target: string, names: string[], options?: InvokeOptions) => __TAURI_INVOKE<number>("attribute_usage", { scope, target, names }, options),
 	assetList: (filter: AssetFilter_Deserialize, page: Page_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AssetPage_Serialize>("asset_list", { filter, page }, options),
 	assetGet: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<AssetRow_Serialize | null>("asset_get", { assetId }, options),
 	assetScan: (scope: ScanScope | null, options?: InvokeOptions) => __TAURI_INVOKE<ScanSummary>("asset_scan", { scope }, options),

@@ -7,3 +7,4 @@ pub mod labels;
 pub mod page;
 pub mod schemas;
 pub mod target;
+pub mod usage;

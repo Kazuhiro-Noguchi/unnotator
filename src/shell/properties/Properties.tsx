@@ -4,6 +4,9 @@ import type { Status } from "../../ipc";
 import type { CurrentTarget } from "../explorer/types";
 import type { ProjectData } from "../project-data/store";
 import type { AnnotationRow, Command } from "../project-data/types";
+import { AttributeForm } from "../schema/AttributeForm";
+import { type Attributes, parseAttributes } from "../schema/attributes";
+import { deriveForm } from "../schema/derive-form";
 import { fromStore, useT } from "../solid";
 import type { NotifyLevel } from "../types";
 import { AnnotationList } from "./AnnotationList";
@@ -17,7 +20,13 @@ const STATUSES: Status[] = ["todo", "in_progress", "done", "review"];
 export interface PropertiesProps {
   data: Pick<
     ProjectData,
-    "labels" | "details" | "error" | "subscribe" | "apply" | "annotationsPage"
+    | "labels"
+    | "schemas"
+    | "details"
+    | "error"
+    | "subscribe"
+    | "apply"
+    | "annotationsPage"
   >;
   current: {
     get(): CurrentTarget | null;
@@ -38,6 +47,10 @@ export function Properties(props: PropertiesProps) {
   );
   const labels = fromStore(
     () => props.data.labels(),
+    (l) => props.data.subscribe(l),
+  );
+  const schemas = fromStore(
+    () => props.data.schemas(),
     (l) => props.data.subscribe(l),
   );
   const error = fromStore(
@@ -137,6 +150,72 @@ export function Properties(props: PropertiesProps) {
     }).then(() => props.drafts.committed("note"));
   };
 
+  const assetFields = () => {
+    const d = details();
+    if (d === null) return [];
+    return deriveForm(
+      schemas(),
+      d.item
+        ? { kind: "item", provider: d.item.provider }
+        : { kind: "asset", mediaType: d.asset.media_type },
+    );
+  };
+  const assetAttributes = (): Attributes => {
+    const d = details();
+    return d === null
+      ? {}
+      : parseAttributes((d.item ?? d.asset).attributes_json);
+  };
+  const commitAssetAttributes = (next: Attributes) => {
+    const d = details();
+    if (d === null) return;
+    const attributes_json = JSON.stringify(next);
+    void run(
+      d.item
+        ? {
+            kind: "set_item_attributes",
+            item: {
+              asset_id: d.asset.id,
+              item_key: d.item.item_key,
+              provider: d.item.provider,
+            },
+            attributes_json,
+          }
+        : {
+            kind: "set_asset_attributes",
+            asset_id: d.asset.id,
+            attributes_json,
+          },
+    );
+  };
+  /** 選んでいるアノテーションが 1 つのとき、その属性フォーム。 */
+  const chosen = () => {
+    const ids = selected();
+    if (ids.size !== 1) return null;
+    return rows().find((r) => ids.has(r.id)) ?? null;
+  };
+  const chosenFields = () => {
+    const row = chosen();
+    return row === null
+      ? []
+      : deriveForm(schemas(), {
+          kind: "annotation",
+          type: row.type,
+          labelId: row.label_id,
+        });
+  };
+  const commitChosen = (next: Attributes) => {
+    const row = chosen();
+    if (row === null) return;
+    void run({
+      kind: "update_annotation",
+      id: row.id,
+      patch: {
+        attributes_json: { kind: "set", value: JSON.stringify(next) },
+      },
+    });
+  };
+
   const resolve = (choice: "apply" | "discard") => {
     const draft = props.drafts.resolvePending(choice);
     if (draft !== null) for (const c of draftCommands(draft)) void run(c);
@@ -228,6 +307,16 @@ export function Properties(props: PropertiesProps) {
                   </label>
                 </Show>
               </section>
+              <Show when={assetFields().length > 0}>
+                <section class="prop-section">
+                  <h3>{t("properties.section.attributes")}</h3>
+                  <AttributeForm
+                    fields={assetFields()}
+                    attributes={assetAttributes()}
+                    onCommit={commitAssetAttributes}
+                  />
+                </section>
+              </Show>
               <section class="prop-section">
                 <h3>{t("properties.classification")}</h3>
                 <Show
@@ -272,6 +361,15 @@ export function Properties(props: PropertiesProps) {
                   }
                   onDelete={(id) => void run({ kind: "delete_annotation", id })}
                 />
+                <Show when={chosen() !== null && chosenFields().length > 0}>
+                  <AttributeForm
+                    fields={chosenFields()}
+                    attributes={parseAttributes(
+                      chosen()?.attributes_json ?? "{}",
+                    )}
+                    onCommit={commitChosen}
+                  />
+                </Show>
               </section>
             </>
           )}

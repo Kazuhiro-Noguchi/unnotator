@@ -260,5 +260,12 @@
   "groups.members": "Members",
   "groups.addMember": "Add member",
   "groups.removeMember": "Remove member",
-  "groups.empty": "No members."
+  "groups.empty": "No members.",
+  "schema.scope": "Kind of target",
+  "schema.target": "Target (type ID, media type or provider; empty for all)",
+  "schema.delete": "Delete schema",
+  "schema.itemError.name": "Enter a name.",
+  "schema.itemError.duplicate": "An attribute with this name already exists.",
+  "schema.itemError.options": "Enter one or more unique options.",
+  "schema.itemError.default": "The default does not match the type."
 }

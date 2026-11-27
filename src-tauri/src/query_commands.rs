@@ -2,6 +2,7 @@
 //!
 //! 位置の指定（selector）は返さない。書き込みは `apply_command` だけ。
 
+use unnotator_core::command::AttributeScope;
 use unnotator_core::query::labels::LabelRow;
 use unnotator_core::query::page::{AnnotationCursor, AnnotationPage};
 use unnotator_core::query::schemas::SchemaRow;
@@ -36,6 +37,26 @@ pub fn page(
     with_store(state, |store| {
         store.annotations_page(asset_id, item_key, cursor)
     })
+}
+
+pub fn usage(
+    state: &ProjectState,
+    scope: AttributeScope,
+    target: &str,
+    names: &[String],
+) -> Result<u32, IpcError> {
+    with_store(state, |store| store.attribute_usage(scope, target, names))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn attribute_usage(
+    state: tauri::State<'_, ProjectState>,
+    scope: AttributeScope,
+    target: String,
+    names: Vec<String>,
+) -> Result<u32, IpcError> {
+    usage(&state, scope, &target, &names)
 }
 
 #[tauri::command(async)]
@@ -82,5 +103,6 @@ mod tests {
         assert!(schemas(&state).is_err());
         assert!(details(&state, "a", None).is_err());
         assert!(page(&state, "a", None, None).is_err());
+        assert!(usage(&state, AttributeScope::Global, "", &[]).is_err());
     }
 }

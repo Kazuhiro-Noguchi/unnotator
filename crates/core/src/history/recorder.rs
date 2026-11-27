@@ -263,6 +263,79 @@ pub fn apply_redo(conn: &Connection, ops: &[RowOp]) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// 保存済みのファイル（`project.db`）へ、走査の結果だけを書く。
+/// 作業用の複製にだけある利用者の未保存の編集を巻き込まないため、行ごと書き戻さず、
+/// 前後で変わった列だけを更新する。追加は、すでにあれば何もしない。削除は扱わない。
+pub fn apply_changed_columns(conn: &Connection, ops: &[RowOp]) -> Result<(), StoreError> {
+    for op in ops {
+        let def = def(op.table)?;
+        match (&op.before, &op.after) {
+            (None, Some(after)) => insert_row_or_ignore(conn, def, after)?,
+            (Some(before), Some(after)) => update_changed(conn, def, before, after)?,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn insert_row_or_ignore(conn: &Connection, def: &TableDef, row: &Row) -> Result<(), StoreError> {
+    if row.len() != def.columns.len() {
+        return Err(StoreError::InvalidCommand(format!(
+            "{} の列の数が合わない",
+            def.name
+        )));
+    }
+    let placeholders = (1..=def.columns.len())
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "INSERT OR IGNORE INTO {} ({}) VALUES ({placeholders})",
+        def.name,
+        def.columns.join(", ")
+    );
+    conn.prepare_cached(&sql)?
+        .execute(params_from_iter(row.iter()))?;
+    Ok(())
+}
+
+fn update_changed(
+    conn: &Connection,
+    def: &TableDef,
+    before: &Row,
+    after: &Row,
+) -> Result<(), StoreError> {
+    let pk_indexes = def.pk_indexes();
+    let changed: Vec<usize> = (0..def.columns.len())
+        .filter(|i| !pk_indexes.contains(i) && before.get(*i) != after.get(*i))
+        .collect();
+    if changed.is_empty() {
+        return Ok(());
+    }
+    let sets = changed
+        .iter()
+        .enumerate()
+        .map(|(n, &i)| format!("{} = ?{}", def.columns[i], n + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let offset = changed.len();
+    let wheres = def
+        .pk
+        .iter()
+        .enumerate()
+        .map(|(n, column)| format!("{column} = ?{}", offset + n + 1))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let sql = format!("UPDATE {} SET {sets} WHERE {wheres}", def.name);
+    let values = changed
+        .iter()
+        .map(|&i| &after[i])
+        .chain(pk_indexes.iter().map(|&i| &after[i]));
+    conn.prepare_cached(&sql)?
+        .execute(params_from_iter(values))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -298,11 +298,11 @@ fn large_differences_are_applied_in_bounded_chunks() {
     });
     let summary = store.scan(ScanScope::Full).unwrap();
     assert_eq!(summary.added, 95);
-    let syncs = journal_entries(dir.path())
-        .into_iter()
-        .filter(|e| e.1 == "sync")
-        .count();
-    assert_eq!(syncs, 10, "95 行は 10 行ずつ 10 回に分かれる");
+    assert!(journal_entries(dir.path()).is_empty(), "変更履歴に入れない");
+    assert_eq!(
+        support::count(&support::read_saved_conn(dir.path()), "assets"),
+        95
+    );
     assert_eq!(read_assets(dir.path()).len(), 95);
 }
 
@@ -395,4 +395,103 @@ fn list_assets_filters_and_pages_by_cursor() {
         )
         .unwrap();
     assert!(missing.items.is_empty());
+}
+
+// ---- 走査はプロジェクトの内部の扱い: 編集履歴・未保存に入れず、project.db の表だけを更新する ----
+
+fn saved_asset(dir: &TempDir, rel_path: &str) -> (String, i64, i64) {
+    let conn = support::read_saved_conn(dir.path());
+    conn.query_row(
+        "SELECT status, file_size, missing FROM assets WHERE rel_path = ?1",
+        [rel_path],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_scan_updates_project_db_but_is_neither_journaled_nor_unsaved() {
+    let (dir, mut store) = opened(&[("a.txt", "abc"), ("b.txt", "d")]);
+
+    store.scan(ScanScope::Full).unwrap();
+
+    assert_eq!(
+        support::count(&support::read_saved_conn(dir.path()), "assets"),
+        2
+    );
+    assert!(journal_entries(dir.path()).is_empty(), "編集履歴に入れない");
+    let state = store.save_state();
+    assert!(!state.dirty && state.unsaved_count == 0 && state.last_change_at.is_none());
+}
+
+#[test]
+fn a_scan_never_saves_the_users_unsaved_edits() {
+    let (dir, mut store) = opened(&[("a.txt", "abc")]);
+    store.scan(ScanScope::Full).unwrap();
+    let id = read_assets(dir.path())[0].id.clone();
+    store
+        .apply_command(Command::SetAssetStatus {
+            asset_id: id,
+            status: Status::Done,
+        })
+        .unwrap();
+    store.apply_command(support::create_label("L")).unwrap();
+
+    // ファイルが変わって、2 回目の走査が差分を書く
+    write_file(dir.path(), "a.txt", b"longer content");
+    touch(dir.path(), "a.txt", 1_700_000_100_000);
+    write_file(dir.path(), "new.txt", b"n");
+    store.scan(ScanScope::Full).unwrap();
+
+    let (status, size, _) = saved_asset(&dir, "a.txt");
+    assert_eq!(size, 14, "走査の結果（サイズ）は project.db に入る");
+    assert_eq!(status, "todo", "利用者の未保存の編集（状態）は入らない");
+    assert_eq!(saved_asset(&dir, "new.txt").0, "todo");
+    let saved = support::read_saved_conn(dir.path());
+    assert_eq!(support::count(&saved, "labels"), 0, "ラベルも入らない");
+    // 作業用の複製には両方ある
+    let working = support::read_conn(dir.path());
+    assert_eq!(support::count(&working, "labels"), 1);
+    let state = store.save_state();
+    assert!(state.dirty);
+    assert_eq!(state.unsaved_count, 2, "利用者の編集 2 件だけ");
+    assert_eq!(journal_entries(dir.path()).len(), 2);
+}
+
+#[test]
+fn files_that_go_missing_are_marked_in_project_db_too() {
+    let (dir, mut store) = opened(&[("a.txt", "abc")]);
+    store.scan(ScanScope::Full).unwrap();
+
+    support::remove_file(dir.path(), "a.txt");
+    store.scan(ScanScope::Full).unwrap();
+
+    assert_eq!(saved_asset(&dir, "a.txt").2, 1);
+    assert!(!store.save_state().dirty);
+}
+
+#[test]
+fn closing_after_a_scan_alone_asks_nothing_and_keeps_the_assets() {
+    let (dir, mut store) = opened(&[("a.txt", "abc")]);
+    store.scan(ScanScope::Full).unwrap();
+
+    store.close(None).unwrap();
+
+    assert_eq!(
+        support::count(&support::read_saved_conn(dir.path()), "assets"),
+        1
+    );
+}
+
+#[test]
+fn a_later_save_keeps_the_scan_results() {
+    let (dir, mut store) = opened(&[("a.txt", "abc")]);
+    store.scan(ScanScope::Full).unwrap();
+    store.apply_command(support::create_label("L")).unwrap();
+
+    store.save().unwrap();
+
+    let saved = support::read_saved_conn(dir.path());
+    assert_eq!(support::count(&saved, "assets"), 1);
+    assert_eq!(support::count(&saved, "labels"), 1);
 }

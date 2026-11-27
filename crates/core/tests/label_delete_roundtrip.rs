@@ -22,7 +22,11 @@ fn round_trip(command: Command) {
     let applied = snapshot(&read_conn(dir.path()));
     assert_ne!(before, applied);
     store.undo().unwrap().expect("undo できる");
-    assert_eq!(snapshot(&read_conn(dir.path())), before, "undo で完全に戻る");
+    assert_eq!(
+        snapshot(&read_conn(dir.path())),
+        before,
+        "undo で完全に戻る"
+    );
     store.redo().unwrap().expect("redo できる");
     assert_eq!(snapshot(&read_conn(dir.path())), applied, "redo で再び入る");
 }

@@ -452,6 +452,27 @@ fn scenarios() -> Vec<Scenario> {
             },
         },
         Scenario {
+            command: "set_asset_note",
+            prepare: |_| Command::SetAssetNote {
+                asset_id: "a1".into(),
+                note: Some("memo".into()),
+            },
+        },
+        Scenario {
+            command: "set_asset_attributes",
+            prepare: |_| Command::SetAssetAttributes {
+                asset_id: "a1".into(),
+                attributes_json: "{\"k\":1}".into(),
+            },
+        },
+        Scenario {
+            command: "set_item_attributes",
+            prepare: |_| Command::SetItemAttributes {
+                item: item(),
+                attributes_json: "{\"k\":1}".into(),
+            },
+        },
+        Scenario {
             command: "transaction",
             prepare: |_| Command::Transaction {
                 commands: vec![

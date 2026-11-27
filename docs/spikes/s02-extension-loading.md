@@ -1,7 +1,7 @@
 # S-02 検証: 拡張機能の動的 import・Shadow DOM・拡張機能間 API・CSP
 
 Beads: `unno-5da`。実施日 2026-11-27。環境: macOS（WKWebView）、開発ビルド（`pnpm tauri dev`）。
-**Windows（WebView2）と Linux（WebKitGTK）は未実施**（下の「再実行」を人が実機で行う）。
+Windows（WebView2）と Linux（WebKitGTK）は 2026-11-28 に実施済み（下の「Windows の結果」「Linux の結果」）。
 
 ## 方法
 
@@ -36,6 +36,48 @@ VITE_S02_PROD_CSP=1 VITE_S02_DIR=$PWD/scripts/spikes/s02 pnpm tauri dev
 | 6a | 拡張機能の JS が `window.__TAURI_INTERNALS__.invoke(...)` で Rust のコマンドを直接呼べるか | **呼べる**（`withGlobalTauri: false` でも `__TAURI_INTERNALS__` は見える）。`devmode_get` が通った |
 | 6b | 外部への `fetch` | 製品の CSP で**ブロック**された（`connect-src`） |
 
+## Windows の結果（WebView2、2026-11-28）
+
+環境: Windows 11、開発ビルド（`pnpm tauri dev`）、URL は `http://unno.localhost/ext/<id>/…`。ブランチ `spike/s02-windows-iframe`（`view-module.*` のフィクスチャを足し、枠の中から Rust の IPC が届くかの検査 4i を足した）。
+
+| # | Windows の結果 | macOS との違い |
+| --- | --- | --- |
+| 1・1b | `import()` 成功（初回 5 ms、2 回目 0 ms）。相対 import も可 | 同じ |
+| 2 | 拡張機能間 API 成功 | 同じ |
+| 3a〜3e | `<style>` 本文 不可、`adoptedStyleSheets` 可、`<link>` 不可、`fetch` → `adoptedStyleSheets` 可、外へ漏れない | 同じ |
+| 4m `view.html`（`sandbox="allow-scripts"`、CSP は `script-src 'self'` のまま） | 往復 OK。origin は `http://unno.localhost`、親の DOM は `SecurityError` | **違う**: macOS では `'self'` だと動かず、CSP の変更が要った。Windows では `http://unno.localhost` の `'self'` が一致して動く |
+| 4m `view-module.html`（ES Module） | OK。`module: true`、`localStorage` は `SecurityError`、`fetch` は blocked | 同じ（CSP を変えた macOS の結果と） |
+| 4a・4b（`allow-same-origin` の有無） | 往復 OK、インライン script は止まる | 同じ |
+| **4i** 枠の中から `__TAURI_INTERNALS__.invoke`（`plugin:event|emit`）が Rust に届くか | **届かなかった**。ただし、枠の中に `__TAURI_INTERNALS__` の**オブジェクトは存在する**（`hasTauriInternals: true`）。`invoke` は応答が戻らず、タイムアウトする。本体が `listen` している副作用のイベントは、受信されなかった | **違う**: macOS では、オブジェクト自体が枠に無い。Windows では、あるが、Rust に届かない |
+| 5a・5b | `import` 時の例外・構文エラーを捕捉 | 同じ |
+| 5c | `setTimeout` 内の例外が `Uncaught Error: … @ http://unno.localhost/ext/dev.spike.bad/dist/index.js:2` と、**出所の URL つきで来る**（帰属できる） | **違う（良い差）**: macOS では出所なし |
+| 6 | 本体の JS からの `invoke` は通る（`enabled: true`）。外部通信は blocked | 同じ |
+
+**009 への入力**:
+- 枠の中に `__TAURI_INTERNALS__` が見える OS がある。Rust に届かないことは確認できたが、**この挙動を前提にしない**。枠の起動用コード（`packages/frame-runtime`）が、拡張機能のコードを読み込む前に `__TAURI_INTERNALS__` を消す（または触れなくする）対策を、念のため入れる。また、009 の敵対的なテストに、「枠の中から副作用のある IPC を呼んでも届かない」検査（本体の `listen` で受信を数える方式）を含める。
+- `view.html` の CSP は、`script-src unno: http://unno.localhost`（plan どおり）で、macOS・Windows の両方で動く。
+- 非同期の例外の帰属は、macOS では難しいが Windows では可能。仕様は「枠ごとに帰属する」ので、どちらでも成り立つ。
+
+## Linux の結果（WebKitGTK、2026-11-28）
+
+環境: Ubuntu（GNOME）、開発ビルド（`pnpm tauri dev`）、URL は `unno://localhost/ext/<id>/…`。Windows と同じブランチ（`spike/s02-windows-iframe`）。EXT_HTML_CSP は変えていない（`script-src 'self'`）。
+
+**macOS（WebKit）とほぼ同じ**。違いは、下の 1 点だけ。
+
+| # | Linux の結果 | macOS との違い |
+| --- | --- | --- |
+| 1・1b・2 | `import()` 成功（初回 1 ms、2 回目 0 ms）、拡張機能間 API 成功 | 同じ |
+| 3a〜3e | `<style>` 本文 不可、`adoptedStyleSheets` 可、`<link>` 不可、`fetch` → `adoptedStyleSheets` 可、外へ漏れない | 同じ |
+| 4m・4a（`sandbox="allow-scripts"`、`script-src 'self'` のまま） | **NG**（メッセージなし）。opaque origin では `'self'` が一致せず、枠の中のスクリプトが読めない | 同じ（macOS の 4 と同じ。CSP を `script-src unno: http://unno.localhost` に変える必要がある） |
+| 4a・4b（`allow-same-origin`） | 往復 OK、origin は `unno://localhost`、親の DOM は `SecurityError`、`hasTauriInternals: false`、インライン script は止まる | 同じ |
+| 4b（`allow-scripts`） | インライン script は止まる | 同じ |
+| **4i** | 届かなかった（安全）。枠の中に `__TAURI_INTERNALS__` が**無い**（`invoke: no-internals`） | 同じ（Windows とは違う） |
+| 5a・5b | 例外・構文エラーを捕捉 | 同じ |
+| 5c | Promise の拒否は `stack=activate@unno://localhost/ext/dev.spike.bad/dist/index.js:3:27` で**帰属できる**。`setTimeout` 内の例外は `Script error. @ :0 stack=none` で**帰属できない** | 同じ |
+| 6 | 本体の JS からの `invoke` は通る（`enabled: true`）。外部通信は blocked | 同じ |
+
+**未確認（Linux・Windows とも）**: CSP を `script-src unno: http://unno.localhost` に変えたときの `sandbox="allow-scripts"` の動作（macOS では確認済み）。009 の T009 と T052 で、実機で確かめる。
+
 ## plan への入力（009）
 
 1. **読み込み**: `import(url)` でよい。CSP の変更は要らない。URL は `unno://localhost/ext/<id>/…`（Windows は `http://unno.localhost/ext/<id>/…`。`src/preview/url.ts` と同じ規則）。更新（開発者モードの再読込）では、URL に版やカウンターのクエリを付けてキャッシュを避ける必要がある（要確認）。
@@ -45,7 +87,7 @@ VITE_S02_PROD_CSP=1 VITE_S02_DIR=$PWD/scripts/spikes/s02 pnpm tauri dev
 4'. **権限の強制の限界（同じ JS 空間の場合）**: 拡張機能の JS は、ホストを通さずに `__TAURI_INTERNALS__.invoke` で Rust のコマンドを呼べる。Rust 側は、その呼び出しがどの拡張機能からかを知らない。したがって「権限はシェル（TS）と Rust の両方で確認する」（憲章 V）を成り立たせるには、拡張機能に代わってホストが送る呼び出しに拡張機能 ID を載せる設計が要るが、悪意ある拡張機能が ID を偽って直接呼ぶ経路は塞げない。設計書 5.1 の「同じ WebView の JS は完全には封じられない。権限は宣言と同意」と一致する。plan では、(a) 拡張機能のためのコマンド（`apply_command` など）に、`source`（拡張機能 ID）を必ず載せて journal に残す、(b) 直接呼びを検知・制限する案（拡張機能の読み込み前に `__TAURI_INTERNALS__` を隠す・差し替える。ただし、シェル自身の呼び出しと区別できるかを別に検証）を検討する。
 5. **例外の隔離**: ホストが拡張機能へ渡すコールバックと、拡張機能の登録したハンドラーはすべて `try/catch`（と `await` の拒否）で包む。`unhandledrejection` は `stack` の URL から拡張機能 ID を割り出して数える。`window.onerror` の `Script error.` は帰属できないので、アプリ全体の「不明」として記録するだけにする（拡張機能の自動無効の判定には使わない）。
 6. **外部通信**: 製品の CSP の `connect-src` が拡張機能の外部通信を止める。`network` 権限を許す設計にするなら、CSP を緩めずに済む方法（ホスト経由の `fetch`）が要る。憲章 V は外部通信を禁じているので、当面は `network` を実装しない。
-7. **未確認**: Windows・Linux、動作中の再読込（更新時のキャッシュ）、拡張機能のコードのスタックオーバーフロー・無限ループによる UI 停止（Worker に出さない限り防げない。仕様では「保証しない」と明記）。
+7. **未確認**: 動作中の再読込（更新時のキャッシュ）、拡張機能のコードのスタックオーバーフロー・無限ループによる UI 停止（Worker に出さない限り防げない。仕様では「保証しない」と明記）。
 
 ## 後始末
 

@@ -1414,7 +1414,7 @@ fieldset.ribbon-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 4px 4px 4px 2px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface-low);
@@ -1481,7 +1481,7 @@ fieldset.ribbon-group {
 .label-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 

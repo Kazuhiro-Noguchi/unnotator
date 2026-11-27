@@ -11,6 +11,7 @@ pub mod fsio;
 pub mod history;
 pub mod id;
 pub mod project;
+pub mod query;
 pub mod recovery;
 pub mod serve;
 pub mod settings;

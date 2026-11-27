@@ -152,6 +152,8 @@ export interface RibbonControl {
   iconOnly?: boolean;
   /** トグルの状態を表す when 式（真ならオン）。 */
   checked?: string;
+  /** トグルを、大きなアイコンで出す（`largeButton` と同じ形）。 */
+  large?: boolean;
   numberRange?: { min: number; max: number; step: number };
 }
 

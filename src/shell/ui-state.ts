@@ -5,6 +5,7 @@ export const [paletteOpen, setPaletteOpen] = createSignal(false);
 export const [settingsOpen, setSettingsOpen] = createSignal(false);
 export const [aboutOpen, setAboutOpen] = createSignal(false);
 export const [backstageOpen, setBackstageOpen] = createSignal(false);
+export const [schemaOpen, setSchemaOpen] = createSignal(false);
 
 export interface FolderRequest {
   title: string;

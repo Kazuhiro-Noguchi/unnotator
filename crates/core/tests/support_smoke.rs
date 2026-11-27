@@ -55,3 +55,30 @@ fn read_assets_returns_registered_rows() {
     assert!(!assets[0].missing);
     drop(store);
 }
+
+#[test]
+fn seeded_project_has_labels_annotations_relation_and_group() {
+    let (dir, _store, seed) = support::seeded_project();
+    let conn = support::read_conn(dir.path());
+    let count = |table: &str| -> i64 {
+        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap()
+    };
+    assert_eq!(count("labels"), 3);
+    assert_eq!(count("annotations"), 3);
+    assert_eq!(count("relations"), 1);
+    assert_eq!(count("annotation_groups"), 1);
+    assert_eq!(count("group_members"), 2);
+    // 分類と、拡張機能が無い種別（未対応になる）の両方がある
+    let kinds: Vec<String> = conn
+        .prepare("SELECT type FROM annotations ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(kinds.contains(&"core/classification".to_owned()));
+    assert!(kinds.contains(&"com.example.shape/shape".to_owned()));
+    assert_eq!(seed.labels.len(), 3);
+    assert_eq!(seed.assets, vec!["a1".to_owned(), "a2".to_owned()]);
+}

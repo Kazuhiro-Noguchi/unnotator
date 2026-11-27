@@ -183,6 +183,45 @@ impl ProjectStore {
         assets::item_statuses(&self.conn, asset_id)
     }
 
+    /// ラベルの一覧（読み取り。008）。
+    pub fn list_labels(&self) -> Result<Vec<crate::query::labels::LabelRow>, StoreError> {
+        crate::query::labels::list_labels(&self.conn)
+    }
+
+    /// 属性スキーマの一覧（読み取り。008）。
+    pub fn list_schemas(&self) -> Result<Vec<crate::query::schemas::SchemaRow>, StoreError> {
+        crate::query::schemas::list_schemas(&self.conn)
+    }
+
+    /// 現在位置の詳細（読み取り。008）。アセットが無いときは `None`。
+    pub fn target_details(
+        &self,
+        asset_id: &str,
+        item_key: Option<&str>,
+    ) -> Result<Option<crate::query::target::TargetDetails>, StoreError> {
+        crate::query::target::target_details(&self.conn, asset_id, item_key)
+    }
+
+    /// 現在位置のアノテーションの 1 ページ（読み取り。008）。
+    pub fn annotations_page(
+        &self,
+        asset_id: &str,
+        item_key: Option<&str>,
+        cursor: Option<&crate::query::page::AnnotationCursor>,
+    ) -> Result<crate::query::page::AnnotationPage, StoreError> {
+        crate::query::page::annotations_page_for(&self.conn, asset_id, item_key, cursor)
+    }
+
+    /// 属性スキーマを変えるときの影響の件数（読み取り。008）。
+    pub fn attribute_usage(
+        &self,
+        scope: crate::command::AttributeScope,
+        target: &str,
+        names: &[String],
+    ) -> Result<u32, StoreError> {
+        crate::query::usage::attribute_usage(&self.conn, scope, target, names)
+    }
+
     /// 一覧（読み取り）。
     pub fn list_assets(&self, filter: &AssetFilter, page: &Page) -> Result<AssetPage, StoreError> {
         assets::list_assets(&self.conn, filter, page)

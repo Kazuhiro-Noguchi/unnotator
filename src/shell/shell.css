@@ -48,6 +48,24 @@
   overflow: clip;
 }
 
+/* 見出しの右端には、そのビューの操作（アイコン）を出せる。 */
+.panel-header {
+  justify-content: space-between;
+}
+
+.panel-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
 .panel-header,
 .tab-strip {
   flex: none;
@@ -137,6 +155,11 @@
 
 .button:hover:not(:disabled) {
   background: var(--state-hover);
+}
+
+/* 塗りつぶしのボタンは、押せるあいだ色が変わらない（上の hover が、背景を透過に戻してしまうため）。 */
+.button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 88%, var(--color-fg));
 }
 
 /* アイランドの間の隙間。ふだんは見えず、触れたときだけ、真ん中に線が出る。 */
@@ -1375,4 +1398,472 @@ fieldset.ribbon-group {
 
 .tree-error {
   color: var(--color-danger);
+}
+
+/* ラベル（008）。色はラベル自身の値（swatch）だけ。ほかはテーマの変数。 */
+.labels-view {
+  /* カード同士の間隔。並べ替えの線の位置も、この値から決める。 */
+  --label-gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.label-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--label-gap, 4px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ラベルのカード。名前の行と、操作の行。編集・削除の確認は、カードの中に開く。 */
+.label-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 4px 4px 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-low);
+}
+
+.label-card:hover {
+  background: var(--color-surface-hover);
+}
+
+.label-card.hidden {
+  border-style: dashed;
+}
+
+.label-card.hidden .label-name {
+  color: var(--color-fg-disabled);
+}
+
+.label-card.hidden .label-pick {
+  cursor: default;
+}
+
+/* カードの中に開く編集フォーム・削除の確認は、枠を重ねず、区切り線だけで分ける。 */
+.label-card .label-form,
+.label-card .label-delete {
+  padding: 6px 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+/* 並べ替えのつかみ（ドラッグ）。 */
+.label-grip {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.label-grip:active {
+  cursor: grabbing;
+}
+
+.label-grip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* 選択中のカード。 */
+.label-card.selected {
+  border-color: var(--color-accent);
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+}
+
+.label-card.dragging {
+  opacity: 0.5;
+}
+
+/* 並べ替えの挿入位置: カードとカードの間（4px の余白）の中央に、横線を出す。 */
+.label-card {
+  position: relative;
+}
+
+.label-card.drop-before::before,
+.label-card.drop-end::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+/* 位置は、カードの内側の縁（枠線 1px の内側）から数える。余白（--label-gap）の中央に、2px の線を置く。 */
+.label-card.drop-before::before {
+  top: calc(var(--label-gap, 4px) / -2 - 2px);
+}
+
+.label-card.drop-end::after {
+  bottom: calc(var(--label-gap, 4px) / -2 - 2px);
+}
+
+.label-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.label-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--color-outline);
+  flex: none;
+}
+
+/* つかみとの間は 2px（行の間隔 4px から、2px 詰める）。 */
+.label-grip + .label-pick {
+  margin-left: -2px;
+}
+
+/* 色の丸・名前・キーをまとめた「選ぶ」ボタン（枠のない行）。 */
+.label-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.label-pick:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.label-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.label-key {
+  border: 1px solid var(--color-outline);
+  border-radius: 4px;
+  padding: 0 6px;
+  color: var(--color-fg-muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.label-empty {
+  color: var(--color-fg-muted);
+  margin: 0;
+  padding: 8px;
+}
+
+.label-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.label-hidden-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-errors {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--color-danger);
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* プロパティパネル（008）。 */
+.properties {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px;
+}
+
+.prop-section h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+}
+
+.prop-count {
+  font-weight: normal;
+}
+
+.prop-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.prop-grid dt {
+  color: var(--color-fg-muted);
+}
+
+.prop-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.prop-missing {
+  color: var(--color-danger);
+}
+
+.prop-empty {
+  margin: 0;
+  color: var(--color-fg-muted);
+}
+
+.draft-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-warning);
+  border-radius: 8px;
+}
+
+.annotation-list {
+  position: relative;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.annotation-body {
+  position: relative;
+}
+
+.annotation-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.annotation-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.annotation-item.selected {
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+}
+
+.annotation-item:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.annotation-item.unsupported .annotation-title {
+  color: var(--color-fg-muted);
+  font-style: italic;
+}
+
+.annotation-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-label {
+  max-width: 110px;
+}
+
+/* 属性フォーム・スキーマの編集（008）。 */
+.attribute-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attribute-field .field-hint {
+  color: var(--color-fg-muted);
+}
+
+.field-error {
+  color: var(--color-danger);
+}
+
+.schema-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 480px;
+}
+
+.schema-target {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.schema-props {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schema-prop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.schema-required {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 狭いサイドバーでは、操作を名前の下の行に回す。 */
+/* 操作は、名前と同じ行の右に、小さなアイコンのボタンで並べる。 */
+.label-actions {
+  display: flex;
+  margin-left: auto;
+  gap: 2px;
+}
+
+.label-delete {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-danger);
+  border-radius: 8px;
+}
+
+.link-list,
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.link-title {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.link-item .button {
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.member-list {
+  width: 100%;
+  padding-left: 12px;
+}
+
+.member-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.member-list li span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 破壊的な操作（削除）は、枠のない赤い文字で出す。 */
+.button.danger {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+  border-radius: 0;
+}
+
+.button.danger:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+/*
+ * 押せないボタンは、必ずグレーアウトする（見た目から、押せるかどうかが分かるように）。
+ * ボタンの種類（.primary・.icon-button・.danger など）ごとに、色や背景が決まっていても、押せないときは、この規則が勝つ
+ * （種類の名前を足した、詳しい書き方にしてあるため）。新しい種類を足したら、ここにも足す（button-disabled.test.ts が検査する）。
+ */
+.button:disabled,
+.button.primary:disabled,
+.button.icon-button:disabled,
+.button.danger:disabled {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-fg-disabled);
+  cursor: default;
+  text-decoration: none;
+}
+
+.button.icon-button:disabled {
+  border-color: transparent;
 }

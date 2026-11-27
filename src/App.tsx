@@ -16,6 +16,7 @@ import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
 import { isEditableTarget } from "./shell/keys/editable";
+import { provideLabelCommands } from "./shell/labels/instance";
 import { registerCoreViews } from "./shell/layout/core-views";
 import {
   bindProjectContext,
@@ -24,11 +25,15 @@ import {
 } from "./shell/layout/project-context";
 import { Shell } from "./shell/layout/Shell";
 import { normalizeLayout } from "./shell/layout/state";
+import { provideModeCommands } from "./shell/mode/instance";
 import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
 import { Overlays } from "./shell/overlays/Overlays";
 import { reportProblem } from "./shell/problems";
+import { projectData } from "./shell/project-data/instance";
+import { provideEditCommands } from "./shell/properties/instance";
 import { Ribbon } from "./shell/ribbon/Ribbon";
+import { provideSchemaCommands } from "./shell/schema/instance";
 import {
   commands as commandRegistry,
   ctx,
@@ -92,6 +97,7 @@ const actions = createProjectActions({
     await commands.projectClose(null);
     setProjectName(null);
     await explorer.close();
+    projectData.reset();
     await projectContext.setOpen(false);
   },
   save: async () => {
@@ -114,6 +120,7 @@ const actions = createProjectActions({
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
     await explorer.open(folder);
+    await projectData.refresh();
   },
   notify,
 });
@@ -138,6 +145,10 @@ provideCoreHandlers({
   openAbout: () => setAboutOpen(true),
 });
 provideExplorerCommands(commandRegistry, notify);
+provideLabelCommands(commandRegistry, notify);
+provideModeCommands(commandRegistry);
+provideEditCommands(commandRegistry, notify);
+provideSchemaCommands(commandRegistry);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");
@@ -153,6 +164,10 @@ if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
         enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
         measureExplorer: () =>
           import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
+        measureProperties: () =>
+          import("./shell/dev/measure-properties").then((m) =>
+            m.measureProperties(),
+          ),
       }),
     ),
   );

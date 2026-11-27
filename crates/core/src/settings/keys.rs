@@ -56,6 +56,12 @@ pub const CORE_KEYS: &[CoreKey] = &[
         kind: ValueKind::Bool,
         default_json: "true",
     },
+    // 分類ラベルを複数付けられるか（008）。false なら、付け替え。
+    CoreKey {
+        name: "core.classification.multiple",
+        kind: ValueKind::Bool,
+        default_json: "false",
+    },
     // 画面の設定（006）。利用者の設定（user 層）だけに置く。
     CoreKey {
         name: "ui.theme",
@@ -96,7 +102,7 @@ pub const CORE_KEYS: &[CoreKey] = &[
 ];
 
 /// コアの項目の名前の領域。この領域の知らない名前は、打ち間違いとして拒む。
-const CORE_NAMESPACES: &[&str] = &["assets.", "ui."];
+const CORE_NAMESPACES: &[&str] = &["assets.", "core.", "ui."];
 
 pub fn core_key(name: &str) -> Option<&'static CoreKey> {
     CORE_KEYS.iter().find(|k| k.name == name)
@@ -221,6 +227,19 @@ mod tests {
         assert!(validate("ui.explorer", &json!({"/p": ["a:b"]})).is_ok());
         let big = "x".repeat(1024 * 1024 + 1);
         assert!(validate("ui.explorer", &json!({ "/p": [big] })).is_err());
+    }
+
+    #[test]
+    fn classification_multiple_is_a_bool_defaulting_to_false() {
+        assert!(core_key("core.classification.multiple").is_some());
+        assert_eq!(
+            default_value("core.classification.multiple"),
+            Some(json!(false))
+        );
+        assert!(validate("core.classification.multiple", &json!(true)).is_ok());
+        assert!(validate("core.classification.multiple", &json!("yes")).is_err());
+        // `core.` の領域の打ち間違いは拒む。
+        assert!(validate("core.classification.multipl", &json!(true)).is_err());
     }
 
     #[test]

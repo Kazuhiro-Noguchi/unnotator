@@ -52,7 +52,9 @@ function ButtonControl(props: { control: RibbonControl; form: Form }) {
   const state = fromContext(ctx, () => ribbon.controlState(props.control));
   const [menu, setMenu] = createSignal<{ x: number; y: number } | null>(null);
   const large = () =>
-    props.control.kind === "largeButton" && props.form === "large";
+    (props.control.kind === "largeButton" ||
+      (props.control.kind === "toggle" && props.control.large === true)) &&
+    props.form === "large";
   const iconOnly = () =>
     props.form === "icon" || props.control.iconOnly === true;
   const label = () => commandTitle(props.control, language());

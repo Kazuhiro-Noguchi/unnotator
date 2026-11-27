@@ -43,6 +43,8 @@ fn the_core_key_table_has_the_documented_names_types_and_defaults() {
             "assets.externalRoots",
             "assets.followSymlinks",
             "assets.watch",
+            // 分類ラベルを複数付けられるか（008）。
+            "core.classification.multiple",
             // 画面の設定（006）。
             "ui.theme",
             "ui.language",

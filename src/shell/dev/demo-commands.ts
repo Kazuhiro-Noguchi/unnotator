@@ -13,6 +13,8 @@ export interface DemoDeps {
   enableItemDemo?: () => Promise<void>;
   /** エクスプローラーの画面側の計測を実行する（10 万件のプロジェクトを開いて使う）。 */
   measureExplorer?: () => Promise<string>;
+  /** プロパティパネルの計測を実行する（アセットを開いて使う）。 */
+  measureProperties?: () => Promise<string>;
 }
 
 export function installDemoCommands({
@@ -21,6 +23,7 @@ export function installDemoCommands({
   notify,
   enableItemDemo,
   measureExplorer,
+  measureProperties,
 }: DemoDeps): Disposable {
   // プロジェクトの状態を切り替えるデモのコマンド（パレットから実行する）。
   const declare = (
@@ -46,6 +49,17 @@ export function installDemoCommands({
       "Measure the explorer",
       () =>
         void measureExplorer()
+          .then((text) => notify("info", text))
+          .catch(() => notify("error", "measure failed")),
+    );
+  }
+  if (measureProperties) {
+    declare(
+      "dev.demo.measureProperties",
+      "プロパティを計測する",
+      "Measure the properties panel",
+      () =>
+        void measureProperties()
           .then((text) => notify("info", text))
           .catch(() => notify("error", "measure failed")),
     );

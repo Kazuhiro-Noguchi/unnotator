@@ -45,6 +45,11 @@ export const commands = {
 	redo: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet | null>("redo", undefined, options),
 	undoState: (options?: InvokeOptions) => __TAURI_INVOKE<UndoState>("undo_state", undefined, options),
 	labelUsage: (labelId: string, options?: InvokeOptions) => __TAURI_INVOKE<LabelUsage>("label_usage", { labelId }, options),
+	labelsList: (options?: InvokeOptions) => __TAURI_INVOKE<LabelRow_Serialize[]>("labels_list", undefined, options),
+	schemasList: (options?: InvokeOptions) => __TAURI_INVOKE<SchemaRow[]>("schemas_list", undefined, options),
+	targetDetails: (assetId: string, itemKey: string | null, options?: InvokeOptions) => __TAURI_INVOKE<TargetDetails_Serialize>("target_details", { assetId, itemKey }, options),
+	annotationsPage: (assetId: string, itemKey: string | null, cursor: AnnotationCursor | null, options?: InvokeOptions) => __TAURI_INVOKE<AnnotationPage_Serialize>("annotations_page", { assetId, itemKey, cursor }, options),
+	attributeUsage: (scope: AttributeScope, target: string, names: string[], options?: InvokeOptions) => __TAURI_INVOKE<number>("attribute_usage", { scope, target, names }, options),
 	assetList: (filter: AssetFilter_Deserialize, page: Page_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AssetPage_Serialize>("asset_list", { filter, page }, options),
 	assetGet: (assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<AssetRow_Serialize | null>("asset_get", { assetId }, options),
 	assetScan: (scope: ScanScope | null, options?: InvokeOptions) => __TAURI_INVOKE<ScanSummary>("asset_scan", { scope }, options),
@@ -83,6 +88,26 @@ export const events = {
 };
 
 /* Types */
+/**  続きの位置。直前のページの最後の行の `(z_order, id)`。 */
+export type AnnotationCursor = {
+	z_order: number,
+	id: string,
+};
+
+export type AnnotationPage = AnnotationPage_Serialize | AnnotationPage_Deserialize;
+
+export type AnnotationPage_Deserialize = {
+	rows: AnnotationRow_Deserialize[],
+	/**  続きがあるときだけ。 */
+	next?: AnnotationCursor | null,
+};
+
+export type AnnotationPage_Serialize = {
+	rows: AnnotationRow_Serialize[],
+	/**  続きがあるときだけ。 */
+	next: AnnotationCursor | null,
+};
+
 export type AnnotationPatch = AnnotationPatch_Serialize | AnnotationPatch_Deserialize;
 
 export type AnnotationPatch_Deserialize = {
@@ -103,6 +128,33 @@ export type AnnotationPatch_Serialize = {
 	z_order: Field<number>,
 };
 
+/**  `annotations` の 1 行（位置の指定 `selector_json` は含めない。コアは読まない）。 */
+export type AnnotationRow = AnnotationRow_Serialize | AnnotationRow_Deserialize;
+
+/**  `annotations` の 1 行（位置の指定 `selector_json` は含めない。コアは読まない）。 */
+export type AnnotationRow_Deserialize = {
+	id: string,
+	type: string,
+	type_version: number,
+	label_id?: string | null,
+	attributes_json: string,
+	summary: string,
+	z_order: number,
+	source: string,
+};
+
+/**  `annotations` の 1 行（位置の指定 `selector_json` は含めない。コアは読まない）。 */
+export type AnnotationRow_Serialize = {
+	id: string,
+	type: string,
+	type_version: number,
+	label_id: string | null,
+	attributes_json: string,
+	summary: string,
+	z_order: number,
+	source: string,
+};
+
 /**  アプリ名と版数（型付きの通路が往復することを示す見本）。 */
 export type AppInfo = {
 	name: string,
@@ -113,6 +165,30 @@ export type AppInfo = {
 export type AssetCursor = {
 	root_key: string,
 	rel_path: string,
+};
+
+export type AssetDetails = AssetDetails_Serialize | AssetDetails_Deserialize;
+
+export type AssetDetails_Deserialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type?: string | null,
+	missing: boolean,
+	status: Status,
+	note?: string | null,
+	attributes_json: string,
+};
+
+export type AssetDetails_Serialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type: string | null,
+	missing: boolean,
+	status: Status,
+	note: string | null,
+	attributes_json: string,
 };
 
 export type AssetFilter = AssetFilter_Serialize | AssetFilter_Deserialize;
@@ -253,6 +329,12 @@ id?: string | null; type: string; from_id: string; to_id: string; directed?: boo
 id?: string | null; type: string; ordered?: boolean | null; label_id?: string | null; attributes_json?: string | null; members?: string[]; source?: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Deserialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at?: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id?: string | null; name: string; name_i18n_json?: string | null; color: string; hotkey?: number | null; sort_order?: number | null; hidden?: boolean | null; applies_to_json?: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Deserialize } | { kind: "delete_label"; id: string; disposition?: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  アセットのメモ。`None` で空にする。 */
+{ kind: "set_asset_note"; asset_id: string; note?: string | null } | 
+/**  アセット単位の属性値（JSON オブジェクト。値の検証は、スキーマを知る画面が行う）。 */
+{ kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
+/**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
+{ kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -271,6 +353,12 @@ id: string | null; type: string; from_id: string; to_id: string; directed: boole
 id: string | null; type: string; ordered: boolean | null; label_id: string | null; attributes_json: string | null; members: string[]; source: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Serialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id: string | null; name: string; name_i18n_json: string | null; color: string; hotkey: number | null; sort_order: number | null; hidden: boolean | null; applies_to_json: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Serialize } | { kind: "delete_label"; id: string; disposition: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  アセットのメモ。`None` で空にする。 */
+{ kind: "set_asset_note"; asset_id: string; note: string | null } | 
+/**  アセット単位の属性値（JSON オブジェクト。値の検証は、スキーマを知る画面が行う）。 */
+{ kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
+/**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
+{ kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -403,6 +491,30 @@ export type GroupPatch_Serialize = {
 	attributes_json: Field<string>,
 };
 
+export type GroupRow = GroupRow_Serialize | GroupRow_Deserialize;
+
+export type GroupRow_Deserialize = {
+	id: string,
+	type: string,
+	ordered: boolean,
+	label_id?: string | null,
+	attributes_json: string,
+	source: string,
+	/**  `position` 順のアノテーション ID。 */
+	members: string[],
+};
+
+export type GroupRow_Serialize = {
+	id: string,
+	type: string,
+	ordered: boolean,
+	label_id: string | null,
+	attributes_json: string,
+	source: string,
+	/**  `position` 順のアノテーション ID。 */
+	members: string[],
+};
+
 export type InstallOutcomeDto = {
 	id: string,
 	version: string,
@@ -419,6 +531,15 @@ export type InstalledExtension = {
 export type IpcError = {
 	code: string,
 	message: string,
+};
+
+/**  アイテムの行（無ければ `None`。記録の無いアイテムは未着手として扱う）。 */
+export type ItemDetails = {
+	id: string,
+	item_key: string,
+	provider: string,
+	status: Status,
+	attributes_json: string,
 };
 
 /**  アイテム（アセットの分割単位）。行が無ければ、必要なコマンドが作る。 */
@@ -461,6 +582,33 @@ export type LabelPatch_Serialize = {
 	sort_order: Field<number>,
 	hidden: Field<boolean>,
 	applies_to_json: Field<string>,
+};
+
+/**  `labels` の 1 行。並びは `sort_order`、同じなら `name`。 */
+export type LabelRow = LabelRow_Serialize | LabelRow_Deserialize;
+
+/**  `labels` の 1 行。並びは `sort_order`、同じなら `name`。 */
+export type LabelRow_Deserialize = {
+	id: string,
+	name: string,
+	name_i18n_json: string,
+	color: string,
+	hotkey?: number | null,
+	sort_order: number,
+	hidden: boolean,
+	applies_to_json: string,
+};
+
+/**  `labels` の 1 行。並びは `sort_order`、同じなら `name`。 */
+export type LabelRow_Serialize = {
+	id: string,
+	name: string,
+	name_i18n_json: string,
+	color: string,
+	hotkey: number | null,
+	sort_order: number,
+	hidden: boolean,
+	applies_to_json: string,
 };
 
 /**  ラベルを使っているものの件数。 */
@@ -803,6 +951,30 @@ export type RelationPatch_Serialize = {
 	attributes_json: Field<string>,
 };
 
+export type RelationRow = RelationRow_Serialize | RelationRow_Deserialize;
+
+export type RelationRow_Deserialize = {
+	id: string,
+	type: string,
+	from_id: string,
+	to_id: string,
+	directed: boolean,
+	label_id?: string | null,
+	attributes_json: string,
+	source: string,
+};
+
+export type RelationRow_Serialize = {
+	id: string,
+	type: string,
+	from_id: string,
+	to_id: string,
+	directed: boolean,
+	label_id: string | null,
+	attributes_json: string,
+	source: string,
+};
+
 export type RelinkCandidate = {
 	missing_asset_id: string,
 	/**  新しい場所に、いまあるアセット。受け入れると取り除かれる。 */
@@ -891,6 +1063,13 @@ export type ScanSummary = {
 	complete: boolean,
 };
 
+/**  `attribute_schemas` の 1 行。並びは `scope`、`target`。 */
+export type SchemaRow = {
+	scope: string,
+	target: string,
+	schema_json: string,
+};
+
 export type SettingsChanged = {
 	layer: Layer,
 	keys: string[],
@@ -920,6 +1099,28 @@ export type Status = "todo" | "in_progress" | "done" | "review";
 
 /**  アノテーションの対象。 */
 export type Target = Target_Serialize | Target_Deserialize;
+
+export type TargetDetails = TargetDetails_Serialize | TargetDetails_Deserialize;
+
+export type TargetDetails_Deserialize = {
+	asset: AssetDetails_Deserialize,
+	item?: ItemDetails | null,
+	/**  現在位置の `core/classification`。 */
+	classification: AnnotationRow_Deserialize[],
+	annotation_count: number,
+	relations: RelationRow_Deserialize[],
+	groups: GroupRow_Deserialize[],
+};
+
+export type TargetDetails_Serialize = {
+	asset: AssetDetails_Serialize,
+	item: ItemDetails | null,
+	/**  現在位置の `core/classification`。 */
+	classification: AnnotationRow_Serialize[],
+	annotation_count: number,
+	relations: RelationRow_Serialize[],
+	groups: GroupRow_Serialize[],
+};
 
 /**  アノテーションの対象。 */
 export type Target_Deserialize = {

@@ -5,6 +5,7 @@ pub mod commands;
 pub mod extension_commands;
 pub mod open_commands;
 pub mod project_commands;
+pub mod query_commands;
 pub mod selftest;
 pub mod settings_commands;
 pub mod tree_commands;
@@ -65,6 +66,11 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::redo,
             project_commands::undo_state,
             project_commands::label_usage,
+            query_commands::labels_list,
+            query_commands::schemas_list,
+            query_commands::target_details,
+            query_commands::annotations_page,
+            query_commands::attribute_usage,
             asset_commands::asset_list,
             asset_commands::asset_get,
             asset_commands::asset_scan,

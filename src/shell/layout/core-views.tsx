@@ -1,5 +1,7 @@
 import type { MessageKey } from "../../i18n";
 import { ExplorerView } from "../explorer/ExplorerView";
+import { LabelsHeader, LabelsHost } from "../labels/LabelsHost";
+import { PropertiesHost } from "../properties/PropertiesHost";
 import { useT } from "../solid";
 import { EmptyState } from "./EmptyState";
 import { ProblemsView } from "./ProblemsView";
@@ -42,6 +44,9 @@ export function registerCoreViews(
       icon: meta.icon,
       location: meta.location,
       source: "core",
+      ...(meta.id === "labels"
+        ? { headerActions: () => <LabelsHeader /> }
+        : {}),
       render: () =>
         meta.id === "problems" ? (
           <ProblemsView />
@@ -49,6 +54,10 @@ export function registerCoreViews(
           <ExplorerView
             fallback={<CoreEmpty message={meta.empty} entry={entry} />}
           />
+        ) : meta.id === "labels" ? (
+          <LabelsHost fallback={<CoreEmpty message={meta.empty} />} />
+        ) : meta.id === "info" ? (
+          <PropertiesHost fallback={<CoreEmpty message={meta.empty} />} />
         ) : (
           <CoreEmpty message={meta.empty} />
         ),

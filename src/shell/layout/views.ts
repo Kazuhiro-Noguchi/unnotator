@@ -15,6 +15,8 @@ export interface ViewDef {
   location: ViewLocation;
   when?: string;
   render: () => JSX.Element;
+  /** サイドバーの見出しの右端に出す操作（アイコンのボタン）。 */
+  headerActions?: () => JSX.Element;
   source: string;
 }
 

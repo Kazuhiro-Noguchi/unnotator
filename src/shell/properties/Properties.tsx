@@ -147,11 +147,12 @@ export function Properties(props: PropertiesProps) {
     const d = details();
     const value = props.drafts.valueOf("note");
     if (d === null || value === undefined) return;
+    const owner = targetKeyOf(d.asset.id, d.item?.item_key ?? null);
     void run({
       kind: "set_asset_note",
       asset_id: d.asset.id,
       note: value === "" ? null : value,
-    }).then(() => props.drafts.committed("note"));
+    }).then(() => props.drafts.committed("note", owner));
   };
 
   const assetFields = () => {

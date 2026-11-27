@@ -97,4 +97,16 @@ describe("DraftStore（入力途中の値）", () => {
     d.edit("note", "", "x");
     expect(n).toBeGreaterThan(0);
   });
+
+  it("書き込み中に位置が変わっても、書き込みが済んだ欄は保留に残らない", () => {
+    const d = createDraftStore();
+    d.switchTo("a1");
+    d.edit("note", "", "x");
+    d.edit("k", "1", "2");
+    expect(d.switchTo("a2")).toBe("pending");
+    d.committed("note", "a1");
+    expect(d.pending()?.fields.map((f) => f.field)).toEqual(["k"]);
+    d.committed("k", "a1");
+    expect(d.pending()).toBeNull();
+  });
 });

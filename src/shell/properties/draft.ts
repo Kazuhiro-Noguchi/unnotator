@@ -24,8 +24,11 @@ export interface DraftStore {
   /** 下書きの値。無ければ `undefined`（元の値を使う）。 */
   valueOf(field: string): string | undefined;
   dirty(): boolean;
-  /** 書き込みが済んだ欄の下書きを消す。 */
-  committed(field: string): void;
+  /**
+   * 書き込みが済んだ欄の下書きを消す。`targetKey` は書き込み始めたときの位置。
+   * 書き込み中に位置が変わっていたら、保留に回った下書きから消す。
+   */
+  committed(field: string, targetKey?: string): void;
   /** いちばん古い保留。 */
   pending(): Draft | null;
   /** 保留を片づける。確定を選んだときは、その内容を返す（呼び出し側が書き込む）。 */
@@ -64,8 +67,17 @@ export function createDraftStore(): DraftStore {
     },
     valueOf: (field) => fields.get(field)?.value,
     dirty: () => fields.size > 0,
-    committed(field) {
-      if (fields.delete(field)) emit();
+    committed(field, owner) {
+      if (owner === undefined || owner === targetKey) {
+        if (fields.delete(field)) emit();
+        return;
+      }
+      const at = held.findIndex((d) => d.targetKey === owner);
+      const draft = held[at];
+      if (draft === undefined) return;
+      draft.fields = draft.fields.filter((f) => f.field !== field);
+      if (draft.fields.length === 0) held.splice(at, 1);
+      emit();
     },
     pending: () => held[0] ?? null,
     resolvePending(choice) {

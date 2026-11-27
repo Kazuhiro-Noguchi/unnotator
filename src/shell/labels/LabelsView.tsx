@@ -3,12 +3,13 @@ import { format } from "../../i18n";
 import type { ProjectData } from "../project-data/store";
 import type { LabelRow } from "../project-data/types";
 import { fromStore, useT } from "../solid";
+import type { NotifyLevel } from "../types";
 import { LabelForm } from "./LabelForm";
 import { filterLabels, nextSortOrder } from "./list";
 
 export interface LabelsViewProps {
   data: Pick<ProjectData, "labels" | "subscribe" | "apply">;
-  notify: (level: "error", text: string) => void;
+  notify: (level: NotifyLevel, text: string) => void;
 }
 
 /** サイドバー「ラベル」。一覧・絞り込み・追加。 */

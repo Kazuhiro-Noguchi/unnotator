@@ -30,6 +30,7 @@ import { Toasts } from "./shell/notify/Toasts";
 import { Overlays } from "./shell/overlays/Overlays";
 import { reportProblem } from "./shell/problems";
 import { projectData } from "./shell/project-data/instance";
+import { provideEditCommands } from "./shell/properties/instance";
 import { Ribbon } from "./shell/ribbon/Ribbon";
 import {
   commands as commandRegistry,
@@ -143,6 +144,7 @@ provideCoreHandlers({
 });
 provideExplorerCommands(commandRegistry, notify);
 provideLabelCommands(commandRegistry, notify);
+provideEditCommands(commandRegistry, notify);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");
@@ -158,6 +160,10 @@ if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
         enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
         measureExplorer: () =>
           import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
+        measureProperties: () =>
+          import("./shell/dev/measure-properties").then((m) =>
+            m.measureProperties(),
+          ),
       }),
     ),
   );

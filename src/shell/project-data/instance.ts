@@ -23,3 +23,13 @@ export const projectData = createProjectData({
     return () => void off.then((fn) => fn());
   },
 });
+
+/** 設定 `core.classification.multiple`（分類ラベルを複数付けられるか）。読めなければ単一。 */
+export async function readClassificationMultiple(): Promise<boolean> {
+  try {
+    const setting = await commands.settingsGet("core.classification.multiple");
+    return JSON.parse(setting.value_json) === true;
+  } catch {
+    return false;
+  }
+}

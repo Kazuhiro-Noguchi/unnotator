@@ -16,6 +16,7 @@ import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
 import { isEditableTarget } from "./shell/keys/editable";
+import { provideLabelCommands } from "./shell/labels/instance";
 import { registerCoreViews } from "./shell/layout/core-views";
 import {
   bindProjectContext,
@@ -141,6 +142,7 @@ provideCoreHandlers({
   openAbout: () => setAboutOpen(true),
 });
 provideExplorerCommands(commandRegistry, notify);
+provideLabelCommands(commandRegistry, notify);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");

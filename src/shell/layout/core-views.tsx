@@ -1,5 +1,6 @@
 import type { MessageKey } from "../../i18n";
 import { ExplorerView } from "../explorer/ExplorerView";
+import { LabelsHost } from "../labels/LabelsHost";
 import { useT } from "../solid";
 import { EmptyState } from "./EmptyState";
 import { ProblemsView } from "./ProblemsView";
@@ -49,6 +50,8 @@ export function registerCoreViews(
           <ExplorerView
             fallback={<CoreEmpty message={meta.empty} entry={entry} />}
           />
+        ) : meta.id === "labels" ? (
+          <LabelsHost fallback={<CoreEmpty message={meta.empty} />} />
         ) : (
           <CoreEmpty message={meta.empty} />
         ),

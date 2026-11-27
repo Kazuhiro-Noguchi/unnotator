@@ -78,14 +78,28 @@ export function LabelForm(props: LabelFormProps) {
           <For each={KEYS}>{(k) => <option value={String(k)}>{k}</option>}</For>
         </select>
       </label>
-      <label class="field label-hidden-field">
-        <input
-          type="checkbox"
-          checked={hidden()}
-          onChange={(event) => setHidden(event.currentTarget.checked)}
-        />
-        <span>{t("labels.field.hidden")}</span>
-      </label>
+      {/* 変更のときは、非表示の切り替えはカードの目のアイコンにあるので、その位置に「削除」を置く。 */}
+      <Show
+        when={props.onDelete}
+        fallback={
+          <label class="field label-hidden-field">
+            <input
+              type="checkbox"
+              checked={hidden()}
+              onChange={(event) => setHidden(event.currentTarget.checked)}
+            />
+            <span>{t("labels.field.hidden")}</span>
+          </label>
+        }
+      >
+        <button
+          type="button"
+          class="button danger"
+          onClick={() => props.onDelete?.()}
+        >
+          {t("labels.delete")}
+        </button>
+      </Show>
       <Show when={errors().length > 0}>
         <ul class="form-errors" role="alert">
           <For each={errors()}>{(error) => <li>{text(error)}</li>}</For>
@@ -98,15 +112,6 @@ export function LabelForm(props: LabelFormProps) {
         <button type="button" class="button" onClick={props.onCancel}>
           {t("labels.cancel")}
         </button>
-        <Show when={props.onDelete}>
-          <button
-            type="button"
-            class="button danger push-end"
-            onClick={() => props.onDelete?.()}
-          >
-            {t("labels.delete")}
-          </button>
-        </Show>
       </div>
     </form>
   );

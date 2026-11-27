@@ -1788,12 +1788,17 @@ fieldset.ribbon-group {
   text-overflow: ellipsis;
 }
 
-/* 破壊的な操作のボタン（削除）。フォームの右端に置く。 */
+/* 破壊的な操作（削除）は、枠のない赤い文字で出す。 */
 .button.danger {
-  border-color: var(--color-danger);
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-danger);
+  border-radius: 0;
 }
 
-.push-end {
-  margin-left: auto;
+.button.danger:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
 }

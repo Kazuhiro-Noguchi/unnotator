@@ -120,7 +120,7 @@ describe("LabelsView", () => {
     expect(root.querySelector(".label-form")).toBeNull();
   });
 
-  it("重複する名前・キーは、保存せずに理由を出す", async () => {
+  it("重複する名前は、保存せずに理由を出す", async () => {
     const { root, applied } = mount([row("1", "cat", 1)]);
     (
       root.querySelector(".labels-toolbar .button") as HTMLButtonElement
@@ -130,17 +130,24 @@ describe("LabelsView", () => {
       root.querySelector(".label-form input[type=text]") as HTMLInputElement,
       "cat",
     );
-    const select = root.querySelector(
-      ".label-form select",
-    ) as HTMLSelectElement;
-    select.value = "1";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
     (
       root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
     ).click();
     await flush();
     expect(applied).toEqual([]);
-    expect(root.querySelectorAll(".form-errors li")).toHaveLength(2);
+    expect(root.querySelectorAll(".form-errors li")).toHaveLength(1);
+  });
+
+  it("他のラベルが使っているショートカットキーは、選択肢に出さない", async () => {
+    const { root } = mount([row("1", "cat", 1), row("2", "dog", 3)]);
+    (
+      root.querySelector(".labels-toolbar .button") as HTMLButtonElement
+    ).click();
+    await flush();
+    const options = [
+      ...root.querySelectorAll<HTMLOptionElement>(".label-form select option"),
+    ].map((o) => o.value);
+    expect(options).toEqual(["", "2", "4", "5", "6", "7", "8", "9"]);
   });
 
   it("保存に失敗したら、エラーを知らせてフォームを残す", async () => {

@@ -30,6 +30,14 @@ export function LabelForm(props: LabelFormProps) {
   );
   const [hidden, setHidden] = createSignal(props.label?.hidden ?? false);
   const [errors, setErrors] = createSignal<LabelError[]>([]);
+  // 他のラベルが使っているキーは、選択肢に出さない（自分のキーは出す）。
+  const takenKeys = () =>
+    new Set(
+      props.labels
+        .filter((l) => l.id !== props.label?.id && l.hotkey !== null)
+        .map((l) => l.hotkey),
+    );
+  const freeKeys = () => KEYS.filter((k) => !takenKeys().has(k));
 
   const text = (error: LabelError): string => {
     const key = `labels.error.${error.code}` as MessageKey;
@@ -75,7 +83,9 @@ export function LabelForm(props: LabelFormProps) {
           }}
         >
           <option value="">{t("labels.hotkey.none")}</option>
-          <For each={KEYS}>{(k) => <option value={String(k)}>{k}</option>}</For>
+          <For each={freeKeys()}>
+            {(k) => <option value={String(k)}>{k}</option>}
+          </For>
         </select>
       </label>
       {/* 変更のときは、非表示の切り替えはカードの目のアイコンにあるので、その位置に「削除」を置く。 */}

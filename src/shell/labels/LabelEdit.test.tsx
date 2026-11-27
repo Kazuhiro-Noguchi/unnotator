@@ -106,23 +106,21 @@ describe("ラベルの編集・並べ替え・削除", () => {
     ]);
   });
 
-  it("他のラベルが使っているショートカットキーは、保存せずに拒む", async () => {
-    const { root, applied } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
+  it("編集では、自分のキーは選べて、他のラベルのキーは選択肢に出ない", async () => {
+    const { root } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
     [...itemButtons(root, "dog")]
       .find((b) => b.getAttribute("aria-label") === t("labels.edit"))
       ?.click();
     await flush();
+    const options = [
+      ...root.querySelectorAll<HTMLOptionElement>(".label-form select option"),
+    ].map((o) => o.value);
+    expect(options).toContain("2");
+    expect(options).not.toContain("1");
     const select = root.querySelector(
       ".label-form select",
     ) as HTMLSelectElement;
-    select.value = "1";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    (
-      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
-    ).click();
-    await flush();
-    expect(applied).toEqual([]);
-    expect(root.querySelector(".form-errors")?.textContent).toContain("cat");
+    expect(select.value).toBe("2");
   });
 
   const swapped = {

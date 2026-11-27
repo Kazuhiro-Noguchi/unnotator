@@ -139,6 +139,11 @@
   background: var(--state-hover);
 }
 
+/* 塗りつぶしのボタンは、押せるあいだ色が変わらない（上の hover が、背景を透過に戻してしまうため）。 */
+.button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 88%, var(--color-fg));
+}
+
 /* アイランドの間の隙間。ふだんは見えず、触れたときだけ、真ん中に線が出る。 */
 .splitter {
   position: relative;
@@ -1403,8 +1408,9 @@ fieldset.ribbon-group {
 
 .label-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 4px 8px;
   border-radius: var(--radius-sm, 4px);
 }
@@ -1649,9 +1655,17 @@ fieldset.ribbon-group {
   gap: 6px;
 }
 
+/* 狭いサイドバーでは、操作を名前の下の行に回す。 */
 .label-actions {
   display: flex;
+  flex-basis: 100%;
+  justify-content: flex-end;
   gap: 4px;
+}
+
+.label-actions .button {
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .label-delete {
@@ -1684,10 +1698,14 @@ fieldset.ribbon-group {
 }
 
 .link-title {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+
+.link-item .button {
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .member-list {

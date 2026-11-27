@@ -61,7 +61,7 @@ describe("schemasFor（対象に当てはまるスキーマを、全体 → 種�
     ).toEqual(["global"]);
   });
 
-  it("関係・グループは、それぞれの種別を使う", () => {
+  it("関係・グループは、それぞれの種別を使う（全体は、全アノテーション共通なので、含めない）", () => {
     const r = schema("relation_type", "x/link", {
       properties: { w: { type: "number" } },
     });
@@ -74,14 +74,14 @@ describe("schemasFor（対象に当てはまるスキーマを、全体 → 種�
         type: "x/link",
         labelId: null,
       }).map((s) => s.scope),
-    ).toEqual(["global", "relation_type"]);
+    ).toEqual(["relation_type"]);
     expect(
       schemasFor([r, g, global], {
         kind: "group",
         type: "x/set",
         labelId: null,
       }).map((s) => s.scope),
-    ).toEqual(["global", "group_type"]);
+    ).toEqual(["group_type"]);
   });
 
   it("アセット・アイテム: 空の対象（すべて）→ 媒体種別 / 提供元の順", () => {

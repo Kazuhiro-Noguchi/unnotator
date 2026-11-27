@@ -24,7 +24,10 @@ export type FormTarget =
   | { kind: "asset"; mediaType: string | null }
   | { kind: "item"; provider: string | null };
 
-/** 対象に当てはまるスキーマを、全体 → 種別 → ラベル（アセット・アイテムは、すべて → 媒体種別・提供元）の順に返す。 */
+/**
+ * 対象に当てはまるスキーマを、全体 → 種別 → ラベル（アセット・アイテムは、すべて → 媒体種別・提供元）の順に返す。
+ * 全体（`global`）はアノテーションだけ。関係・グループは、種別とラベル。
+ */
 export function schemasFor(
   rows: readonly SchemaRow[],
   target: FormTarget,
@@ -35,15 +38,18 @@ export function schemasFor(
       : rows.filter((r) => r.scope === scope && r.target === key);
   switch (target.kind) {
     case "annotation":
-    case "relation":
-    case "group": {
-      const typeScope = `${target.kind}_type`;
+      // `global` は、全アノテーション共通（関係・グループには当てはまらない）。
       return [
         ...pick("global", ""),
-        ...pick(typeScope, target.type),
+        ...pick("annotation_type", target.type),
         ...pick("label", target.labelId),
       ];
-    }
+    case "relation":
+    case "group":
+      return [
+        ...pick(`${target.kind}_type`, target.type),
+        ...pick("label", target.labelId),
+      ];
     case "asset":
       return [...pick("asset", ""), ...pick("asset", target.mediaType)];
     case "item":

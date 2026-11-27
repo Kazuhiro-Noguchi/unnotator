@@ -9,6 +9,7 @@ pub mod attribute_schema;
 pub mod group;
 pub mod items;
 pub mod label;
+pub mod meta;
 pub mod relation;
 pub mod rows;
 pub mod status;
@@ -299,6 +300,22 @@ pub enum Command {
         item: ItemRef,
         status: Status,
     },
+    /// アセットのメモ。`None` で空にする。
+    SetAssetNote {
+        asset_id: String,
+        #[serde(default)]
+        note: Option<String>,
+    },
+    /// アセット単位の属性値（JSON オブジェクト。値の検証は、スキーマを知る画面が行う）。
+    SetAssetAttributes {
+        asset_id: String,
+        attributes_json: String,
+    },
+    /// アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。
+    SetItemAttributes {
+        item: ItemRef,
+        attributes_json: String,
+    },
     /// 走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。
     SyncAssets {
         #[serde(default)]
@@ -378,6 +395,9 @@ impl Command {
             Self::DeleteAttributeSchema { .. } => "delete_attribute_schema",
             Self::SetAssetStatus { .. } => "set_asset_status",
             Self::SetItemStatus { .. } => "set_item_status",
+            Self::SetAssetNote { .. } => "set_asset_note",
+            Self::SetAssetAttributes { .. } => "set_asset_attributes",
+            Self::SetItemAttributes { .. } => "set_item_attributes",
             Self::SyncAssets { .. } => "sync_assets",
             Self::RelinkAsset { .. } => "relink_asset",
             Self::DeleteAsset { .. } => "delete_asset",
@@ -580,8 +600,20 @@ mod tests {
                 status: Status::Done,
             },
             Command::SetItemStatus {
-                item,
+                item: item.clone(),
                 status: Status::Review,
+            },
+            Command::SetAssetNote {
+                asset_id: "a".into(),
+                note: None,
+            },
+            Command::SetAssetAttributes {
+                asset_id: "a".into(),
+                attributes_json: "{}".into(),
+            },
+            Command::SetItemAttributes {
+                item,
+                attributes_json: "{}".into(),
             },
             Command::SyncAssets {
                 added: vec![],

@@ -328,6 +328,12 @@ id?: string | null; type: string; from_id: string; to_id: string; directed?: boo
 id?: string | null; type: string; ordered?: boolean | null; label_id?: string | null; attributes_json?: string | null; members?: string[]; source?: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Deserialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at?: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id?: string | null; name: string; name_i18n_json?: string | null; color: string; hotkey?: number | null; sort_order?: number | null; hidden?: boolean | null; applies_to_json?: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Deserialize } | { kind: "delete_label"; id: string; disposition?: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  アセットのメモ。`None` で空にする。 */
+{ kind: "set_asset_note"; asset_id: string; note?: string | null } | 
+/**  アセット単位の属性値（JSON オブジェクト。値の検証は、スキーマを知る画面が行う）。 */
+{ kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
+/**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
+{ kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -346,6 +352,12 @@ id: string | null; type: string; from_id: string; to_id: string; directed: boole
 id: string | null; type: string; ordered: boolean | null; label_id: string | null; attributes_json: string | null; members: string[]; source: string | null } | { kind: "update_group"; id: string; patch: GroupPatch_Serialize } | { kind: "delete_group"; id: string } | { kind: "add_group_members"; group_id: string; annotation_ids: string[]; at: number | null } | { kind: "remove_group_members"; group_id: string; annotation_ids: string[] } | { kind: "move_group_member"; group_id: string; annotation_id: string; to_position: number } | { kind: "create_label"; 
 /**  呼び出し側が ID を決めるとき（transaction の中で後続のコマンドが参照する場合など）。省略するとコアが生成する。 */
 id: string | null; name: string; name_i18n_json: string | null; color: string; hotkey: number | null; sort_order: number | null; hidden: boolean | null; applies_to_json: string | null } | { kind: "update_label"; id: string; patch: LabelPatch_Serialize } | { kind: "delete_label"; id: string; disposition: LabelDisposition | null } | { kind: "set_attribute_schema"; scope: AttributeScope; target: string; schema_json: string } | { kind: "delete_attribute_schema"; scope: AttributeScope; target: string } | { kind: "set_asset_status"; asset_id: string; status: Status } | { kind: "set_item_status"; item: ItemRef; status: Status } | 
+/**  アセットのメモ。`None` で空にする。 */
+{ kind: "set_asset_note"; asset_id: string; note: string | null } | 
+/**  アセット単位の属性値（JSON オブジェクト。値の検証は、スキーマを知る画面が行う）。 */
+{ kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
+/**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
+{ kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */

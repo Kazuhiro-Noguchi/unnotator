@@ -2,7 +2,6 @@
 name: ci
 
 on:
-  push:
   pull_request:
 
 # 読み取りだけ。外部からの PR でも、秘密情報は使わない

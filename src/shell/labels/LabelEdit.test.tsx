@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
 import { t } from "../../i18n";
@@ -52,11 +53,25 @@ function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
   };
   const notify: LabelsViewProps["notify"] = () => {};
   const ui = createLabelsUi();
+  const picked: string[] = [];
+  const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(
+    new Set(),
+  );
   dispose = render(
-    () => <LabelsView data={data} notify={notify} ui={ui} />,
+    () => (
+      <LabelsView
+        data={data}
+        notify={notify}
+        ui={ui}
+        selectedIds={selectedIds}
+        onPick={(label) => {
+          picked.push(label.id);
+        }}
+      />
+    ),
     root,
   );
-  return { root, applied, ui };
+  return { root, applied, ui, picked, setSelectedIds };
 }
 
 const itemButtons = (root: HTMLElement, name: string) =>
@@ -281,61 +296,58 @@ describe("ラベルの編集・並べ替え・削除", () => {
       (e) => e.textContent,
     );
 
-  it("カードをクリックすると、そのカードが選択される（1 つだけ）", async () => {
-    const { root, ui } = mount([row("1", "a"), row("2", "b")]);
+  it("カードをクリックすると、そのラベルを付け外しする（onPick）。選択の表示は、渡された選択に従う", async () => {
+    const { root, picked, setSelectedIds } = mount([
+      row("1", "a"),
+      row("2", "b"),
+    ]);
     expect(selectedNames(root)).toEqual([]);
     card(root, "a")?.click();
     await flush();
-    expect(selectedNames(root)).toEqual(["a"]);
-    expect(ui.selected()).toBe("1");
-    card(root, "b")?.click();
+    expect(picked).toEqual(["1"]);
+    // クリックしただけでは、選択の表示は変わらない（分類が付いた結果として、選択が渡される）
+    expect(selectedNames(root)).toEqual([]);
+    setSelectedIds(new Set(["1"]));
     await flush();
-    expect(selectedNames(root)).toEqual(["b"]);
-    expect(card(root, "b")?.getAttribute("aria-current")).toBe("true");
-    expect(card(root, "a")?.getAttribute("aria-current")).toBeNull();
+    expect(selectedNames(root)).toEqual(["a"]);
+    expect(card(root, "a")?.getAttribute("aria-current")).toBe("true");
+    // 複数の選択も、そのまま表示される
+    setSelectedIds(new Set(["1", "2"]));
+    await flush();
+    expect(selectedNames(root)).toEqual(["a", "b"]);
+    setSelectedIds(new Set<string>());
+    await flush();
+    expect(selectedNames(root)).toEqual([]);
   });
 
-  it("キーボード: 「選ぶ」ボタンで選び、↑ ↓ で隣のカードに移る", async () => {
-    const { root, ui } = mount([row("1", "a"), row("2", "b"), row("3", "c")]);
+  it("キーボード: 「選ぶ」ボタン（Enter / Space）で付け外し。↑ ↓ は、隣へフォーカスを移すだけ", async () => {
+    const { root, picked } = mount([row("1", "a"), row("2", "b")]);
     const pick = (name: string) =>
       card(root, name)?.querySelector<HTMLElement>(".label-pick");
     pick("a")?.click();
     await flush();
-    expect(ui.selected()).toBe("1");
-    const key = (name: string, k: string) =>
-      pick(name)?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: k, bubbles: true }),
-      );
-    key("a", "ArrowDown");
+    expect(picked).toEqual(["1"]);
+    pick("a")?.focus();
+    pick("a")?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     await flush();
-    expect(ui.selected()).toBe("2");
-    key("b", "ArrowDown");
-    key("c", "ArrowDown");
-    await flush();
-    expect(ui.selected()).toBe("3");
-    key("c", "ArrowUp");
-    await flush();
-    expect(ui.selected()).toBe("2");
-    key("a", "ArrowUp");
-    await flush();
-    expect(ui.selected()).toBe("2");
+    // 付け外しは、起きない
+    expect(picked).toEqual(["1"]);
+    expect(document.activeElement).toBe(pick("b"));
   });
 
-  it("ボタン（鉛筆など）を押しても、そのカードが選択される", async () => {
-    const { root } = mount([row("1", "a"), row("2", "b")]);
-    card(root, "b")
-      ?.querySelector<HTMLButtonElement>(
-        `button[aria-label="${t("labels.edit")}"]`,
-      )
-      ?.click();
+  it("鉛筆・目・つかみ・編集フォームを押しても、付け外しは起きない", async () => {
+    const { root, picked } = mount([row("1", "a"), row("2", "b")]);
+    for (const label of [t("labels.edit"), t("labels.hide")]) {
+      card(root, "b")
+        ?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)
+        ?.click();
+      await flush();
+    }
+    card(root, "b")?.querySelector<HTMLElement>(".label-grip")?.click();
+    card(root, "b")?.querySelector<HTMLElement>(".label-form input")?.click();
     await flush();
-    expect(selectedNames(root)).toEqual(["b"]);
-  });
-
-  it("選択中のラベルが無くなると、選択は外れる", async () => {
-    const { root, ui } = mount([row("1", "a")]);
-    ui.setSelected("gone");
-    await flush();
-    expect(selectedNames(root)).toEqual([]);
+    expect(picked).toEqual([]);
   });
 });

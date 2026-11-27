@@ -129,8 +129,7 @@ describe("LabelsView", () => {
     );
     expect(input?.value).toBe(t("labels.newName"));
     expect(root.querySelector(".label-form button[type=submit]")).toBeNull();
-    // 作ったラベルは、そのまま選択される
-    expect(ui.selected()).toBe("new");
+
     expect(
       [...root.querySelectorAll(".label-form button")].map(
         (b) => b.textContent,

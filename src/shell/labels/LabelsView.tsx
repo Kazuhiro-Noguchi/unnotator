@@ -25,6 +25,10 @@ export interface LabelsViewProps {
   notify: (level: NotifyLevel, text: string) => void;
   /** 見出しの操作（追加・絞り込み）と共有する状態。省略すると、この一覧だけのものを使う。 */
   ui?: LabelsUi;
+  /** 選択中のラベルの ID（現在位置に付いている分類のラベル）。 */
+  selectedIds?(): ReadonlySet<string>;
+  /** カードのクリック: そのラベルの分類を、現在位置に付ける・外す（ショートカットキーと同じ）。 */
+  onPick?(label: LabelRow): void;
 }
 
 /** サイドバー「ラベル」。一覧・絞り込み・追加。 */
@@ -37,17 +41,12 @@ export function LabelsView(props: LabelsViewProps) {
   const ui = props.ui ?? createLabelsUi();
   const query = ui.query;
   const shown = () => filterLabels(labels(), query());
-  // 選択中のラベル。消えたラベルは、選択から外れる。
-  const selectedId = () => {
-    const id = ui.selected();
-    return id !== null && labels().some((l) => l.id === id) ? id : null;
-  };
-  /** 隣のカードを選び、フォーカスを移す（↑ ↓ キー）。 */
-  const selectNeighbor = (id: string, step: -1 | 1) => {
+  const selected = (id: string) => props.selectedIds?.().has(id) ?? false;
+  /** 隣のカードの「選ぶ」ボタンへ、フォーカスを移す（↑ ↓ キー）。選択は、押したときに決まる。 */
+  const focusNeighbor = (id: string, step: -1 | 1) => {
     const list = shown();
     const next = list[list.findIndex((l) => l.id === id) + step];
     if (next === undefined) return;
-    ui.setSelected(next.id);
     listEl
       ?.querySelector<HTMLElement>(`[data-label-id="${next.id}"] .label-pick`)
       ?.focus();
@@ -167,7 +166,6 @@ export function LabelsView(props: LabelsViewProps) {
       if (created !== undefined) {
         setDeleting(null);
         setEditing(created.id);
-        ui.setSelected(created.id);
       }
     } catch (e) {
       fail(e);
@@ -216,9 +214,9 @@ export function LabelsView(props: LabelsViewProps) {
               canMove={query().trim() === ""}
               dragging={drag()?.id === label.id}
               dropMark={dropMarkFor(label.id)}
-              selected={selectedId() === label.id}
-              onSelect={() => ui.setSelected(label.id)}
-              onNavigate={(step) => selectNeighbor(label.id, step)}
+              selected={selected(label.id)}
+              onSelect={() => props.onPick?.(label)}
+              onNavigate={(step) => focusNeighbor(label.id, step)}
               editing={editing() === label.id}
               onEdit={() => {
                 setDeleting(null);
@@ -316,7 +314,14 @@ function LabelItem(props: {
     <li
       class="label-item label-card"
       aria-current={props.selected ? "true" : undefined}
-      onClick={() => props.onSelect()}
+      onClick={(event) => {
+        // 中のボタン（鉛筆・目・つかみ）・入力欄・編集のフォームを押したときは、選ばない。
+        const inner = (event.target as Element).closest(
+          "button, input, select, textarea, label, .label-form, .label-delete",
+        );
+        if (inner !== null && !inner.classList.contains("label-pick")) return;
+        props.onSelect();
+      }}
       classList={{
         selected: props.selected,
         hidden: props.label.hidden,

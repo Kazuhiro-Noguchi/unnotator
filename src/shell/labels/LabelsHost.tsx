@@ -2,11 +2,15 @@ import { type JSX, Show } from "solid-js";
 import { projectData } from "../project-data/instance";
 import { ctx, notify } from "../services";
 import { fromContext } from "../solid";
+import type { NotifyLevel } from "../types";
 import { LabelsHeaderActions } from "./HeaderActions";
+import { activeLabels, pickLabelCard } from "./instance";
 import { LabelsView } from "./LabelsView";
 import { labelsUi } from "./ui";
 
 /** サイドバーの「ラベル」。プロジェクトが開いていないあいだは、空の状態の案内を出す。 */
+const notifyLabel = (level: NotifyLevel, text: string) => notify(level, text);
+
 export function LabelsHost(props: { fallback: JSX.Element }) {
   const open = fromContext(ctx, () => ctx.get("projectOpen") === true);
   return (
@@ -15,6 +19,8 @@ export function LabelsHost(props: { fallback: JSX.Element }) {
         data={projectData}
         notify={(level, text) => notify(level, text)}
         ui={labelsUi}
+        selectedIds={activeLabels.ids}
+        onPick={(label) => void pickLabelCard(notifyLabel, label)}
       />
     </Show>
   );

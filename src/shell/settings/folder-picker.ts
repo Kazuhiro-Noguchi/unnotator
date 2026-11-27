@@ -61,7 +61,10 @@ export interface ProjectActionsDeps {
   open: (folder: string, create: boolean) => Promise<OpenOutcome>;
   /** 前回の作業用データが残っているときの復元（データを失わないほうを既定にする）。 */
   restore: () => Promise<void>;
-  close: () => Promise<void>;
+  /** 開いているプロジェクトを閉じる。未保存があるときは、保存するか捨てるかを渡す。失敗したら投げる。 */
+  close: (action: "save" | "discard" | null) => Promise<void>;
+  /** 未保存の変更があるときの確認。 */
+  ask: () => Promise<"save" | "discard" | "cancel">;
   save: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
@@ -81,12 +84,14 @@ export function createProjectActions(deps: ProjectActionsDeps) {
       return;
     }
     if (deps.isOpen()) {
+      let action: "save" | "discard" | null = null;
       if (deps.isDirty()) {
-        deps.notify("warn", t("project.dirtyWarning"));
-        return;
+        const decision = await deps.ask();
+        if (decision === "cancel") return;
+        action = decision;
       }
       try {
-        await deps.close();
+        await deps.close(action);
       } catch (error) {
         deps.notify(
           "error",

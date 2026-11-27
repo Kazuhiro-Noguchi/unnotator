@@ -93,8 +93,9 @@ const actions = createProjectActions({
   restore: async () => {
     await commands.recoveryRestore();
   },
-  close: async () => {
-    await commands.projectClose(null);
+  ask: askCloseDecision,
+  close: async (action) => {
+    await commands.projectClose(action);
     setProjectName(null);
     await explorer.close();
     projectData.reset();

@@ -40,6 +40,7 @@ function setup(overrides: Partial<ProjectActionsDeps> = {}) {
     open: vi.fn(async () => ({ kind: "opened" as const })),
     restore: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
+    ask: vi.fn(async () => "cancel" as const),
     save: vi.fn(async () => {}),
     undo: vi.fn(async () => {}),
     redo: vi.fn(async () => {}),
@@ -109,14 +110,72 @@ describe("プロジェクトの操作", () => {
     expect(state.open).toBe(true);
   });
 
-  it("未保存の変更があるときに別のプロジェクトを開こうとしたら、開かずに警告する", async () => {
-    const { actions, deps, notify } = setup({
+  describe("未保存のまま別のプロジェクトを開くとき", () => {
+    const dirtyOpen = {
       isOpen: () => true,
       isDirty: () => true,
+    };
+
+    it("確認を出し、キャンセルなら何も変えない", async () => {
+      const { actions, deps } = setup({
+        ...dirtyOpen,
+        ask: vi.fn(async () => "cancel" as const),
+      });
+      await actions.openFolder();
+      expect(deps.ask).toHaveBeenCalledTimes(1);
+      expect(deps.close).not.toHaveBeenCalled();
+      expect(deps.open).not.toHaveBeenCalled();
     });
-    await actions.openFolder();
-    expect(deps.open).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledWith("warn", expect.any(String));
+
+    it("保存を選ぶと、保存して閉じてから開く", async () => {
+      const order: string[] = [];
+      const { actions } = setup({
+        ...dirtyOpen,
+        ask: vi.fn(async () => "save" as const),
+        close: vi.fn(async (action) => {
+          order.push(`close:${action}`);
+        }),
+        open: vi.fn(async () => {
+          order.push("open");
+          return { kind: "opened" as const };
+        }),
+      });
+      await actions.openFolder();
+      expect(order).toEqual(["close:save", "open"]);
+    });
+
+    it("保存せずに開くを選ぶと、変更を捨てて閉じてから開く", async () => {
+      const order: string[] = [];
+      const { actions } = setup({
+        ...dirtyOpen,
+        ask: vi.fn(async () => "discard" as const),
+        close: vi.fn(async (action) => {
+          order.push(`close:${action}`);
+        }),
+        open: vi.fn(async () => {
+          order.push("open");
+          return { kind: "opened" as const };
+        }),
+      });
+      await actions.openFolder();
+      expect(order).toEqual(["close:discard", "open"]);
+    });
+
+    it("保存に失敗したら、開かずに失敗を知らせる", async () => {
+      const { actions, deps, notify } = setup({
+        ...dirtyOpen,
+        ask: vi.fn(async () => "save" as const),
+        close: vi.fn(async () => {
+          throw new Error("disk full");
+        }),
+      });
+      await actions.openFolder();
+      expect(deps.open).not.toHaveBeenCalled();
+      expect(notify).toHaveBeenCalledWith(
+        "error",
+        expect.stringContaining("disk full"),
+      );
+    });
   });
 
   it("開いているプロジェクトが未保存でなければ、閉じてから開く", async () => {

@@ -1651,21 +1651,6 @@ fieldset.ribbon-group {
   color: var(--color-fg-muted);
 }
 
-.prop-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.prop-chips li {
-  border: 1px solid var(--color-outline);
-  border-radius: var(--radius-full);
-  padding: 0 10px;
-}
-
 .draft-banner {
   display: flex;
   align-items: center;

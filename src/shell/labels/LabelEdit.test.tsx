@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { t } from "../../i18n";
 import type { Command, LabelRow, LabelUsage } from "../project-data/types";
 import { LabelsView, type LabelsViewProps } from "./LabelsView";
+import { createLabelsUi } from "./ui";
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -50,8 +51,12 @@ function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
     },
   };
   const notify: LabelsViewProps["notify"] = () => {};
-  dispose = render(() => <LabelsView data={data} notify={notify} />, root);
-  return { root, applied };
+  const ui = createLabelsUi();
+  dispose = render(
+    () => <LabelsView data={data} notify={notify} ui={ui} />,
+    root,
+  );
+  return { root, applied, ui };
 }
 
 const itemButtons = (root: HTMLElement, name: string) =>
@@ -207,8 +212,13 @@ describe("ラベルの編集・並べ替え・削除", () => {
   });
 
   it("名前で絞り込んでいるあいだは、つかみを出さない", async () => {
-    const { root } = mount([row("1", "a", null, 0), row("2", "b", null, 1)]);
+    const { root, ui } = mount([
+      row("1", "a", null, 0),
+      row("2", "b", null, 1),
+    ]);
     expect(grip(root, "a") ?? null).not.toBeNull();
+    ui.setFilterOpen(true);
+    await flush();
     const input = root.querySelector<HTMLInputElement>(".filter-name");
     if (input === null) throw new Error("絞り込みが無い");
     input.value = "a";

@@ -1,6 +1,6 @@
 import type { MessageKey } from "../../i18n";
 import { ExplorerView } from "../explorer/ExplorerView";
-import { LabelsHost } from "../labels/LabelsHost";
+import { LabelsHeader, LabelsHost } from "../labels/LabelsHost";
 import { PropertiesHost } from "../properties/PropertiesHost";
 import { useT } from "../solid";
 import { EmptyState } from "./EmptyState";
@@ -44,6 +44,9 @@ export function registerCoreViews(
       icon: meta.icon,
       location: meta.location,
       source: "core",
+      ...(meta.id === "labels"
+        ? { headerActions: () => <LabelsHeader /> }
+        : {}),
       render: () =>
         meta.id === "problems" ? (
           <ProblemsView />

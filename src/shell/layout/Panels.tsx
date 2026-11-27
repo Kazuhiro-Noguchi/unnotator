@@ -34,7 +34,12 @@ export function PrimarySidebar(props: { width: number }) {
         {(v) => (
           <>
             <div class="panel-header">
-              {resolveTitle(v().title, language())}
+              <span class="panel-title">
+                {resolveTitle(v().title, language())}
+              </span>
+              <Show when={v().headerActions}>
+                {(actions) => <span class="panel-actions">{actions()()}</span>}
+              </Show>
             </div>
             <div class="panel-body">{v().render()}</div>
           </>

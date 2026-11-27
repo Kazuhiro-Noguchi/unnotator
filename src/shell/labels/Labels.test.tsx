@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { t } from "../../i18n";
 import type { Command, LabelRow } from "../project-data/types";
 import { LabelsView, type LabelsViewProps } from "./LabelsView";
+import { createLabelsUi } from "./ui";
 
 let dispose: (() => void) | undefined;
 afterEach(() => {
@@ -64,8 +65,12 @@ function mount(initial: LabelRow[], fail = false) {
   const notify: LabelsViewProps["notify"] = (_level, text) => {
     notes.push(text);
   };
-  dispose = render(() => <LabelsView data={data} notify={notify} />, root);
-  return { root, applied, notes };
+  const ui = createLabelsUi();
+  dispose = render(
+    () => <LabelsView data={data} notify={notify} ui={ui} />,
+    root,
+  );
+  return { root, applied, notes, ui };
 }
 
 const names = (root: HTMLElement) =>
@@ -78,7 +83,9 @@ function type(el: HTMLInputElement, value: string) {
 
 describe("LabelsView", () => {
   it("ラベルを並べ、名前で絞り込める", async () => {
-    const { root } = mount([row("1", "cat", 1), row("2", "dog")]);
+    const { root, ui } = mount([row("1", "cat", 1), row("2", "dog")]);
+    ui.setFilterOpen(true);
+    await flush();
     expect(names(root)).toEqual(["cat", "dog"]);
     expect(root.querySelector(".label-key")?.textContent).toBe("1");
     type(root.querySelector(".filter-name") as HTMLInputElement, "do");
@@ -92,10 +99,8 @@ describe("LabelsView", () => {
   });
 
   it("追加フォームで、名前とショートカットキーを入れて保存すると、create_label が渡る", async () => {
-    const { root, applied } = mount([row("1", "cat", 1)]);
-    (
-      root.querySelector(".labels-toolbar .button") as HTMLButtonElement
-    ).click();
+    const { root, applied, ui } = mount([row("1", "cat", 1)]);
+    ui.setCreating(true);
     await flush();
     type(
       root.querySelector(".label-form input[type=text]") as HTMLInputElement,
@@ -121,10 +126,8 @@ describe("LabelsView", () => {
   });
 
   it("重複する名前は、保存せずに理由を出す", async () => {
-    const { root, applied } = mount([row("1", "cat", 1)]);
-    (
-      root.querySelector(".labels-toolbar .button") as HTMLButtonElement
-    ).click();
+    const { root, applied, ui } = mount([row("1", "cat", 1)]);
+    ui.setCreating(true);
     await flush();
     type(
       root.querySelector(".label-form input[type=text]") as HTMLInputElement,
@@ -139,10 +142,8 @@ describe("LabelsView", () => {
   });
 
   it("他のラベルが使っているショートカットキーは、選択肢に出さない", async () => {
-    const { root } = mount([row("1", "cat", 1), row("2", "dog", 3)]);
-    (
-      root.querySelector(".labels-toolbar .button") as HTMLButtonElement
-    ).click();
+    const { root, ui } = mount([row("1", "cat", 1), row("2", "dog", 3)]);
+    ui.setCreating(true);
     await flush();
     const options = [
       ...root.querySelectorAll<HTMLOptionElement>(".label-form select option"),
@@ -151,10 +152,8 @@ describe("LabelsView", () => {
   });
 
   it("保存に失敗したら、エラーを知らせてフォームを残す", async () => {
-    const { root, notes } = mount([], true);
-    (
-      root.querySelector(".labels-toolbar .button") as HTMLButtonElement
-    ).click();
+    const { root, notes, ui } = mount([], true);
+    ui.setCreating(true);
     await flush();
     type(
       root.querySelector(".label-form input[type=text]") as HTMLInputElement,

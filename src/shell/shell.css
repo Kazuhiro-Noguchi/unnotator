@@ -48,6 +48,24 @@
   overflow: clip;
 }
 
+/* 見出しの右端には、そのビューの操作（アイコン）を出せる。 */
+.panel-header {
+  justify-content: space-between;
+}
+
+.panel-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
 .panel-header,
 .tab-strip {
   flex: none;
@@ -1388,16 +1406,6 @@ fieldset.ribbon-group {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-}
-
-.labels-toolbar {
-  display: flex;
-  gap: 8px;
-}
-
-.labels-toolbar .filter-name {
-  flex: 1;
-  min-width: 0;
 }
 
 .label-list {

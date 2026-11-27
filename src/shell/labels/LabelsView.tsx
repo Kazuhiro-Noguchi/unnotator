@@ -16,10 +16,13 @@ import {
   nextSortOrder,
   reorderLabels,
 } from "./list";
+import { createLabelsUi, type LabelsUi } from "./ui";
 
 export interface LabelsViewProps {
   data: Pick<ProjectData, "labels" | "subscribe" | "apply" | "labelUsage">;
   notify: (level: NotifyLevel, text: string) => void;
+  /** 見出しの操作（追加・絞り込み）と共有する状態。省略すると、この一覧だけのものを使う。 */
+  ui?: LabelsUi;
 }
 
 /** サイドバー「ラベル」。一覧・絞り込み・追加。 */
@@ -29,8 +32,10 @@ export function LabelsView(props: LabelsViewProps) {
     () => props.data.labels(),
     (listener) => props.data.subscribe(listener),
   );
-  const [query, setQuery] = createSignal("");
-  const [creating, setCreating] = createSignal(false);
+  const ui = props.ui ?? createLabelsUi();
+  const query = ui.query;
+  const creating = ui.creating;
+  const setCreating = ui.setCreating;
   const shown = () => filterLabels(labels(), query());
   const [editing, setEditing] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal<string | null>(null);
@@ -180,24 +185,17 @@ export function LabelsView(props: LabelsViewProps) {
 
   return (
     <div class="labels-view">
-      <div class="labels-toolbar">
+      <Show when={ui.filterOpen()}>
         <input
           type="search"
           class="filter-name"
           placeholder={t("labels.filter")}
           aria-label={t("labels.filter")}
           value={query()}
-          onInput={(event) => setQuery(event.currentTarget.value)}
+          ref={(el) => queueMicrotask(() => el.focus())}
+          onInput={(event) => ui.setQuery(event.currentTarget.value)}
         />
-        <button
-          type="button"
-          class="button"
-          onClick={() => setCreating(true)}
-          disabled={creating()}
-        >
-          {t("labels.add")}
-        </button>
-      </div>
+      </Show>
       <Show when={creating()}>
         <LabelForm
           label={null}

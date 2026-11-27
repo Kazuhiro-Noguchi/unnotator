@@ -1476,6 +1476,13 @@ fieldset.ribbon-group {
   outline-offset: 2px;
 }
 
+/* 選択中のカード。 */
+.label-card.selected {
+  border-color: var(--color-accent);
+  background: var(--color-selection);
+  color: var(--color-on-selection);
+}
+
 .label-card.dragging {
   opacity: 0.5;
 }
@@ -1522,8 +1529,29 @@ fieldset.ribbon-group {
 }
 
 /* つかみとの間は 2px（行の間隔 4px から、2px 詰める）。 */
-.label-grip + .label-swatch {
+.label-grip + .label-pick {
   margin-left: -2px;
+}
+
+/* 色の丸・名前・キーをまとめた「選ぶ」ボタン（枠のない行）。 */
+.label-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.label-pick:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
 }
 
 .label-name {

@@ -37,6 +37,21 @@ export function LabelsView(props: LabelsViewProps) {
   const ui = props.ui ?? createLabelsUi();
   const query = ui.query;
   const shown = () => filterLabels(labels(), query());
+  // 選択中のラベル。消えたラベルは、選択から外れる。
+  const selectedId = () => {
+    const id = ui.selected();
+    return id !== null && labels().some((l) => l.id === id) ? id : null;
+  };
+  /** 隣のカードを選び、フォーカスを移す（↑ ↓ キー）。 */
+  const selectNeighbor = (id: string, step: -1 | 1) => {
+    const list = shown();
+    const next = list[list.findIndex((l) => l.id === id) + step];
+    if (next === undefined) return;
+    ui.setSelected(next.id);
+    listEl
+      ?.querySelector<HTMLElement>(`[data-label-id="${next.id}"] .label-pick`)
+      ?.focus();
+  };
   const [editing, setEditing] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal<string | null>(null);
 
@@ -152,6 +167,7 @@ export function LabelsView(props: LabelsViewProps) {
       if (created !== undefined) {
         setDeleting(null);
         setEditing(created.id);
+        ui.setSelected(created.id);
       }
     } catch (e) {
       fail(e);
@@ -200,6 +216,9 @@ export function LabelsView(props: LabelsViewProps) {
               canMove={query().trim() === ""}
               dragging={drag()?.id === label.id}
               dropMark={dropMarkFor(label.id)}
+              selected={selectedId() === label.id}
+              onSelect={() => ui.setSelected(label.id)}
+              onNavigate={(step) => selectNeighbor(label.id, step)}
               editing={editing() === label.id}
               onEdit={() => {
                 setDeleting(null);
@@ -256,6 +275,11 @@ export function LabelsView(props: LabelsViewProps) {
 function LabelItem(props: {
   label: LabelRow;
   canMove: boolean;
+  /** 選択中か（カードをクリックして選ぶ）。 */
+  selected: boolean;
+  onSelect: () => void;
+  /** ↑ ↓ キーで、隣のカードを選ぶ。 */
+  onNavigate: (step: -1 | 1) => void;
   /** 編集を開いているか（鉛筆は、開閉の切り替え）。 */
   editing: boolean;
   dragging: boolean;
@@ -288,9 +312,13 @@ function LabelItem(props: {
     </button>
   );
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: カードのどこを押しても選べる（マウス用）。キーボードでは、中の「選ぶ」ボタンで選ぶ
     <li
       class="label-item label-card"
+      aria-current={props.selected ? "true" : undefined}
+      onClick={() => props.onSelect()}
       classList={{
+        selected: props.selected,
         hidden: props.label.hidden,
         dragging: props.dragging,
         "drop-before": props.dropMark === "before",
@@ -324,15 +352,27 @@ function LabelItem(props: {
             <Icon name="$(grip)" size={16} />
           </button>
         </Show>
-        <span
-          class="label-swatch"
-          style={{ background: props.label.color }}
-          aria-hidden="true"
-        />
-        <span class="label-name">{props.label.name}</span>
-        <Show when={props.label.hotkey !== null}>
-          <kbd class="label-key">{props.label.hotkey}</kbd>
-        </Show>
+        <button
+          type="button"
+          class="label-pick"
+          aria-pressed={props.selected}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              props.onNavigate(event.key === "ArrowDown" ? 1 : -1);
+            }
+          }}
+        >
+          <span
+            class="label-swatch"
+            style={{ background: props.label.color }}
+            aria-hidden="true"
+          />
+          <span class="label-name">{props.label.name}</span>
+          <Show when={props.label.hotkey !== null}>
+            <kbd class="label-key">{props.label.hotkey}</kbd>
+          </Show>
+        </button>
         <span class="label-actions">
           {iconButton(
             props.label.hidden ? "$(eye-off)" : "$(eye)",

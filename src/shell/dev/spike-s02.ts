@@ -1,6 +1,7 @@
 // S-02 技術検証（unno-5da）。開発ビルドだけ。拡張機能の動的 import・Shadow DOM・拡張機能間 API・CSP・隔離を、実機の WebView で確かめる。
 // 使い方: `VITE_S02_DIR=$PWD/scripts/spikes/s02 pnpm tauri dev` → パレットで「S-02 検証」。結果は画面の重ねた表示とコンソールに出る。
 // 検証が済んだら、この全体（と scripts/spikes/s02/）は消してよい。結果は docs/spikes/s02-extension-loading.md に残す。
+import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc";
 
 type Row = { name: string; ok: boolean | "info"; detail: string };
@@ -223,6 +224,11 @@ export async function runSpikeS02(): Promise<string> {
   }
 
   // 4. iframe（sandbox・postMessage・CSP）
+  // 枠の中から Tauri の IPC が Rust に届くか（副作用で判定する）。view.js が s02-iframe-probe を emit する。
+  const probes: string[] = [];
+  const stopProbe = await listen<string>("s02-iframe-probe", (e) => {
+    probes.push(String(e.payload));
+  });
   const frameCase = async (
     file: string,
     sandbox: string,
@@ -277,6 +283,15 @@ export async function runSpikeS02(): Promise<string> {
       add("4 iframe", false, String(e));
     }
   }
+
+  stopProbe();
+  add(
+    "4i 枠（iframe）の中から invoke で Rust（plugin:event|emit）に届いたか",
+    probes.length === 0,
+    probes.length === 0
+      ? "届かなかった（安全）"
+      : `届いた（危険）: ${probes.length} 回 ${probes[0]}`,
+  );
 
   // 5. 例外の隔離と帰属
   for (const [label, file] of [

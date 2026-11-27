@@ -288,5 +288,6 @@
   "labels.classify.select": "ラベルを選ぶと、分類に付けられます",
   "labels.classify.needMultiple": "複数のラベルを分類に付けるには、プロジェクトの設定 core.classification.multiple を true にしてください。",
   "labels.classify.attachMany": "選択中の {count} 件を分類に付ける",
-  "labels.classify.detachMany": "選択中の {count} 件を分類から外す"
+  "labels.classify.detachMany": "選択中の {count} 件を分類から外す",
+  "labels.deselect": "選択を解除（Esc）"
 }

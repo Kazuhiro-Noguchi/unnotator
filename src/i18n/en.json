@@ -288,5 +288,6 @@
   "labels.classify.select": "Select a label to apply it as the classification",
   "labels.classify.needMultiple": "To apply several labels as the classification, set core.classification.multiple to true in the project settings.",
   "labels.classify.attachMany": "Apply the {count} selected labels as the classification",
-  "labels.classify.detachMany": "Remove the {count} selected labels from the classification"
+  "labels.classify.detachMany": "Remove the {count} selected labels from the classification",
+  "labels.deselect": "Deselect labels (Esc)"
 }

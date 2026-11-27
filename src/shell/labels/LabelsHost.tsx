@@ -1,6 +1,6 @@
 import { type JSX, Show } from "solid-js";
 import { projectData } from "../project-data/instance";
-import { ctx, notify } from "../services";
+import { commands, ctx, notify } from "../services";
 import { fromContext } from "../solid";
 import type { NotifyLevel } from "../types";
 import { LabelsHeaderActions } from "./HeaderActions";
@@ -33,7 +33,11 @@ export function LabelsHeader() {
   const open = fromContext(ctx, () => ctx.get("projectOpen") === true);
   return (
     <Show when={open()}>
-      <LabelsHeaderActions ui={labelsUi} />
+      <LabelsHeaderActions
+        ui={labelsUi}
+        hasSelection={() => activeLabel.selected().length > 0}
+        onDeselect={() => void commands.execute("core.edit.deselect")}
+      />
     </Show>
   );
 }

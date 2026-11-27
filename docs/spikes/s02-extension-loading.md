@@ -1,7 +1,7 @@
 # S-02 検証: 拡張機能の動的 import・Shadow DOM・拡張機能間 API・CSP
 
 Beads: `unno-5da`。実施日 2026-11-27。環境: macOS（WKWebView）、開発ビルド（`pnpm tauri dev`）。
-**Windows（WebView2）と Linux（WebKitGTK）は未実施**（下の「再実行」を人が実機で行う）。
+Windows（WebView2）は 2026-11-28 に実施済み（下の「Windows の結果」）。**Linux（WebKitGTK）は未実施**（下の「再実行」を実機で行う）。
 
 ## 方法
 
@@ -35,6 +35,28 @@ VITE_S02_PROD_CSP=1 VITE_S02_DIR=$PWD/scripts/spikes/s02 pnpm tauri dev
 | 5c | 非同期の例外の帰属 | Promise の拒否は `reason.stack` に `unno://localhost/ext/<id>/…` が出るので**帰属できる**。`setTimeout` の中の例外は `window.onerror` に `Script error.`（出所なし）で来て、**帰属できない** |
 | 6a | 拡張機能の JS が `window.__TAURI_INTERNALS__.invoke(...)` で Rust のコマンドを直接呼べるか | **呼べる**（`withGlobalTauri: false` でも `__TAURI_INTERNALS__` は見える）。`devmode_get` が通った |
 | 6b | 外部への `fetch` | 製品の CSP で**ブロック**された（`connect-src`） |
+
+## Windows の結果（WebView2、2026-11-28）
+
+環境: Windows 11、開発ビルド（`pnpm tauri dev`）、URL は `http://unno.localhost/ext/<id>/…`。ブランチ `spike/s02-windows-iframe`（`view-module.*` のフィクスチャを足し、枠の中から Rust の IPC が届くかの検査 4i を足した）。
+
+| # | Windows の結果 | macOS との違い |
+| --- | --- | --- |
+| 1・1b | `import()` 成功（初回 5 ms、2 回目 0 ms）。相対 import も可 | 同じ |
+| 2 | 拡張機能間 API 成功 | 同じ |
+| 3a〜3e | `<style>` 本文 不可、`adoptedStyleSheets` 可、`<link>` 不可、`fetch` → `adoptedStyleSheets` 可、外へ漏れない | 同じ |
+| 4m `view.html`（`sandbox="allow-scripts"`、CSP は `script-src 'self'` のまま） | 往復 OK。origin は `http://unno.localhost`、親の DOM は `SecurityError` | **違う**: macOS では `'self'` だと動かず、CSP の変更が要った。Windows では `http://unno.localhost` の `'self'` が一致して動く |
+| 4m `view-module.html`（ES Module） | OK。`module: true`、`localStorage` は `SecurityError`、`fetch` は blocked | 同じ（CSP を変えた macOS の結果と） |
+| 4a・4b（`allow-same-origin` の有無） | 往復 OK、インライン script は止まる | 同じ |
+| **4i** 枠の中から `__TAURI_INTERNALS__.invoke`（`plugin:event|emit`）が Rust に届くか | **届かなかった**。ただし、枠の中に `__TAURI_INTERNALS__` の**オブジェクトは存在する**（`hasTauriInternals: true`）。`invoke` は応答が戻らず、タイムアウトする。本体が `listen` している副作用のイベントは、受信されなかった | **違う**: macOS では、オブジェクト自体が枠に無い。Windows では、あるが、Rust に届かない |
+| 5a・5b | `import` 時の例外・構文エラーを捕捉 | 同じ |
+| 5c | `setTimeout` 内の例外が `Uncaught Error: … @ http://unno.localhost/ext/dev.spike.bad/dist/index.js:2` と、**出所の URL つきで来る**（帰属できる） | **違う（良い差）**: macOS では出所なし |
+| 6 | 本体の JS からの `invoke` は通る（`enabled: true`）。外部通信は blocked | 同じ |
+
+**009 への入力**:
+- 枠の中に `__TAURI_INTERNALS__` が見える OS がある。Rust に届かないことは確認できたが、**この挙動を前提にしない**。枠の起動用コード（`packages/frame-runtime`）が、拡張機能のコードを読み込む前に `__TAURI_INTERNALS__` を消す（または触れなくする）対策を、念のため入れる。また、009 の敵対的なテストに、「枠の中から副作用のある IPC を呼んでも届かない」検査（本体の `listen` で受信を数える方式）を含める。
+- `view.html` の CSP は、`script-src unno: http://unno.localhost`（plan どおり）で、macOS・Windows の両方で動く。
+- 非同期の例外の帰属は、macOS では難しいが Windows では可能。仕様は「枠ごとに帰属する」ので、どちらでも成り立つ。
 
 ## plan への入力（009）
 

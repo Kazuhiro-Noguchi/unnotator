@@ -108,8 +108,7 @@ describe("ラベルの編集・並べ替え・削除", () => {
 
   it("他のラベルが使っているショートカットキーは、保存せずに拒む", async () => {
     const { root, applied } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
-    itemButtons(root, "dog")
-      .values()
+    [...itemButtons(root, "dog")]
       .find((b) => b.getAttribute("aria-label") === t("labels.edit"))
       ?.click();
     await flush();

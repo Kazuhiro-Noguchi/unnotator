@@ -280,5 +280,6 @@
   "relations.arrow": "→",
   "links.failed": "Could not save the relation or group: {reason}",
   "labels.hide": "Hide",
-  "labels.show": "Show"
+  "labels.show": "Show",
+  "labels.drag": "Drag to reorder (or use the arrow keys)"
 }

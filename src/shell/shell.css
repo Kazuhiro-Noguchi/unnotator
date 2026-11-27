@@ -1441,6 +1441,43 @@ fieldset.ribbon-group {
   border-radius: 0;
 }
 
+/* 並べ替えのつかみ（ドラッグ）。 */
+.label-grip {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.label-grip:active {
+  cursor: grabbing;
+}
+
+.label-grip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.label-card.dragging {
+  opacity: 0.5;
+}
+
+.label-card.drop-before {
+  box-shadow: 0 -4px 0 -1px var(--color-accent);
+}
+
+.label-card.drop-end {
+  box-shadow: 0 4px 0 -1px var(--color-accent);
+}
+
 .label-head {
   display: flex;
   align-items: center;

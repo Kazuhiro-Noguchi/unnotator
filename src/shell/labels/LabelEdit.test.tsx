@@ -125,30 +125,98 @@ describe("ラベルの編集・並べ替え・削除", () => {
     expect(root.querySelector(".form-errors")?.textContent).toContain("cat");
   });
 
-  it("下へ動かすと、並び順を振り直す update_label の transaction が渡る", async () => {
+  const swapped = {
+    kind: "transaction",
+    commands: [
+      {
+        kind: "update_label",
+        id: "2",
+        patch: { sort_order: { kind: "set", value: 0 } },
+      },
+      {
+        kind: "update_label",
+        id: "1",
+        patch: { sort_order: { kind: "set", value: 1 } },
+      },
+    ],
+  };
+
+  /** カードの位置を決める（happy-dom には、レイアウトが無い）。1 枚 40px・間隔 10px。 */
+  function layout(root: HTMLElement) {
+    root.querySelectorAll<HTMLElement>(".label-card").forEach((el, i) => {
+      el.getBoundingClientRect = () =>
+        ({ top: i * 50, height: 40, bottom: i * 50 + 40 }) as DOMRect;
+    });
+  }
+  const grip = (root: HTMLElement, name: string) =>
+    [...root.querySelectorAll<HTMLElement>(".label-item")]
+      .find((li) => li.querySelector(".label-name")?.textContent === name)
+      ?.querySelector<HTMLElement>(".label-grip");
+  const pointer = (el: Element | null | undefined, type: string, y = 0) =>
+    el?.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, button: 0, clientY: y }),
+    );
+
+  it("上下の矢印ボタンは無い。つかみ（グリップ）のキーボード操作で、1 つ下へ動かせる", async () => {
     const { root, applied } = mount([
       row("1", "a", null, 0),
       row("2", "b", null, 1),
     ]);
-    labelled(root, t("labels.moveDown"))?.click();
+    expect(labelled(root, t("labels.moveDown"))).toBeUndefined();
+    expect(labelled(root, t("labels.moveUp"))).toBeUndefined();
+    grip(root, "a")?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
     await flush();
-    expect(applied).toEqual([
-      {
-        kind: "transaction",
-        commands: [
-          {
-            kind: "update_label",
-            id: "2",
-            patch: { sort_order: { kind: "set", value: 0 } },
-          },
-          {
-            kind: "update_label",
-            id: "1",
-            patch: { sort_order: { kind: "set", value: 1 } },
-          },
-        ],
-      },
+    expect(applied).toEqual([swapped]);
+  });
+
+  it("ドラッグして、2 つ目の下で離すと、並び順を振り直す", async () => {
+    const { root, applied } = mount([
+      row("1", "a", null, 0),
+      row("2", "b", null, 1),
     ]);
+    layout(root);
+    const handle = grip(root, "a");
+    pointer(handle, "pointerdown", 20);
+    pointer(handle, "pointermove", 95);
+    await flush();
+    // ドラッグ中は、動かすカードが薄くなり、挿入位置（最後の後ろ）に目印が出る
+    expect(root.querySelector(".label-card.dragging")).not.toBeNull();
+    expect(root.querySelector(".label-card.drop-end")).not.toBeNull();
+    pointer(handle, "pointerup", 95);
+    await flush();
+    expect(applied).toEqual([swapped]);
+    expect(root.querySelector(".dragging")).toBeNull();
+  });
+
+  it("元の位置の近くで離す・キャンセルしたときは、何も書かない", async () => {
+    const { root, applied } = mount([
+      row("1", "a", null, 0),
+      row("2", "b", null, 1),
+    ]);
+    layout(root);
+    const handle = grip(root, "a");
+    pointer(handle, "pointerdown", 20);
+    pointer(handle, "pointermove", 25);
+    pointer(handle, "pointerup", 25);
+    pointer(handle, "pointerdown", 20);
+    pointer(handle, "pointermove", 95);
+    pointer(handle, "pointercancel", 95);
+    await flush();
+    expect(applied).toEqual([]);
+    expect(root.querySelector(".dragging")).toBeNull();
+  });
+
+  it("名前で絞り込んでいるあいだは、つかみを出さない", async () => {
+    const { root } = mount([row("1", "a", null, 0), row("2", "b", null, 1)]);
+    expect(grip(root, "a") ?? null).not.toBeNull();
+    const input = root.querySelector<HTMLInputElement>(".filter-name");
+    if (input === null) throw new Error("絞り込みが無い");
+    input.value = "a";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(grip(root, "a") ?? null).toBeNull();
   });
 
   it("使われていないラベルは、選択なしで削除できる", async () => {

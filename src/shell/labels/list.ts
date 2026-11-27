@@ -32,23 +32,43 @@ export function defaultLabelColor(count: number): string {
 }
 
 /**
- * 1 つ上・下へ動かしたあとの並びを、先頭から 0, 1, 2… と振り直し、値が変わるラベルだけを返す。端なら `null`。
- * 同じ値が並んでいても、位置どおりに動く。
+ * ラベルを `toIndex`（動かしたあとの位置）へ動かしたあとの並びを、先頭から 0, 1, 2… と振り直し、
+ * 値が変わるラベルだけを返す。同じ位置・範囲外・知らない ID なら `null`。同じ値が並んでいても、位置どおりに動く。
  */
+export function reorderLabels(
+  labels: readonly LabelRow[],
+  id: string,
+  toIndex: number,
+): Array<{ id: string; sort_order: number }> | null {
+  const index = labels.findIndex((l) => l.id === id);
+  if (index < 0 || toIndex < 0 || toIndex >= labels.length) return null;
+  if (index === toIndex) return null;
+  const order = [...labels];
+  const [moved] = order.splice(index, 1);
+  if (moved === undefined) return null;
+  order.splice(toIndex, 0, moved);
+  return order
+    .map((l, position) => ({ label: l, position }))
+    .filter(({ label, position }) => label.sort_order !== position)
+    .map(({ label, position }) => ({ id: label.id, sort_order: position }));
+}
+
+/** 1 つ上・下へ動かす（キーボード用）。端なら `null`。 */
 export function moveLabel(
   labels: readonly LabelRow[],
   id: string,
   direction: "up" | "down",
 ): Array<{ id: string; sort_order: number }> | null {
   const index = labels.findIndex((l) => l.id === id);
-  const target = direction === "up" ? index - 1 : index + 1;
-  if (index < 0 || target < 0 || target >= labels.length) return null;
-  const order = [...labels];
-  const [moved] = order.splice(index, 1);
-  if (moved === undefined) return null;
-  order.splice(target, 0, moved);
-  return order
-    .map((l, position) => ({ label: l, position }))
-    .filter(({ label, position }) => label.sort_order !== position)
-    .map(({ label, position }) => ({ id: label.id, sort_order: position }));
+  return reorderLabels(labels, id, direction === "up" ? index - 1 : index + 1);
+}
+
+/** ドラッグの落とし先。各カードの中心の縦の位置と、ポインターの位置から、挿入位置（0〜件数）を返す。 */
+export function dropIndexFor(centers: readonly number[], y: number): number {
+  return centers.filter((center) => center < y).length;
+}
+
+/** 挿入位置（取り除く前の数え方）を、取り除いたあとの位置に直す。 */
+export function finalIndex(from: number, insertion: number): number {
+  return insertion > from ? insertion - 1 : insertion;
 }

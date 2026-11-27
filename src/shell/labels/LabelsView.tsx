@@ -8,7 +8,14 @@ import type { NotifyLevel } from "../types";
 import { deleteCommand } from "./delete";
 import { LabelDelete } from "./LabelDelete";
 import { LabelForm } from "./LabelForm";
-import { filterLabels, moveLabel, nextSortOrder } from "./list";
+import {
+  dropIndexFor,
+  filterLabels,
+  finalIndex,
+  moveLabel,
+  nextSortOrder,
+  reorderLabels,
+} from "./list";
 
 export interface LabelsViewProps {
   data: Pick<ProjectData, "labels" | "subscribe" | "apply" | "labelUsage">;
@@ -73,9 +80,11 @@ export function LabelsView(props: LabelsViewProps) {
       setEditing(null);
     }
   };
-  const move = (id: string, direction: "up" | "down") => {
-    const changes = moveLabel(labels(), id, direction);
-    if (changes === null) return;
+  /** 並び順を振り直す（変わるものだけ。1 つの元に戻せる操作）。 */
+  const applyOrders = (
+    changes: Array<{ id: string; sort_order: number }> | null,
+  ) => {
+    if (changes === null || changes.length === 0) return;
     const commands: Command[] = changes.map((c) => ({
       kind: "update_label",
       id: c.id,
@@ -86,6 +95,41 @@ export function LabelsView(props: LabelsViewProps) {
       commands.length === 1 && only !== undefined
         ? only
         : { kind: "transaction", commands },
+    );
+  };
+  const move = (id: string, direction: "up" | "down") =>
+    applyOrders(moveLabel(labels(), id, direction));
+
+  // ドラッグで並べ替える。ポインターで動かす（WebView ごとの違いが無く、Windows でも使える）。
+  const [drag, setDrag] = createSignal<{
+    id: string;
+    insertion: number;
+  } | null>(null);
+  let listEl: HTMLUListElement | undefined;
+  const insertionAt = (y: number) => {
+    const cards = listEl?.querySelectorAll<HTMLElement>(":scope > .label-card");
+    const centers = [...(cards ?? [])].map((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.top + rect.height / 2;
+    });
+    return dropIndexFor(centers, y);
+  };
+  const dragStart = (id: string) =>
+    setDrag({
+      id,
+      insertion: labels().findIndex((l) => l.id === id),
+    });
+  const dragMove = (y: number) =>
+    setDrag((current) =>
+      current === null ? null : { ...current, insertion: insertionAt(y) },
+    );
+  const dragEnd = (commit: boolean) => {
+    const current = drag();
+    setDrag(null);
+    if (!commit || current === null) return;
+    const from = labels().findIndex((l) => l.id === current.id);
+    applyOrders(
+      reorderLabels(labels(), current.id, finalIndex(from, current.insertion)),
     );
   };
 
@@ -113,6 +157,25 @@ export function LabelsView(props: LabelsViewProps) {
         }),
       );
     }
+  };
+
+  /** ドラッグ中、挿入位置の目印を出すカード（その前、または、最後のカードの後ろ）。 */
+  const dropMarkFor = (id: string): "before" | "end" | null => {
+    const current = drag();
+    if (current === null) return null;
+    const index = labels().findIndex((l) => l.id === id);
+    const from = labels().findIndex((l) => l.id === current.id);
+    // 自分の直前・直後への挿入は、動かないので、目印を出さない。
+    if (current.insertion === from || current.insertion === from + 1)
+      return null;
+    if (index === current.insertion) return "before";
+    if (
+      current.insertion === labels().length &&
+      index === labels().length - 1
+    ) {
+      return "end";
+    }
+    return null;
   };
 
   return (
@@ -143,12 +206,14 @@ export function LabelsView(props: LabelsViewProps) {
           onCancel={() => setCreating(false)}
         />
       </Show>
-      <ul class="label-list">
+      <ul class="label-list" ref={listEl}>
         <For each={shown()}>
           {(label) => (
             <LabelItem
               label={label}
               canMove={query().trim() === ""}
+              dragging={drag()?.id === label.id}
+              dropMark={dropMarkFor(label.id)}
               onEdit={() => {
                 setDeleting(null);
                 setEditing(label.id);
@@ -161,6 +226,9 @@ export function LabelsView(props: LabelsViewProps) {
                 })
               }
               onMove={(direction) => move(label.id, direction)}
+              onDragStart={() => dragStart(label.id)}
+              onDragMove={dragMove}
+              onDragEnd={dragEnd}
             >
               <Show when={editing() === label.id}>
                 <LabelForm
@@ -201,9 +269,14 @@ export function LabelsView(props: LabelsViewProps) {
 function LabelItem(props: {
   label: LabelRow;
   canMove: boolean;
+  dragging: boolean;
+  dropMark: "before" | "end" | null;
   onEdit: () => void;
   onToggleHidden: () => void;
   onMove: (direction: "up" | "down") => void;
+  onDragStart: () => void;
+  onDragMove: (y: number) => void;
+  onDragEnd: (commit: boolean) => void;
   /** 編集・削除の確認など、カードの中に開くもの。 */
   children?: JSX.Element;
 }) {
@@ -228,10 +301,40 @@ function LabelItem(props: {
   return (
     <li
       class="label-item label-card"
-      classList={{ hidden: props.label.hidden }}
+      classList={{
+        hidden: props.label.hidden,
+        dragging: props.dragging,
+        "drop-before": props.dropMark === "before",
+        "drop-end": props.dropMark === "end",
+      }}
       data-label-id={props.label.id}
     >
       <div class="label-head">
+        <Show when={props.canMove}>
+          <button
+            type="button"
+            class="label-grip"
+            aria-label={t("labels.drag")}
+            title={t("labels.drag")}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              props.onDragStart();
+            }}
+            onPointerMove={(event) => {
+              if (props.dragging) props.onDragMove(event.clientY);
+            }}
+            onPointerUp={() => props.onDragEnd(true)}
+            onPointerCancel={() => props.onDragEnd(false)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              event.preventDefault();
+              props.onMove(event.key === "ArrowUp" ? "up" : "down");
+            }}
+          >
+            <Icon name="$(grip)" size={16} />
+          </button>
+        </Show>
         <span
           class="label-swatch"
           style={{ background: props.label.color }}
@@ -242,14 +345,6 @@ function LabelItem(props: {
           <kbd class="label-key">{props.label.hotkey}</kbd>
         </Show>
         <span class="label-actions">
-          <Show when={props.canMove}>
-            {iconButton("$(chevron-up)", t("labels.moveUp"), () =>
-              props.onMove("up"),
-            )}
-            {iconButton("$(chevron-down)", t("labels.moveDown"), () =>
-              props.onMove("down"),
-            )}
-          </Show>
           {iconButton(
             props.label.hidden ? "$(eye-off)" : "$(eye)",
             props.label.hidden ? t("labels.show") : t("labels.hide"),

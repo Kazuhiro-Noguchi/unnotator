@@ -301,7 +301,7 @@
                 "anyOf": [{ "enum": ["home"] }, { "$ref": "#/$defs/ref" }]
               },
               "group": {
-                "description": "既存グループへ追加する場合のグループ ID。コア: home.clipboard / home.edit / home.tools / home.relations / home.status / home.view / home.project",
+                "description": "既存グループへ追加する場合のグループ ID。コア: home.clipboard / home.edit / home.tools / home.mode / home.relations / home.status / home.view / home.project",
                 "type": "string"
               },
               "id": { "$ref": "#/$defs/localName" },

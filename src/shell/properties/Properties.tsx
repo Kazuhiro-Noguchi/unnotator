@@ -42,10 +42,6 @@ export interface PropertiesProps {
   drafts: DraftStore;
   selection: Selection;
   supported(): ReadonlySet<string>;
-  /** 選択中のラベル（複数）。分類の付け外しのボタンに使う。 */
-  selectedLabels?(): readonly LabelRow[];
-  /** 選択中のラベルを、現在位置の分類として付ける・外す。 */
-  onClassify?(): void;
   notify: (level: NotifyLevel, text: string) => void;
 }
 
@@ -129,30 +125,6 @@ export function Properties(props: PropertiesProps) {
         .catch(fail);
     }),
   );
-
-  /** 分類のボタンの文字: 選んでいなければ案内、すべて付いていれば「外す」、付いていないものがあれば「付ける」。 */
-  const classifyText = (
-    selected: readonly LabelRow[],
-    attachedIds: ReadonlySet<string>,
-  ): string => {
-    const [first] = selected;
-    if (first === undefined) return t("labels.classify.select");
-    const allAttached = selected.every((l) => attachedIds.has(l.id));
-    if (selected.length === 1) {
-      return format(
-        t(allAttached ? "labels.classify.detach" : "labels.classify.attach"),
-        { name: first.name },
-      );
-    }
-    return format(
-      t(
-        allAttached
-          ? "labels.classify.detachMany"
-          : "labels.classify.attachMany",
-      ),
-      { count: String(selected.length) },
-    );
-  };
 
   const labelName = (id: string | null) =>
     labels().find((l) => l.id === id)?.name ?? t("properties.label.none");
@@ -368,26 +340,6 @@ export function Properties(props: PropertiesProps) {
               </Show>
               <section class="prop-section">
                 <h3>{t("properties.classification")}</h3>
-                <Show when={props.onClassify}>
-                  {(classify) => (
-                    <button
-                      type="button"
-                      class="button classify-button"
-                      disabled={(props.selectedLabels?.() ?? []).length === 0}
-                      title={t("labels.classify.select")}
-                      onClick={() => classify()()}
-                    >
-                      {classifyText(
-                        props.selectedLabels?.() ?? [],
-                        new Set(
-                          d().classification.flatMap((c) =>
-                            c.label_id === null ? [] : [c.label_id],
-                          ),
-                        ),
-                      )}
-                    </button>
-                  )}
-                </Show>
                 <Show
                   when={d().classification.length > 0}
                   fallback={

@@ -121,17 +121,6 @@ function AnnotationItem(
           {(label) => <option value={label.id}>{label.name}</option>}
         </For>
       </select>
-      <button
-        type="button"
-        class="button"
-        aria-label={t("properties.delete")}
-        onClick={(event) => {
-          event.stopPropagation();
-          props.onDelete(props.row.id);
-        }}
-      >
-        {t("properties.delete")}
-      </button>
     </div>
   );
 }

@@ -23,6 +23,14 @@ const toggle = (command: string, checked?: string): RibbonControl =>
     ? { kind: "toggle", command }
     : { kind: "toggle", command, checked };
 
+/** 大きなアイコンのトグル。 */
+const largeToggle = (command: string, checked: string): RibbonControl => ({
+  kind: "toggle",
+  command,
+  checked,
+  large: true,
+});
+
 function group(
   id: string,
   ja: string,
@@ -70,7 +78,7 @@ export function coreRibbon(): RibbonTab[] {
       ]),
       // モード（008）。ツールの右。
       group("home.mode", "モード", "Mode", 45, [
-        toggle("core.mode.fileClassification", "modeFileClassification"),
+        largeToggle("core.mode.fileClassification", "modeFileClassification"),
       ]),
       group("home.relations", "関係とグループ", "Relations and groups", 30, [
         small("core.relation.create"),

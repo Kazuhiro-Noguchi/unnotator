@@ -68,13 +68,12 @@ function detailsOf(assetId: string): TargetDetails {
   };
 }
 
-function mount(fail = false, active: readonly LabelRow[] = []) {
+function mount(fail = false) {
   const current = createCurrentStore();
   const drafts = createDraftStore();
   const selection = createSelection();
   const applied: Command[] = [];
   const notes: string[] = [];
-  const classified: string[] = [];
   const listeners = new Set<() => void>();
   let details: TargetDetails | null = null;
   const data: PropertiesProps["data"] = {
@@ -120,15 +119,11 @@ function mount(fail = false, active: readonly LabelRow[] = []) {
         selection={selection}
         supported={() => new Set<string>()}
         notify={notify}
-        selectedLabels={() => active}
-        onClassify={() => {
-          classified.push("classify");
-        }}
       />
     ),
     root,
   );
-  return { root, open, applied, notes, drafts, selection, classified };
+  return { root, open, applied, notes, drafts, selection };
 }
 
 describe("Properties（プロパティパネル）", () => {
@@ -194,7 +189,7 @@ describe("Properties（プロパティパネル）", () => {
     expect(root.querySelector(".draft-banner")).toBeNull();
   });
 
-  it("ラベルの変更と削除が、命令になる（未対応の種別でもできる）", async () => {
+  it("ラベルの変更が、命令になる（未対応の種別でもできる）", async () => {
     const { root, open, applied } = mount();
     open("a1");
     await flush();
@@ -204,7 +199,6 @@ describe("Properties（プロパティパネル）", () => {
     const select = item.querySelector("select") as HTMLSelectElement;
     select.value = "l1";
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    (item.querySelector("button") as HTMLButtonElement).click();
     await flush();
     expect(applied).toEqual([
       {
@@ -212,7 +206,6 @@ describe("Properties（プロパティパネル）", () => {
         id: "x1",
         patch: { label_id: { kind: "set", value: "l1" } },
       },
-      { kind: "delete_annotation", id: "x1" },
     ]);
   });
 
@@ -239,56 +232,28 @@ describe("Properties（プロパティパネル）", () => {
     expect([...selection.ids()].sort()).toEqual(["c1", "x1"]);
   });
 
-  it("分類のボタン: ラベルを選んでいなければ、案内の文字で押せない", async () => {
+  it("プロパティには、分類を付け外しするボタンも、アノテーションの削除ボタンも無い（分類は、モードのラベルのクリックで変える）", async () => {
     const { root, open } = mount();
     open("a1");
     await flush();
-    const button = root.querySelector<HTMLButtonElement>(".classify-button");
-    expect(button?.disabled).toBe(true);
-    expect(button?.textContent).toBe(t("labels.classify.select"));
+    expect(root.querySelector(".classify-button")).toBeNull();
+    const buttons = [
+      ...root.querySelectorAll<HTMLButtonElement>(".annotation-item button"),
+    ];
+    expect(buttons).toEqual([]);
   });
 
-  it("分類のボタン: 選んだラベルが付いていれば「外す」。押すと、分類の付け外しを頼む", async () => {
-    // 詳細（detailsOf）の分類には、ラベル l1（cat）が付いている
-    const attached = mount(false, [label]);
-    attached.open("a1");
+  it("アノテーションは、Delete キーで削除できる（ボタンは無いが、キーは残す）", async () => {
+    const { root, open, applied } = mount();
+    open("a1");
     await flush();
-    const detach =
-      attached.root.querySelector<HTMLButtonElement>(".classify-button");
-    expect(detach?.disabled).toBe(false);
-    expect(detach?.textContent).toBe(
-      t("labels.classify.detach").replace("{name}", "cat"),
+    const item = root.querySelector<HTMLElement>(
+      ".annotation-item.unsupported",
     );
-    detach?.click();
-    expect(attached.classified).toEqual(["classify"]);
-  });
-
-  it("分類のボタン: 別のラベルを選んでいれば「付ける」", async () => {
-    const other = { ...label, id: "l9", name: "dog" };
-    const t2 = mount(false, [other]);
-    t2.open("a1");
+    item?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Delete", bubbles: true }),
+    );
     await flush();
-    expect(t2.root.querySelector(".classify-button")?.textContent).toBe(
-      t("labels.classify.attach").replace("{name}", "dog"),
-    );
-  });
-
-  it("分類のボタン（複数選択）: すべて付いていれば「N 件を外す」、付いていないものがあれば「N 件を付ける」", async () => {
-    const other = { ...label, id: "l9", name: "dog" };
-    const some = mount(false, [label, other]);
-    some.open("a1");
-    await flush();
-    expect(some.root.querySelector(".classify-button")?.textContent).toBe(
-      t("labels.classify.attachMany").replace("{count}", "2"),
-    );
-    dispose?.();
-    document.body.innerHTML = "";
-    // 詳細の分類に、l1 しか付いていないので、l1 だけを選んでいる場合は「外す」
-    const all = mount(false, [label, { ...label }]);
-    all.open("a1");
-    await flush();
-    expect(all.root.querySelector(".classify-button")?.textContent).toBe(
-      t("labels.classify.detachMany").replace("{count}", "2"),
-    );
+    expect(applied).toEqual([{ kind: "delete_annotation", id: "x1" }]);
   });
 });

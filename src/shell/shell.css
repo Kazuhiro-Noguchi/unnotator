@@ -1863,13 +1863,6 @@ fieldset.ribbon-group {
   text-decoration: underline;
 }
 
-/* 情報パネルの「分類」: 選択中のラベルを、分類に付ける・外すボタン。 */
-.classify-button {
-  margin-bottom: 6px;
-  padding: 0 12px;
-  font-size: 12px;
-}
-
 /*
  * 押せないボタンは、必ずグレーアウトする（見た目から、押せるかどうかが分かるように）。
  * ボタンの種類（.primary・.icon-button・.danger など）ごとに、色や背景が決まっていても、押せないときは、この規則が勝つ
@@ -1878,8 +1871,7 @@ fieldset.ribbon-group {
 .button:disabled,
 .button.primary:disabled,
 .button.icon-button:disabled,
-.button.danger:disabled,
-.button.classify-button:disabled {
+.button.danger:disabled {
   border-color: var(--color-border);
   background: transparent;
   color: var(--color-fg-disabled);

@@ -118,4 +118,24 @@ describe("コアのリボンの定義", () => {
       }
     }
   });
+
+  it("「モード」グループ: ツールの右に、ファイル分類の大きなトグルがある（file-scan のアイコン）", () => {
+    const ids = tabs.flatMap((t) => t.groups.map((g) => g.id));
+    expect(ids.indexOf("home.mode")).toBe(ids.indexOf("home.tools") + 1);
+    const mode = tabs
+      .flatMap((t) => t.groups)
+      .find((g) => g.id === "home.mode");
+    expect(mode?.controls).toEqual([
+      {
+        kind: "toggle",
+        command: "core.mode.fileClassification",
+        checked: "modeFileClassification",
+        large: true,
+      },
+    ]);
+    const command = CORE_COMMANDS.find(
+      (c) => c.id === "core.mode.fileClassification",
+    );
+    expect(command?.icon).toBe("$(file-scan)");
+  });
 });

@@ -1,5 +1,6 @@
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { format } from "../../i18n";
+import { Icon } from "../Icon";
 import type { ProjectData } from "../project-data/store";
 import type { Command, LabelRow } from "../project-data/types";
 import { fromStore, useT } from "../solid";
@@ -148,8 +149,17 @@ export function LabelsView(props: LabelsViewProps) {
             <LabelItem
               label={label}
               canMove={query().trim() === ""}
-              onEdit={() => setEditing(label.id)}
-              onDelete={() => setDeleting(label.id)}
+              onEdit={() => {
+                setDeleting(null);
+                setEditing(label.id);
+              }}
+              onToggleHidden={() =>
+                void run({
+                  kind: "update_label",
+                  id: label.id,
+                  patch: { hidden: { kind: "set", value: !label.hidden } },
+                })
+              }
               onMove={(direction) => move(label.id, direction)}
             >
               <Show when={editing() === label.id}>
@@ -158,6 +168,10 @@ export function LabelsView(props: LabelsViewProps) {
                   labels={labels()}
                   onSubmit={(draft) => void update(label, draft)}
                   onCancel={() => setEditing(null)}
+                  onDelete={() => {
+                    setEditing(null);
+                    setDeleting(label.id);
+                  }}
                 />
               </Show>
               <Show when={deleting() === label.id}>
@@ -188,12 +202,29 @@ function LabelItem(props: {
   label: LabelRow;
   canMove: boolean;
   onEdit: () => void;
-  onDelete: () => void;
+  onToggleHidden: () => void;
   onMove: (direction: "up" | "down") => void;
   /** 編集・削除の確認など、カードの中に開くもの。 */
   children?: JSX.Element;
 }) {
   const t = useT();
+  const iconButton = (
+    icon: string,
+    label: string,
+    onClick: () => void,
+    pressed?: boolean,
+  ) => (
+    <button
+      type="button"
+      class="button icon-button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
+      <Icon name={icon} size={16} />
+    </button>
+  );
   return (
     <li
       class="label-item label-card"
@@ -210,35 +241,24 @@ function LabelItem(props: {
         <Show when={props.label.hotkey !== null}>
           <kbd class="label-key">{props.label.hotkey}</kbd>
         </Show>
+        <span class="label-actions">
+          <Show when={props.canMove}>
+            {iconButton("$(chevron-up)", t("labels.moveUp"), () =>
+              props.onMove("up"),
+            )}
+            {iconButton("$(chevron-down)", t("labels.moveDown"), () =>
+              props.onMove("down"),
+            )}
+          </Show>
+          {iconButton(
+            props.label.hidden ? "$(eye-off)" : "$(eye)",
+            props.label.hidden ? t("labels.show") : t("labels.hide"),
+            props.onToggleHidden,
+            props.label.hidden,
+          )}
+          {iconButton("$(pencil)", t("labels.edit"), props.onEdit)}
+        </span>
       </div>
-      <span class="label-actions">
-        <Show when={props.canMove}>
-          <button
-            type="button"
-            class="button"
-            aria-label={t("labels.moveUp")}
-            title={t("labels.moveUp")}
-            onClick={() => props.onMove("up")}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            class="button"
-            aria-label={t("labels.moveDown")}
-            title={t("labels.moveDown")}
-            onClick={() => props.onMove("down")}
-          >
-            ↓
-          </button>
-        </Show>
-        <button type="button" class="button" onClick={props.onEdit}>
-          {t("labels.edit")}
-        </button>
-        <button type="button" class="button" onClick={props.onDelete}>
-          {t("labels.delete")}
-        </button>
-      </span>
       {props.children}
     </li>
   );

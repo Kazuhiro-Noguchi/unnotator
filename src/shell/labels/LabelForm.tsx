@@ -12,6 +12,8 @@ export interface LabelFormProps {
   labels: readonly LabelRow[];
   onSubmit: (draft: LabelDraft & { hidden: boolean }) => void;
   onCancel: () => void;
+  /** 変更のときだけ。削除の確認を開く（削除は、編集の中に置く）。 */
+  onDelete?: () => void;
 }
 
 const KEYS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -96,6 +98,15 @@ export function LabelForm(props: LabelFormProps) {
         <button type="button" class="button" onClick={props.onCancel}>
           {t("labels.cancel")}
         </button>
+        <Show when={props.onDelete}>
+          <button
+            type="button"
+            class="button danger push-end"
+            onClick={() => props.onDelete?.()}
+          >
+            {t("labels.delete")}
+          </button>
+        </Show>
       </div>
     </form>
   );

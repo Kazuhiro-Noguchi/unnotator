@@ -278,5 +278,7 @@
   "groups.none": "There are no groups.",
   "groups.ungroup": "Remove from groups",
   "relations.arrow": "→",
-  "links.failed": "Could not save the relation or group: {reason}"
+  "links.failed": "Could not save the relation or group: {reason}",
+  "labels.hide": "Hide",
+  "labels.show": "Show"
 }

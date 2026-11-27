@@ -1681,16 +1681,11 @@ fieldset.ribbon-group {
 }
 
 /* 狭いサイドバーでは、操作を名前の下の行に回す。 */
+/* 操作は、名前と同じ行の右に、小さなアイコンのボタンで並べる。 */
 .label-actions {
   display: flex;
-  flex-basis: 100%;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-.label-actions .button {
-  padding: 0 10px;
-  font-size: 12px;
+  margin-left: auto;
+  gap: 2px;
 }
 
 .label-delete {
@@ -1749,4 +1744,14 @@ fieldset.ribbon-group {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 破壊的な操作のボタン（削除）。フォームの右端に置く。 */
+.button.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.push-end {
+  margin-left: auto;
 }

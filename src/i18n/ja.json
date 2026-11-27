@@ -278,5 +278,7 @@
   "groups.none": "グループはありません。",
   "groups.ungroup": "グループから外す",
   "relations.arrow": "→",
-  "links.failed": "関係・グループを保存できませんでした: {reason}"
+  "links.failed": "関係・グループを保存できませんでした: {reason}",
+  "labels.hide": "非表示にする",
+  "labels.show": "表示する"
 }

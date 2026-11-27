@@ -64,6 +64,21 @@ const labelled = (root: HTMLElement, text: string) =>
     (b) => b.textContent === text || b.getAttribute("aria-label") === text,
   );
 
+/** 削除は、編集（鉛筆）を開いて、フォームの「削除」から行う。 */
+async function openDelete(root: HTMLElement, name: string) {
+  const card = [...root.querySelectorAll<HTMLElement>(".label-item")].find(
+    (li) => li.querySelector(".label-name")?.textContent === name,
+  );
+  card
+    ?.querySelector<HTMLButtonElement>(
+      `button[aria-label="${t("labels.edit")}"]`,
+    )
+    ?.click();
+  await flush();
+  card?.querySelector<HTMLButtonElement>(".label-form .danger")?.click();
+  await flush();
+}
+
 function type(el: HTMLInputElement, value: string) {
   el.value = value;
   el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -93,7 +108,10 @@ describe("ラベルの編集・並べ替え・削除", () => {
 
   it("他のラベルが使っているショートカットキーは、保存せずに拒む", async () => {
     const { root, applied } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
-    itemButtons(root, "dog")[2]?.click();
+    itemButtons(root, "dog")
+      .values()
+      .find((b) => b.getAttribute("aria-label") === t("labels.edit"))
+      ?.click();
     await flush();
     const select = root.querySelector(
       ".label-form select",
@@ -136,8 +154,7 @@ describe("ラベルの編集・並べ替え・削除", () => {
 
   it("使われていないラベルは、選択なしで削除できる", async () => {
     const { root, applied } = mount([row("1", "cat")]);
-    itemButtons(root, "cat")[itemButtons(root, "cat").length - 1]?.click();
-    await flush();
+    await openDelete(root, "cat");
     expect(root.querySelector(".label-delete")?.textContent).toContain(
       t("labels.delete.unused"),
     );
@@ -152,9 +169,7 @@ describe("ラベルの編集・並べ替え・削除", () => {
     const { root, applied } = mount([row("1", "cat"), row("2", "dog")], {
       annotations: 3,
     });
-    const buttons = itemButtons(root, "cat");
-    buttons[buttons.length - 1]?.click();
-    await flush();
+    await openDelete(root, "cat");
     expect(root.querySelector(".label-delete")?.textContent).toContain("3");
     const radios = root.querySelectorAll<HTMLInputElement>(
       ".label-delete input[type=radio]",
@@ -171,5 +186,40 @@ describe("ラベルの編集・並べ替え・削除", () => {
         disposition: { kind: "reassign", to_label_id: "2" },
       },
     ]);
+  });
+
+  it("削除のボタンは、カードに出さず、編集の中にだけある", async () => {
+    const { root } = mount([row("1", "cat")]);
+    const card = root.querySelector<HTMLElement>(".label-item");
+    const names = [...(card?.querySelectorAll("button") ?? [])].map((b) =>
+      b.getAttribute("aria-label"),
+    );
+    expect(names).not.toContain(t("labels.delete"));
+    expect(card?.querySelector(".label-form .danger")).toBeNull();
+    labelled(root, t("labels.edit"))?.click();
+    await flush();
+    expect(card?.querySelector(".label-form .danger")?.textContent).toBe(
+      t("labels.delete"),
+    );
+  });
+
+  it("非表示のアイコンで、表示と非表示を切り替える（update_label）", async () => {
+    const { root, applied } = mount([row("1", "cat")]);
+    labelled(root, t("labels.hide"))?.click();
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "update_label",
+        id: "1",
+        patch: { hidden: { kind: "set", value: true } },
+      },
+    ]);
+  });
+
+  it("非表示のラベルは、目に斜線のアイコンで『表示する』になる", () => {
+    const hidden = { ...row("1", "cat"), hidden: true };
+    const { root } = mount([hidden]);
+    expect(labelled(root, t("labels.show"))).not.toBeUndefined();
+    expect(labelled(root, t("labels.hide"))).toBeUndefined();
   });
 });

@@ -5,17 +5,25 @@ import { EmptyState } from "./EmptyState";
 import { ProblemsView } from "./ProblemsView";
 import { CORE_VIEWS, type ViewRegistry } from "./views";
 
+export interface ProjectEntryActions {
+  createNew: () => void;
+  openFolder: () => void;
+}
+
 function CoreEmpty(props: {
   message: MessageKey;
-  onOpenFolder?: (() => void) | undefined;
+  entry?: ProjectEntryActions | undefined;
 }) {
   const t = useT();
   return (
     <EmptyState
       message={t(props.message)}
-      action={
-        props.onOpenFolder
-          ? { label: t("empty.openFolder"), run: props.onOpenFolder }
+      actions={
+        props.entry
+          ? [
+              { label: t("empty.newProject"), run: props.entry.createNew },
+              { label: t("empty.openProject"), run: props.entry.openFolder },
+            ]
           : undefined
       }
     />
@@ -25,7 +33,7 @@ function CoreEmpty(props: {
 /** コアのビューを登録する。中身が無い間は、空の状態の案内を出す。 */
 export function registerCoreViews(
   views: ViewRegistry,
-  openFolder: () => void,
+  entry: ProjectEntryActions,
 ): void {
   for (const meta of CORE_VIEWS) {
     views.register({
@@ -39,12 +47,10 @@ export function registerCoreViews(
           <ProblemsView />
         ) : meta.id === "explorer" ? (
           <ExplorerView
-            fallback={
-              <CoreEmpty message={meta.empty} onOpenFolder={openFolder} />
-            }
+            fallback={<CoreEmpty message={meta.empty} entry={entry} />}
           />
         ) : (
-          <CoreEmpty message={meta.empty} onOpenFolder={undefined} />
+          <CoreEmpty message={meta.empty} />
         ),
     });
   }

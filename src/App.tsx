@@ -155,10 +155,10 @@ if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
     ),
   );
 }
-registerCoreViews(
-  views,
-  () => void commandRegistry.execute("core.project.open"),
-);
+registerCoreViews(views, {
+  createNew: () => void commandRegistry.execute("core.project.new"),
+  openFolder: () => void commandRegistry.execute("core.project.open"),
+});
 
 // 走査の進み具合を、ステータスバーのメッセージに出す（終わったら消す）。
 void events.scanProgressEvent

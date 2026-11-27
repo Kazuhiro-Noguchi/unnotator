@@ -58,6 +58,12 @@ function mount(initial: LabelRow[], fail = false) {
       if (command.kind === "create_label") {
         labels = [...labels, row("new", command.name, command.hotkey ?? null)];
         for (const listener of listeners) listener();
+        return {
+          seq: 1,
+          origin: "apply",
+          changes: [{ entity: "label", id: "new", kind: "created" }],
+          asset_ids: [],
+        };
       }
       return { seq: 1, origin: "apply", changes: [], asset_ids: [] };
     },
@@ -98,73 +104,132 @@ describe("LabelsView", () => {
     );
   });
 
-  it("追加フォームで、名前とショートカットキーを入れて保存すると、create_label が渡る", async () => {
-    const { root, applied, ui } = mount([row("1", "cat", 1)]);
-    ui.setCreating(true);
+  const openEdit = async (root: HTMLElement, name: string) => {
+    [...root.querySelectorAll<HTMLElement>(".label-item")]
+      .find((li) => li.querySelector(".label-name")?.textContent === name)
+      ?.querySelector<HTMLButtonElement>(
+        `button[aria-label="${t("labels.edit")}"]`,
+      )
+      ?.click();
     await flush();
-    type(
-      root.querySelector(".label-form input[type=text]") as HTMLInputElement,
-      "bird",
-    );
-    const select = root.querySelector(
-      ".label-form select",
-    ) as HTMLSelectElement;
-    select.value = "3";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    (
-      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
-    ).click();
+  };
+
+  it("追加は、すぐに仮の名前のラベルを作り、その編集を開く（保存ボタンは無い）", async () => {
+    const { root, applied, ui } = mount([row("1", "cat", 1)]);
+    ui.create();
     await flush();
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({
       kind: "create_label",
-      name: "bird",
-      hotkey: 3,
+      name: t("labels.newName"),
     });
-    expect(names(root)).toEqual(["cat", "bird"]);
-    expect(root.querySelector(".label-form")).toBeNull();
+    expect(names(root)).toEqual(["cat", t("labels.newName")]);
+    const input = root.querySelector<HTMLInputElement>(
+      ".label-form input[type=text]",
+    );
+    expect(input?.value).toBe(t("labels.newName"));
+    expect(root.querySelector(".label-form button[type=submit]")).toBeNull();
+    expect(
+      [...root.querySelectorAll(".label-form button")].map(
+        (b) => b.textContent,
+      ),
+    ).toEqual([t("labels.delete")]);
   });
 
-  it("重複する名前は、保存せずに理由を出す", async () => {
-    const { root, applied, ui } = mount([row("1", "cat", 1)]);
-    ui.setCreating(true);
+  it("追加を続けると、仮の名前に数が付く", async () => {
+    const { applied, ui } = mount([row("1", "cat", 1)]);
+    ui.create();
     await flush();
-    type(
-      root.querySelector(".label-form input[type=text]") as HTMLInputElement,
-      "cat",
-    );
-    (
-      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
-    ).click();
+    ui.create();
+    await flush();
+    expect(
+      applied.map((c) => (c.kind === "create_label" ? c.name : "")),
+    ).toEqual([t("labels.newName"), `${t("labels.newName")} 2`]);
+  });
+
+  it("名前を変えて確定すると、すぐ update_label が渡る（編集は開いたまま）", async () => {
+    const { root, applied } = mount([row("1", "cat", 1)]);
+    await openEdit(root, "cat");
+    const input = root.querySelector(
+      ".label-form input[type=text]",
+    ) as HTMLInputElement;
+    input.value = "kitten";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "update_label",
+        id: "1",
+        patch: { name: { kind: "set", value: "kitten" } },
+      },
+    ]);
+    expect(root.querySelector(".label-form")).not.toBeNull();
+  });
+
+  it("重複する名前・空の名前は、書かずに理由を出す", async () => {
+    const { root, applied } = mount([row("1", "cat", 1), row("2", "dog")]);
+    await openEdit(root, "dog");
+    const input = root.querySelector(
+      ".label-form input[type=text]",
+    ) as HTMLInputElement;
+    input.value = "cat";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
     await flush();
     expect(applied).toEqual([]);
     expect(root.querySelectorAll(".form-errors li")).toHaveLength(1);
-  });
-
-  it("他のラベルが使っているショートカットキーは、選択肢に出さない", async () => {
-    const { root, ui } = mount([row("1", "cat", 1), row("2", "dog", 3)]);
-    ui.setCreating(true);
+    input.value = " ";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
     await flush();
-    const options = [
-      ...root.querySelectorAll<HTMLOptionElement>(".label-form select option"),
-    ].map((o) => o.value);
-    expect(options).toEqual(["", "2", "4", "5", "6", "7", "8", "9"]);
-  });
-
-  it("保存に失敗したら、エラーを知らせてフォームを残す", async () => {
-    const { root, notes, ui } = mount([], true);
-    ui.setCreating(true);
-    await flush();
-    type(
-      root.querySelector(".label-form input[type=text]") as HTMLInputElement,
-      "x",
+    expect(applied).toEqual([]);
+    expect(root.querySelector(".form-errors")?.textContent).toContain(
+      t("labels.error.nameEmpty"),
     );
-    (
-      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
-    ).click();
+  });
+
+  it("ショートカットキーを選ぶと、すぐ書く。他のラベルが使っているキーは、選択肢に出さない", async () => {
+    const { root, applied } = mount([row("1", "cat", 1), row("2", "dog", 3)]);
+    await openEdit(root, "cat");
+    const select = root.querySelector(
+      ".label-form select",
+    ) as HTMLSelectElement;
+    const options = [...select.querySelectorAll("option")].map((o) => o.value);
+    expect(options).toEqual(["", "1", "2", "4", "5", "6", "7", "8", "9"]);
+    select.value = "4";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "update_label",
+        id: "1",
+        patch: { hotkey: { kind: "set", value: 4 } },
+      },
+    ]);
+  });
+
+  it("鉛筆は編集の開閉の切り替え。Esc でも閉じる", async () => {
+    const { root } = mount([row("1", "cat", 1)]);
+    await openEdit(root, "cat");
+    expect(root.querySelector(".label-form")).not.toBeNull();
+    await openEdit(root, "cat");
+    expect(root.querySelector(".label-form")).toBeNull();
+    await openEdit(root, "cat");
+    root
+      .querySelector(".label-form input")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await flush();
+    expect(root.querySelector(".label-form")).toBeNull();
+  });
+
+  it("追加に失敗したら、エラーを知らせる", async () => {
+    const { notes, ui } = mount([], true);
+    ui.create();
     await flush();
     expect(notes).toHaveLength(1);
-    expect(root.querySelector(".label-form")).not.toBeNull();
   });
 
   it("非表示のラベルは、印を付けて並べる", () => {

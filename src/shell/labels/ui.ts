@@ -2,9 +2,10 @@
 import { createSignal } from "solid-js";
 
 export interface LabelsUi {
-  /** 追加フォームを開いているか。 */
-  creating(): boolean;
-  setCreating(value: boolean): void;
+  /** 見出しの「追加」から呼ぶ。一覧が登録した処理で、すぐにラベルを作る。一覧が無いときは、何もしない。 */
+  create(): void;
+  /** 一覧が、追加の処理を登録する（閉じるときは `null`）。 */
+  setCreateHandler(handler: (() => void) | null): void;
   /** 絞り込みの入力を出しているか。 */
   filterOpen(): boolean;
   setFilterOpen(value: boolean): void;
@@ -14,12 +15,14 @@ export interface LabelsUi {
 }
 
 export function createLabelsUi(): LabelsUi {
-  const [creating, setCreating] = createSignal(false);
+  let createHandler: (() => void) | null = null;
   const [filterOpen, setFilterOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
   return {
-    creating,
-    setCreating: (value) => setCreating(value),
+    create: () => createHandler?.(),
+    setCreateHandler: (handler) => {
+      createHandler = handler;
+    },
     filterOpen,
     setFilterOpen: (value) => {
       setFilterOpen(value);

@@ -1,4 +1,4 @@
-import { createSignal, For, type JSX, Show } from "solid-js";
+import { createSignal, For, type JSX, onCleanup, Show } from "solid-js";
 import { format } from "../../i18n";
 import { Icon } from "../Icon";
 import type { ProjectData } from "../project-data/store";
@@ -9,10 +9,12 @@ import { deleteCommand } from "./delete";
 import { LabelDelete } from "./LabelDelete";
 import { LabelForm } from "./LabelForm";
 import {
+  defaultLabelColor,
   dropIndexFor,
   filterLabels,
   finalIndex,
   moveLabel,
+  newLabelName,
   nextSortOrder,
   reorderLabels,
 } from "./list";
@@ -34,8 +36,6 @@ export function LabelsView(props: LabelsViewProps) {
   );
   const ui = props.ui ?? createLabelsUi();
   const query = ui.query;
-  const creating = ui.creating;
-  const setCreating = ui.setCreating;
   const shown = () => filterLabels(labels(), query());
   const [editing, setEditing] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal<string | null>(null);
@@ -80,10 +80,9 @@ export function LabelsView(props: LabelsViewProps) {
     if (draft.hidden !== label.hidden) {
       patch.hidden = { kind: "set", value: draft.hidden };
     }
-    if (Object.keys(patch).length === 0) return setEditing(null);
-    if (await run({ kind: "update_label", id: label.id, patch })) {
-      setEditing(null);
-    }
+    // 即時変更: 書いたあとも、編集は開いたままにする。
+    if (Object.keys(patch).length === 0) return;
+    await run({ kind: "update_label", id: label.id, patch });
   };
   /** 並び順を振り直す（変わるものだけ。1 つの元に戻せる操作）。 */
   const applyOrders = (
@@ -138,31 +137,28 @@ export function LabelsView(props: LabelsViewProps) {
     );
   };
 
-  const create = async (draft: {
-    name: string;
-    color: string;
-    hotkey: number | null;
-    hidden: boolean;
-  }) => {
+  /** 見出しの「追加」: すぐに、名前を仮に付けたラベルを作り、その編集を開く（名前をすぐ打てる）。 */
+  const createNew = async () => {
     try {
-      await props.data.apply({
+      const set = await props.data.apply({
         kind: "create_label",
-        name: draft.name,
-        color: draft.color,
-        hotkey: draft.hotkey,
-        hidden: draft.hidden,
+        name: newLabelName(labels(), t("labels.newName")),
+        color: defaultLabelColor(labels().length),
         sort_order: nextSortOrder(labels()),
       });
-      setCreating(false);
-    } catch (e) {
-      props.notify(
-        "error",
-        format(t("labels.error.failed"), {
-          reason: e instanceof Error ? e.message : String(e),
-        }),
+      const created = set.changes.find(
+        (c) => c.entity === "label" && c.kind === "created",
       );
+      if (created !== undefined) {
+        setDeleting(null);
+        setEditing(created.id);
+      }
+    } catch (e) {
+      fail(e);
     }
   };
+  ui.setCreateHandler(() => void createNew());
+  onCleanup(() => ui.setCreateHandler(null));
 
   /** ドラッグ中、挿入位置の目印を出すカード（その前、または、最後のカードの後ろ）。 */
   const dropMarkFor = (id: string): "before" | "end" | null => {
@@ -196,14 +192,6 @@ export function LabelsView(props: LabelsViewProps) {
           onInput={(event) => ui.setQuery(event.currentTarget.value)}
         />
       </Show>
-      <Show when={creating()}>
-        <LabelForm
-          label={null}
-          labels={labels()}
-          onSubmit={(draft) => void create(draft)}
-          onCancel={() => setCreating(false)}
-        />
-      </Show>
       <ul class="label-list" ref={listEl}>
         <For each={shown()}>
           {(label) => (
@@ -212,9 +200,10 @@ export function LabelsView(props: LabelsViewProps) {
               canMove={query().trim() === ""}
               dragging={drag()?.id === label.id}
               dropMark={dropMarkFor(label.id)}
+              editing={editing() === label.id}
               onEdit={() => {
                 setDeleting(null);
-                setEditing(label.id);
+                setEditing(editing() === label.id ? null : label.id);
               }}
               onToggleHidden={() =>
                 void run({
@@ -232,8 +221,8 @@ export function LabelsView(props: LabelsViewProps) {
                 <LabelForm
                   label={label}
                   labels={labels()}
-                  onSubmit={(draft) => void update(label, draft)}
-                  onCancel={() => setEditing(null)}
+                  onChange={(draft) => void update(label, draft)}
+                  onClose={() => setEditing(null)}
                   onDelete={() => {
                     setEditing(null);
                     setDeleting(label.id);
@@ -267,6 +256,8 @@ export function LabelsView(props: LabelsViewProps) {
 function LabelItem(props: {
   label: LabelRow;
   canMove: boolean;
+  /** 編集を開いているか（鉛筆は、開閉の切り替え）。 */
+  editing: boolean;
   dragging: boolean;
   dropMark: "before" | "end" | null;
   onEdit: () => void;
@@ -349,7 +340,12 @@ function LabelItem(props: {
             props.onToggleHidden,
             props.label.hidden,
           )}
-          {iconButton("$(pencil)", t("labels.edit"), props.onEdit)}
+          {iconButton(
+            "$(pencil)",
+            t("labels.edit"),
+            props.onEdit,
+            props.editing,
+          )}
         </span>
       </div>
       {props.children}

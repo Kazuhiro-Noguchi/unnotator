@@ -90,27 +90,6 @@ function type(el: HTMLInputElement, value: string) {
 }
 
 describe("ラベルの編集・並べ替え・削除", () => {
-  it("名前を変えて保存すると、変えた項目だけの update_label が渡る", async () => {
-    const { root, applied } = mount([row("1", "cat", 1)]);
-    labelled(root, t("labels.edit"))?.click();
-    await flush();
-    type(
-      root.querySelector(".label-form input[type=text]") as HTMLInputElement,
-      "kitten",
-    );
-    (
-      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
-    ).click();
-    await flush();
-    expect(applied).toEqual([
-      {
-        kind: "update_label",
-        id: "1",
-        patch: { name: { kind: "set", value: "kitten" } },
-      },
-    ]);
-  });
-
   it("編集では、自分のキーは選べて、他のラベルのキーは選択肢に出ない", async () => {
     const { root } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
     [...itemButtons(root, "dog")]

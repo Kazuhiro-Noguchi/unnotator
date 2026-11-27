@@ -22,8 +22,7 @@ export function LabelsHeaderActions(props: { ui: LabelsUi }) {
         class="button icon-button"
         aria-label={t("labels.add")}
         title={t("labels.add")}
-        disabled={props.ui.creating()}
-        onClick={() => props.ui.setCreating(true)}
+        onClick={() => props.ui.create()}
       >
         <Icon name="$(plus)" size={16} />
       </button>

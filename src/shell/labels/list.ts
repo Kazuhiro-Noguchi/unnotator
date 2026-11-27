@@ -72,3 +72,16 @@ export function dropIndexFor(centers: readonly number[], y: number): number {
 export function finalIndex(from: number, insertion: number): number {
   return insertion > from ? insertion - 1 : insertion;
 }
+
+/** 新しいラベルの名前。`base`（「新しいラベル」）が使われていれば、「新しいラベル 2」「…3」と数を付ける。 */
+export function newLabelName(
+  labels: readonly LabelRow[],
+  base: string,
+): string {
+  const taken = new Set(labels.map((l) => l.name));
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}

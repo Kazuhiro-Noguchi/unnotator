@@ -6,6 +6,7 @@ import {
   filterLabels,
   finalIndex,
   moveLabel,
+  newLabelName,
   nextSortOrder,
   reorderLabels,
 } from "./list";
@@ -94,5 +95,12 @@ describe("ラベルの一覧", () => {
     expect(reorderLabels(ordered, "b", 1)).toBeNull();
     expect(reorderLabels(ordered, "b", 9)).toBeNull();
     expect(reorderLabels(ordered, "zzz", 0)).toBeNull();
+  });
+
+  it("新しいラベルの名前は、使われていなければ基本の名前。使われていれば、数を付ける", () => {
+    expect(newLabelName([], "新しいラベル")).toBe("新しいラベル");
+    expect(newLabelName([row("a", 0)], "新しいラベル")).toBe("新しいラベル");
+    const taken = [row("新しいラベル", 0), row("新しいラベル 2", 1)];
+    expect(newLabelName(taken, "新しいラベル")).toBe("新しいラベル 3");
   });
 });

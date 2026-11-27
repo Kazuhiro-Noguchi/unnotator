@@ -31,12 +31,20 @@ describe("LabelsHeaderActions（見出しの右端のアイコン）", () => {
     expect(button(t("labels.filter"))).not.toBeNull();
   });
 
-  it("追加のアイコンで、追加フォームを開く状態にする。開いているあいだは押せない", async () => {
+  it("追加のアイコンで、一覧が登録した追加の処理が呼ばれる（登録が無ければ、何も起きない）", async () => {
     const { ui, button } = mount();
     button(t("labels.add"))?.click();
     await flush();
-    expect(ui.creating()).toBe(true);
-    expect(button(t("labels.add"))?.disabled).toBe(true);
+    let calls = 0;
+    ui.setCreateHandler(() => {
+      calls += 1;
+    });
+    button(t("labels.add"))?.click();
+    await flush();
+    expect(calls).toBe(1);
+    ui.setCreateHandler(null);
+    button(t("labels.add"))?.click();
+    expect(calls).toBe(1);
   });
 
   it("絞り込みのアイコンで、入力の表示を切り替える。閉じると、条件も外れる", async () => {

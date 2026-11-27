@@ -175,7 +175,6 @@
   "labels.field.hidden": "非表示",
   "labels.field.appliesTo": "使える対象",
   "labels.hotkey.none": "なし",
-  "labels.save": "保存",
   "labels.cancel": "キャンセル",
   "labels.edit": "編集",
   "labels.delete": "削除",
@@ -281,5 +280,6 @@
   "links.failed": "関係・グループを保存できませんでした: {reason}",
   "labels.hide": "非表示にする",
   "labels.show": "表示する",
-  "labels.drag": "ドラッグして並べ替え（↑ ↓ キーでも動かせます）"
+  "labels.drag": "ドラッグして並べ替え（↑ ↓ キーでも動かせます）",
+  "labels.newName": "新しいラベル"
 }

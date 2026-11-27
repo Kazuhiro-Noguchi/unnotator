@@ -1,8 +1,8 @@
 // ラベルのコマンド（006 の空の処理を置き換える）。
 //
 // 選択（有効なラベル）と、分類は、別の操作:
-// - ショートカットキー `core.label.pick1`〜`pick9` は、ラベルのカードをクリックする操作のショートカット。ラベルを「選ぶ」だけで、
-//   何も付かない（もう一度押すと、選択を解除する）。選んだラベルは、拡張機能がアノテーションを作るときに使う（`labels.active()`）。
+// - ショートカットキー `core.label.pick1`〜`pick9` は、ラベルのカードをクリックする操作のショートカット。ラベルを選択に足す・外す
+//   だけで、何も付かない（選択中のラベルのキーをもう一度押すと、選択から外す）。選んだラベルは、拡張機能がアノテーションを作るときに使う（`labels.active()`）。
 // - `core.edit.deselect`（選択解除。Esc）は、ラベルの選択を解除する。
 // - `core.label.classify` は、選択中のラベルを、現在位置（アセット・アイテム）の分類として、付ける・外す（付いていれば外す）。
 import { format, t } from "../../i18n";
@@ -78,13 +78,13 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
 }
 
 /**
- * ラベルを選ぶ（カードのクリック・ショートカットキー）。`replace`: そのラベルだけを選ぶ（選択中の 1 つだけを押すと、解除）。
- * `toggle`（Ctrl / Cmd）: 選択に足す・外す。`range`（Shift）: 範囲を選ぶ。非表示のラベルは、選べない。
+ * ラベルを選ぶ（カードのクリック・ショートカットキー）。既定の `toggle`: 選択に足す・外す（選択中のものを押すと、外す）。
+ * `range`（Shift）: 範囲を選ぶ。非表示のラベルは、選べない。
  */
 export function selectLabel(
   deps: LabelSelectDeps,
   label: LabelRow,
-  mode: ClickMode = "replace",
+  mode: ClickMode = "toggle",
 ): void {
   if (label.hidden) {
     deps.notify("warn", t("labels.pick.hidden"));

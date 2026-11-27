@@ -29,8 +29,8 @@ export interface LabelsViewProps {
   /** 選択中のラベルの ID（複数）。 */
   selectedIds?(): ReadonlySet<string>;
   /**
-   * カードのクリック: ラベルを選ぶ。`replace`（通常）はそのラベルだけ（選択中の 1 つなら解除）、`toggle`（Ctrl / Cmd）は足す・外す、
-   * `range`（Shift）は範囲。`order` は、見えているラベルの並び。分類は、付かない。
+   * カードのクリック: ラベルを選ぶ。`toggle`（通常・Ctrl / Cmd）は選択に足す・外す、`range`（Shift）は範囲。
+   * `order` は、見えているラベルの並び。分類は、付かない。
    */
   onPick?(label: LabelRow, mode: ClickMode, order: readonly string[]): void;
 }
@@ -330,13 +330,8 @@ function LabelItem(props: {
           "button, input, select, textarea, label, .label-form, .label-delete",
         );
         if (inner !== null && !inner.classList.contains("label-pick")) return;
-        props.onSelect(
-          event.shiftKey
-            ? "range"
-            : event.ctrlKey || event.metaKey
-              ? "toggle"
-              : "replace",
-        );
+        // 通常のクリックも、Ctrl / Cmd も、選択に足す・外す。Shift は、範囲。
+        props.onSelect(event.shiftKey ? "range" : "toggle");
       }}
       classList={{
         selected: props.selected,

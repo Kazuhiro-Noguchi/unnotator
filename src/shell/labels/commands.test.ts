@@ -232,9 +232,11 @@ describe("分類: core.label.classify（選択中のラベルを、現在位置�
 });
 
 describe("複数選択（キー・解除）", () => {
-  it("別のキーを押すと、選択はそのラベルだけになる（置き換え）。Esc で、すべて解除", async () => {
+  it("別のキーを押すと、選択に足される。同じキーをもう一度押すと、外れる。Esc で、すべて解除", async () => {
     const t = setup({ selected: ["l1"] });
     await t.handlers.get("core.label.pick3")?.();
+    expect(t.selectedIds()).toEqual(["l1", "l3"]);
+    await t.handlers.get("core.label.pick1")?.();
     expect(t.selectedIds()).toEqual(["l3"]);
     await t.handlers.get("core.edit.deselect")?.();
     expect(t.selectedIds()).toEqual([]);

@@ -334,7 +334,7 @@ describe("ラベルの編集・並べ替え・削除", () => {
     expect(selectedNames(root)).toEqual([]);
   });
 
-  it("クリックの種類: 通常は置き換え、Ctrl / Cmd は足し引き、Shift は範囲。見えている並びも渡す", async () => {
+  it("クリックの種類: 通常も Ctrl / Cmd も足し引き、Shift は範囲。見えている並びも渡す", async () => {
     const { root, pickedModes, pickedOrders } = mount([
       row("1", "a"),
       row("2", "b"),
@@ -349,7 +349,7 @@ describe("ラベルの編集・並べ替え・削除", () => {
     click("c", { metaKey: true });
     click("c", { shiftKey: true });
     await flush();
-    expect(pickedModes).toEqual(["replace", "toggle", "toggle", "range"]);
+    expect(pickedModes).toEqual(["toggle", "toggle", "toggle", "range"]);
     expect(pickedOrders[0]).toEqual(["1", "2", "3"]);
   });
 

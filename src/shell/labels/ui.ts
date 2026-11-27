@@ -12,12 +12,16 @@ export interface LabelsUi {
   /** 名前の絞り込み。 */
   query(): string;
   setQuery(value: string): void;
+  /** 選択中のラベルの ID（無ければ `null`）。クリックまたはショートカットキー（1〜9）で選ぶ。分類とは別。 */
+  selected(): string | null;
+  setSelected(id: string | null): void;
 }
 
 export function createLabelsUi(): LabelsUi {
   let createHandler: (() => void) | null = null;
   const [filterOpen, setFilterOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
+  const [selected, setSelected] = createSignal<string | null>(null);
   return {
     create: () => createHandler?.(),
     setCreateHandler: (handler) => {
@@ -31,6 +35,8 @@ export function createLabelsUi(): LabelsUi {
     },
     query,
     setQuery: (value) => setQuery(value),
+    selected,
+    setSelected: (id) => setSelected(id),
   };
 }
 

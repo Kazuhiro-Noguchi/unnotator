@@ -281,5 +281,9 @@
   "labels.hide": "非表示にする",
   "labels.show": "表示する",
   "labels.drag": "ドラッグして並べ替え（↑ ↓ キーでも動かせます）",
-  "labels.newName": "新しいラベル"
+  "labels.newName": "新しいラベル",
+  "labels.classify.none": "ラベルを選んでから、分類に付けてください。",
+  "labels.classify.attach": "「{name}」を分類に付ける",
+  "labels.classify.detach": "「{name}」を分類から外す",
+  "labels.classify.select": "ラベルを選ぶと、分類に付けられます"
 }

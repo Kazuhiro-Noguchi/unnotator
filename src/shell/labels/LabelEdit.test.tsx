@@ -54,16 +54,14 @@ function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
   const notify: LabelsViewProps["notify"] = () => {};
   const ui = createLabelsUi();
   const picked: string[] = [];
-  const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(
-    new Set(),
-  );
+  const [selectedId, setSelectedId] = createSignal<string | null>(null);
   dispose = render(
     () => (
       <LabelsView
         data={data}
         notify={notify}
         ui={ui}
-        selectedIds={selectedIds}
+        selectedId={selectedId}
         onPick={(label) => {
           picked.push(label.id);
         }}
@@ -71,7 +69,7 @@ function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
     ),
     root,
   );
-  return { root, applied, ui, picked, setSelectedIds };
+  return { root, applied, ui, picked, setSelectedId };
 }
 
 const itemButtons = (root: HTMLElement, name: string) =>
@@ -296,8 +294,8 @@ describe("ラベルの編集・並べ替え・削除", () => {
       (e) => e.textContent,
     );
 
-  it("カードをクリックすると、そのラベルを付け外しする（onPick）。選択の表示は、渡された選択に従う", async () => {
-    const { root, picked, setSelectedIds } = mount([
+  it("カードをクリックすると、そのラベルを選ぶ（onPick）。選択の表示は、渡された選択に従う", async () => {
+    const { root, picked, setSelectedId } = mount([
       row("1", "a"),
       row("2", "b"),
     ]);
@@ -305,22 +303,22 @@ describe("ラベルの編集・並べ替え・削除", () => {
     card(root, "a")?.click();
     await flush();
     expect(picked).toEqual(["1"]);
-    // クリックしただけでは、選択の表示は変わらない（分類が付いた結果として、選択が渡される）
+    // クリックだけでは、表示は変わらない（選択は、呼び出し側が決めて、渡す）
     expect(selectedNames(root)).toEqual([]);
-    setSelectedIds(new Set(["1"]));
+    setSelectedId("1");
     await flush();
     expect(selectedNames(root)).toEqual(["a"]);
     expect(card(root, "a")?.getAttribute("aria-current")).toBe("true");
-    // 複数の選択も、そのまま表示される
-    setSelectedIds(new Set(["1", "2"]));
+    expect(card(root, "b")?.getAttribute("aria-current")).toBeNull();
+    setSelectedId("2");
     await flush();
-    expect(selectedNames(root)).toEqual(["a", "b"]);
-    setSelectedIds(new Set<string>());
+    expect(selectedNames(root)).toEqual(["b"]);
+    setSelectedId(null);
     await flush();
     expect(selectedNames(root)).toEqual([]);
   });
 
-  it("キーボード: 「選ぶ」ボタン（Enter / Space）で付け外し。↑ ↓ は、隣へフォーカスを移すだけ", async () => {
+  it("キーボード: 「選ぶ」ボタン（Enter / Space）で選ぶ。↑ ↓ は、隣へフォーカスを移すだけ", async () => {
     const { root, picked } = mount([row("1", "a"), row("2", "b")]);
     const pick = (name: string) =>
       card(root, name)?.querySelector<HTMLElement>(".label-pick");
@@ -332,12 +330,12 @@ describe("ラベルの編集・並べ替え・削除", () => {
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     await flush();
-    // 付け外しは、起きない
+    // 選ぶ操作は、起きない
     expect(picked).toEqual(["1"]);
     expect(document.activeElement).toBe(pick("b"));
   });
 
-  it("鉛筆・目・つかみ・編集フォームを押しても、付け外しは起きない", async () => {
+  it("鉛筆・目・つかみ・編集フォームを押しても、選ぶ操作は起きない", async () => {
     const { root, picked } = mount([row("1", "a"), row("2", "b")]);
     for (const label of [t("labels.edit"), t("labels.hide")]) {
       card(root, "b")

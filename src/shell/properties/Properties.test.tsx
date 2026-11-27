@@ -68,12 +68,13 @@ function detailsOf(assetId: string): TargetDetails {
   };
 }
 
-function mount(fail = false) {
+function mount(fail = false, active: LabelRow | null = null) {
   const current = createCurrentStore();
   const drafts = createDraftStore();
   const selection = createSelection();
   const applied: Command[] = [];
   const notes: string[] = [];
+  const classified: string[] = [];
   const listeners = new Set<() => void>();
   let details: TargetDetails | null = null;
   const data: PropertiesProps["data"] = {
@@ -119,11 +120,15 @@ function mount(fail = false) {
         selection={selection}
         supported={() => new Set<string>()}
         notify={notify}
+        activeLabel={() => active}
+        onClassify={() => {
+          classified.push("classify");
+        }}
       />
     ),
     root,
   );
-  return { root, open, applied, notes, drafts, selection };
+  return { root, open, applied, notes, drafts, selection, classified };
 }
 
 describe("Properties（プロパティパネル）", () => {
@@ -232,5 +237,39 @@ describe("Properties（プロパティパネル）", () => {
       new MouseEvent("click", { bubbles: true, ctrlKey: true }),
     );
     expect([...selection.ids()].sort()).toEqual(["c1", "x1"]);
+  });
+
+  it("分類のボタン: ラベルを選んでいなければ、案内の文字で押せない", async () => {
+    const { root, open } = mount();
+    open("a1");
+    await flush();
+    const button = root.querySelector<HTMLButtonElement>(".classify-button");
+    expect(button?.disabled).toBe(true);
+    expect(button?.textContent).toBe(t("labels.classify.select"));
+  });
+
+  it("分類のボタン: 選んだラベルが付いていなければ「付ける」、付いていれば「外す」。押すと、分類の付け外しを頼む", async () => {
+    // 詳細（detailsOf）の分類には、ラベル l1（cat）が付いている
+    const attached = mount(false, label);
+    attached.open("a1");
+    await flush();
+    const detach =
+      attached.root.querySelector<HTMLButtonElement>(".classify-button");
+    expect(detach?.disabled).toBe(false);
+    expect(detach?.textContent).toBe(
+      t("labels.classify.detach").replace("{name}", "cat"),
+    );
+    detach?.click();
+    expect(attached.classified).toEqual(["classify"]);
+  });
+
+  it("分類のボタン: 別のラベルを選んでいれば、「付ける」", async () => {
+    const other = { ...label, id: "l9", name: "dog" };
+    const t2 = mount(false, other);
+    t2.open("a1");
+    await flush();
+    expect(t2.root.querySelector(".classify-button")?.textContent).toBe(
+      t("labels.classify.attach").replace("{name}", "dog"),
+    );
   });
 });

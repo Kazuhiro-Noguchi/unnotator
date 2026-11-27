@@ -42,12 +42,20 @@ function setup(
     labels?: LabelRow[];
     fail?: boolean;
     classification?: string[];
+    selected?: string;
   } = {},
 ) {
   const handlers = new Map<string, () => unknown>();
   const applied: Command[] = [];
   const notes: Array<[string, string]> = [];
+  const labels = over.labels ?? [label("l1", 1), label("l2", 2, true)];
+  // 選択（有効なラベル）。非表示は、有効にならない。
+  let selectedId: string | null = over.selected ?? null;
   provideLabelHandlers({
+    active: () => labels.find((l) => l.id === selectedId && !l.hidden) ?? null,
+    select: (id) => {
+      selectedId = id;
+    },
     commands: {
       provide(id, run) {
         handlers.set(id, run);
@@ -55,7 +63,7 @@ function setup(
       },
     },
     data: {
-      labels: () => over.labels ?? [label("l1", 1), label("l2", 2, true)],
+      labels: () => labels,
       details: () => ({
         ...details,
         classification: (over.classification ?? []).map((id) => ({
@@ -85,10 +93,15 @@ function setup(
     providerOf: () => null,
     notify: (level, text) => notes.push([level, text]),
   });
-  return { handlers, applied, notes };
+  return {
+    handlers,
+    applied,
+    notes,
+    selected: () => selectedId,
+  };
 }
 
-describe("core.label.pick1〜9", () => {
+describe("ラベルの選択: core.label.pick1〜9・core.edit.deselect", () => {
   it("9 つすべてを結ぶ", () => {
     const { handlers } = setup();
     for (let i = 1; i <= 9; i++) {
@@ -96,9 +109,48 @@ describe("core.label.pick1〜9", () => {
     }
   });
 
-  it("キーのラベルを、現在位置の分類に付ける", async () => {
-    const { handlers, applied, notes } = setup();
+  it("キーのラベルを選ぶ。分類は、付かない（書き込みなし）", async () => {
+    const { handlers, applied, selected } = setup();
     await handlers.get("core.label.pick1")?.();
+    expect(selected()).toBe("l1");
+    expect(applied).toEqual([]);
+  });
+
+  it("選択中のラベルのキーをもう一度押すと、選択を解除する", async () => {
+    const { handlers, selected } = setup({ selected: "l1" });
+    await handlers.get("core.label.pick1")?.();
+    expect(selected()).toBeNull();
+  });
+
+  it("現在位置が無くても、選べる", async () => {
+    const { handlers, selected } = setup({ current: null });
+    await handlers.get("core.label.pick1")?.();
+    expect(selected()).toBe("l1");
+  });
+
+  it("非表示のラベルは選べず、理由を知らせる。割り当てが無いキーも、知らせる", async () => {
+    const t = setup();
+    await t.handlers.get("core.label.pick2")?.();
+    expect(t.selected()).toBeNull();
+    expect(t.notes).toHaveLength(1);
+    expect(t.notes[0]?.[0]).toBe("warn");
+    await t.handlers.get("core.label.pick5")?.();
+    expect(t.selected()).toBeNull();
+    expect(t.notes).toHaveLength(2);
+  });
+
+  it("選択解除（core.edit.deselect、Esc）は、選択だけを解除する。分類は、外さない", async () => {
+    const t = setup({ selected: "l1", classification: ["c1"] });
+    await t.handlers.get("core.edit.deselect")?.();
+    expect(t.selected()).toBeNull();
+    expect(t.applied).toEqual([]);
+  });
+});
+
+describe("分類: core.label.classify（選択中のラベルを、現在位置の分類に付ける・外す）", () => {
+  it("選択中のラベルを、現在位置の分類に付ける", async () => {
+    const { handlers, applied, notes } = setup({ selected: "l1" });
+    await handlers.get("core.label.classify")?.();
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({
       kind: "create_annotation",
@@ -108,59 +160,35 @@ describe("core.label.pick1〜9", () => {
     expect(notes).toEqual([]);
   });
 
+  it("付いていれば、外す", async () => {
+    const { handlers, applied } = setup({
+      selected: "l1",
+      classification: ["c1"],
+    });
+    await handlers.get("core.label.classify")?.();
+    expect(applied).toEqual([{ kind: "delete_annotation", id: "c1" }]);
+  });
+
+  it("ラベルを選んでいないときは、知らせる（書き込みなし）", async () => {
+    const { handlers, applied, notes } = setup();
+    await handlers.get("core.label.classify")?.();
+    expect(applied).toEqual([]);
+    expect(notes).toHaveLength(1);
+  });
+
   it("現在位置が無いときは、何もしない（知らせもしない）", async () => {
-    const { handlers, applied, notes } = setup({ current: null });
-    await handlers.get("core.label.pick1")?.();
+    const { handlers, applied, notes } = setup({
+      selected: "l1",
+      current: null,
+    });
+    await handlers.get("core.label.classify")?.();
     expect(applied).toEqual([]);
     expect(notes).toEqual([]);
   });
 
-  it("非表示のラベルは付けず、理由を知らせる", async () => {
-    const { handlers, applied, notes } = setup();
-    await handlers.get("core.label.pick2")?.();
-    expect(applied).toEqual([]);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]?.[0]).toBe("warn");
-  });
-
-  it("割り当てが無いキーは、知らせる", async () => {
-    const { handlers, applied, notes } = setup();
-    await handlers.get("core.label.pick5")?.();
-    expect(applied).toEqual([]);
-    expect(notes).toHaveLength(1);
-  });
-
   it("書き込みに失敗したら、エラーを知らせる", async () => {
-    const { handlers, notes } = setup({ fail: true });
-    await handlers.get("core.label.pick1")?.();
+    const { handlers, notes } = setup({ selected: "l1", fail: true });
+    await handlers.get("core.label.classify")?.();
     expect(notes[0]?.[0]).toBe("error");
-  });
-
-  it("選択解除（core.edit.deselect）: 分類が無ければ何もしない。1 つなら delete、複数なら 1 つの transaction", async () => {
-    const none = setup();
-    await none.handlers.get("core.edit.deselect")?.();
-    expect(none.applied).toEqual([]);
-
-    const one = setup({ classification: ["c1"] });
-    await one.handlers.get("core.edit.deselect")?.();
-    expect(one.applied).toEqual([{ kind: "delete_annotation", id: "c1" }]);
-
-    const many = setup({ classification: ["c1", "c2"] });
-    await many.handlers.get("core.edit.deselect")?.();
-    expect(many.applied).toEqual([
-      {
-        kind: "transaction",
-        commands: [
-          { kind: "delete_annotation", id: "c1" },
-          { kind: "delete_annotation", id: "c2" },
-        ],
-      },
-    ]);
-  });
-
-  it("選択解除の書き込みに失敗したら、エラーを知らせる", async () => {
-    const t = setup({ classification: ["c1"], fail: true });
-    await t.handlers.get("core.edit.deselect")?.();
-    expect(t.notes[0]?.[0]).toBe("error");
   });
 });

@@ -4,7 +4,7 @@ import { ctx, notify } from "../services";
 import { fromContext } from "../solid";
 import type { NotifyLevel } from "../types";
 import { LabelsHeaderActions } from "./HeaderActions";
-import { activeLabels, pickLabelCard } from "./instance";
+import { activeLabel, selectLabelCard } from "./instance";
 import { LabelsView } from "./LabelsView";
 import { labelsUi } from "./ui";
 
@@ -19,8 +19,8 @@ export function LabelsHost(props: { fallback: JSX.Element }) {
         data={projectData}
         notify={(level, text) => notify(level, text)}
         ui={labelsUi}
-        selectedIds={activeLabels.ids}
-        onPick={(label) => void pickLabelCard(notifyLabel, label)}
+        selectedId={() => activeLabel.get()?.id ?? null}
+        onPick={(label) => selectLabelCard(notifyLabel, label)}
       />
     </Show>
   );

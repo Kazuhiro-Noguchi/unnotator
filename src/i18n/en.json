@@ -281,5 +281,9 @@
   "labels.hide": "Hide",
   "labels.show": "Show",
   "labels.drag": "Drag to reorder (or use the arrow keys)",
-  "labels.newName": "New label"
+  "labels.newName": "New label",
+  "labels.classify.none": "Select a label before applying it as the classification.",
+  "labels.classify.attach": "Apply \"{name}\" as the classification",
+  "labels.classify.detach": "Remove \"{name}\" from the classification",
+  "labels.classify.select": "Select a label to apply it as the classification"
 }

@@ -1858,3 +1858,10 @@ fieldset.ribbon-group {
   background: transparent;
   text-decoration: underline;
 }
+
+/* 情報パネルの「分類」: 選択中のラベルを、分類に付ける・外すボタン。 */
+.classify-button {
+  margin-bottom: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+}

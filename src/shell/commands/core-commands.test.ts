@@ -39,6 +39,8 @@ const EXPECTED_IDS = [
   "core.status.markDone",
   "core.status.needsReview",
   ...Array.from({ length: 9 }, (_, i) => `core.label.pick${i + 1}`),
+  // 008 で足した（選択中のラベルを、現在位置の分類に付ける。キーは付けない）。
+  "core.label.classify",
   "core.relation.create",
   "core.group.create",
   "core.group.ungroup",

@@ -25,9 +25,9 @@ export interface LabelsViewProps {
   notify: (level: NotifyLevel, text: string) => void;
   /** 見出しの操作（追加・絞り込み）と共有する状態。省略すると、この一覧だけのものを使う。 */
   ui?: LabelsUi;
-  /** 選択中のラベルの ID（現在位置に付いている分類のラベル）。 */
-  selectedIds?(): ReadonlySet<string>;
-  /** カードのクリック: そのラベルの分類を、現在位置に付ける・外す（ショートカットキーと同じ）。 */
+  /** 選択中のラベルの ID（有効なラベル）。 */
+  selectedId?(): string | null;
+  /** カードのクリック: そのラベルを選ぶ（選択中なら解除。ショートカットキーと同じ）。分類は、付かない。 */
   onPick?(label: LabelRow): void;
 }
 
@@ -41,7 +41,7 @@ export function LabelsView(props: LabelsViewProps) {
   const ui = props.ui ?? createLabelsUi();
   const query = ui.query;
   const shown = () => filterLabels(labels(), query());
-  const selected = (id: string) => props.selectedIds?.().has(id) ?? false;
+  const selected = (id: string) => props.selectedId?.() === id;
   /** 隣のカードの「選ぶ」ボタンへ、フォーカスを移す（↑ ↓ キー）。選択は、押したときに決まる。 */
   const focusNeighbor = (id: string, step: -1 | 1) => {
     const list = shown();

@@ -1,11 +1,8 @@
 import { createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
-import type {
-  AnnotationRow,
-  LabelRow,
-  TargetDetails,
-} from "../project-data/types";
-import { createActiveLabels } from "./active";
+import type { LabelRow } from "../project-data/types";
+import { createActiveLabel } from "./active";
+import { createLabelsUi } from "./ui";
 
 const row = (id: string, hidden = false): LabelRow => ({
   id,
@@ -18,46 +15,16 @@ const row = (id: string, hidden = false): LabelRow => ({
   applies_to_json: "{}",
 });
 
-const classification = (labelId: string | null): AnnotationRow => ({
-  id: `c-${labelId}`,
-  type: "core/classification",
-  type_version: 1,
-  label_id: labelId,
-  attributes_json: "{}",
-  summary: "",
-  z_order: 0,
-  source: "manual",
-});
-
-function detailsOf(labelIds: Array<string | null>): TargetDetails {
-  return {
-    asset: {
-      id: "a1",
-      root_key: "",
-      rel_path: "a.bin",
-      media_type: null,
-      missing: false,
-      status: "todo",
-      note: null,
-      attributes_json: "{}",
-    },
-    item: null,
-    classification: labelIds.map(classification),
-    annotation_count: labelIds.length,
-    relations: [],
-    groups: [],
-  };
-}
-
-function setup(labels: LabelRow[], details: TargetDetails | null) {
-  let current = { labels, details };
+function setup(initial: LabelRow[]) {
+  let labels = initial;
   const listeners = new Set<() => void>();
   const context = new Map<string, unknown>();
+  const ui = createLabelsUi();
   const active = createRoot(() =>
-    createActiveLabels(
+    createActiveLabel(
+      ui,
       {
-        labels: () => current.labels,
-        details: () => current.details,
+        labels: () => labels,
         subscribe: (l) => {
           listeners.add(l);
           return () => {
@@ -69,59 +36,55 @@ function setup(labels: LabelRow[], details: TargetDetails | null) {
     ),
   );
   return {
+    ui,
     active,
     context,
-    update(next: Partial<typeof current>) {
-      current = { ...current, ...next };
+    setLabels(next: LabelRow[]) {
+      labels = next;
       for (const l of listeners) l();
     },
   };
 }
 
-describe("ActiveLabels（選択中のラベル = 現在位置に付いている分類）", () => {
-  it("未分類なら、何も選択されていない。コンテキストも空", () => {
-    const t = setup([row("a")], detailsOf([]));
-    expect([...t.active.ids()]).toEqual([]);
+describe("ActiveLabel（選択中のラベル = 拡張機能の labels.active()）", () => {
+  it("最初は無い。選ぶと、そのラベルが有効になり、コンテキストにも入る", () => {
+    const t = setup([row("a"), row("b")]);
+    expect(t.active.get()).toBeNull();
+    t.ui.setSelected("b");
+    expect(t.active.get()?.id).toBe("b");
+    expect(t.context.get("activeLabelId")).toBe("b");
+    t.ui.setSelected(null);
     expect(t.active.get()).toBeNull();
     expect(t.context.get("activeLabelId")).toBeNull();
   });
 
-  it("分類済みなら、そのラベルが選択される（複数もそのまま）", () => {
-    const t = setup([row("a"), row("b")], detailsOf(["b", "a"]));
-    expect([...t.active.ids()].sort()).toEqual(["a", "b"]);
-    // 有効なラベルは、先頭の 1 つ
-    expect(t.active.get()?.id).toBe("b");
-    expect(t.context.get("activeLabelId")).toBe("b");
-  });
-
-  it("別のアセットへ移ると（詳細が変わると）、選択も追従する", () => {
-    const t = setup([row("a"), row("b")], detailsOf(["a"]));
-    expect(t.active.get()?.id).toBe("a");
-    t.update({ details: detailsOf([]) });
-    expect(t.active.get()).toBeNull();
-    t.update({ details: detailsOf(["b"]) });
-    expect(t.active.get()?.id).toBe("b");
-    t.update({ details: null });
-    expect([...t.active.ids()]).toEqual([]);
-  });
-
   it("変わったときだけ、購読者に知らせる", () => {
-    const t = setup([row("a"), row("b")], detailsOf([]));
+    const t = setup([row("a"), row("b")]);
     let calls = 0;
     t.active.subscribe(() => {
       calls += 1;
     });
-    t.update({ details: detailsOf(["a"]) });
-    t.update({ details: detailsOf(["a"]) });
-    t.update({ details: detailsOf(["b"]) });
+    t.ui.setSelected("a");
+    t.ui.setSelected("a");
+    t.ui.setSelected("b");
     expect(calls).toBe(2);
   });
 
-  it("非表示のラベルは、選択には出るが、有効なラベルにはならない。消えたラベルは、どちらにもならない", () => {
-    const t = setup([row("a", true), row("b")], detailsOf(["a", "b"]));
-    expect([...t.active.ids()].sort()).toEqual(["a", "b"]);
-    expect(t.active.get()?.id).toBe("b");
-    t.update({ labels: [row("a", true)] });
+  it("ラベルが消えたり、非表示になったりしたら、有効ではなくなる", () => {
+    const t = setup([row("a"), row("b")]);
+    t.ui.setSelected("a");
+    expect(t.active.get()?.id).toBe("a");
+    t.setLabels([row("a", true), row("b")]);
     expect(t.active.get()).toBeNull();
+    expect(t.context.get("activeLabelId")).toBeNull();
+    t.setLabels([row("b")]);
+    expect(t.active.get()).toBeNull();
+  });
+
+  it("ラベルの色や名前が変わったときも、最新の内容を返す", () => {
+    const t = setup([row("a")]);
+    t.ui.setSelected("a");
+    t.setLabels([{ ...row("a"), color: "#abcdef" }]);
+    expect(t.active.get()?.color).toBe("#abcdef");
   });
 });

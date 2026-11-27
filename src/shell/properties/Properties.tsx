@@ -3,7 +3,7 @@ import { format } from "../../i18n";
 import type { Status } from "../../ipc";
 import type { CurrentTarget } from "../explorer/types";
 import type { ProjectData } from "../project-data/store";
-import type { AnnotationRow, Command } from "../project-data/types";
+import type { AnnotationRow, Command, LabelRow } from "../project-data/types";
 import { AttributeForm } from "../schema/AttributeForm";
 import { type Attributes, parseAttributes } from "../schema/attributes";
 import { deriveForm } from "../schema/derive-form";
@@ -42,6 +42,10 @@ export interface PropertiesProps {
   drafts: DraftStore;
   selection: Selection;
   supported(): ReadonlySet<string>;
+  /** 選択中のラベル（有効なラベル）。分類の付け外しのボタンに使う。 */
+  activeLabel?(): LabelRow | null;
+  /** 選択中のラベルを、現在位置の分類として付ける・外す。 */
+  onClassify?(): void;
   notify: (level: NotifyLevel, text: string) => void;
 }
 
@@ -125,6 +129,17 @@ export function Properties(props: PropertiesProps) {
         .catch(fail);
     }),
   );
+
+  /** 分類のボタンの文字: 選んでいなければ案内、付いていれば「外す」、付いていなければ「付ける」。 */
+  const classifyText = (label: LabelRow | null, attached: boolean): string =>
+    label === null
+      ? t("labels.classify.select")
+      : format(
+          t(attached ? "labels.classify.detach" : "labels.classify.attach"),
+          {
+            name: label.name,
+          },
+        );
 
   const labelName = (id: string | null) =>
     labels().find((l) => l.id === id)?.name ?? t("properties.label.none");
@@ -340,6 +355,24 @@ export function Properties(props: PropertiesProps) {
               </Show>
               <section class="prop-section">
                 <h3>{t("properties.classification")}</h3>
+                <Show when={props.onClassify}>
+                  {(classify) => (
+                    <button
+                      type="button"
+                      class="button classify-button"
+                      disabled={(props.activeLabel?.() ?? null) === null}
+                      title={t("labels.classify.select")}
+                      onClick={() => classify()()}
+                    >
+                      {classifyText(
+                        props.activeLabel?.() ?? null,
+                        d().classification.some(
+                          (c) => c.label_id === props.activeLabel?.()?.id,
+                        ),
+                      )}
+                    </button>
+                  )}
+                </Show>
                 <Show
                   when={d().classification.length > 0}
                   fallback={

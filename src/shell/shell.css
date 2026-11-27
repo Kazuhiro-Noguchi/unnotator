@@ -1403,7 +1403,7 @@ fieldset.ribbon-group {
 .label-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1413,10 +1413,10 @@ fieldset.ribbon-group {
 .label-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 4px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--color-surface-low);
 }
 
@@ -1435,7 +1435,7 @@ fieldset.ribbon-group {
 /* カードの中に開く編集フォーム・削除の確認は、枠を重ねず、区切り線だけで分ける。 */
 .label-card .label-form,
 .label-card .label-delete {
-  padding: 8px 0 0;
+  padding: 6px 0 0;
   border: 0;
   border-top: 1px solid var(--color-border);
   border-radius: 0;
@@ -1481,7 +1481,7 @@ fieldset.ribbon-group {
 .label-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 

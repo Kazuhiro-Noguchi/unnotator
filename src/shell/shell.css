@@ -1493,9 +1493,9 @@ fieldset.ribbon-group {
   flex: none;
 }
 
-/* つかみとの間は 2px（行の間隔 4px から、2px 詰める）。 */
+/* つかみとの間は 0px（行の間隔 4px を、打ち消す）。 */
 .label-grip + .label-swatch {
-  margin-left: -2px;
+  margin-left: -4px;
 }
 
 .label-name {

@@ -1,0 +1,6 @@
+{
+  "id": "dev.spike.bad",
+  "version": "0.0.1",
+  "engines": { "unnotator": "^1.0.0" },
+  "main": "dist/index.js"
+}

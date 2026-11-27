@@ -16,7 +16,7 @@ export type ClassifyResult =
   | { kind: "refuse"; reason: ClassifyRefusal };
 
 export interface ClassifyInput {
-  /** 押された数字キーのラベル。 */
+  /** 押されたショートカットキーのラベル。 */
   label: LabelRow | undefined;
   current: CurrentTarget | null;
   /** 現在位置の詳細（まだ読めていなければ `null`）。 */
@@ -27,7 +27,7 @@ export interface ClassifyInput {
   multiple: boolean;
 }
 
-/** 数字キー（1〜9）に割り当てたラベル。 */
+/** ショートカットキー（1〜9）に割り当てたラベル。 */
 export function labelForKey(
   labels: readonly LabelRow[],
   key: number,

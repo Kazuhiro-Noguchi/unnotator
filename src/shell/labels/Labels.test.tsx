@@ -91,7 +91,7 @@ describe("LabelsView", () => {
     );
   });
 
-  it("追加フォームで、名前と数字キーを入れて保存すると、create_label が渡る", async () => {
+  it("追加フォームで、名前とショートカットキーを入れて保存すると、create_label が渡る", async () => {
     const { root, applied } = mount([row("1", "cat", 1)]);
     (
       root.querySelector(".labels-toolbar .button") as HTMLButtonElement

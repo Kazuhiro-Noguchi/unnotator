@@ -45,7 +45,7 @@ describe("validateLabel（ラベルの検証）", () => {
     }
   });
 
-  it("数字キーは 1〜9 の整数", () => {
+  it("ショートカットキーは 1〜9 の整数", () => {
     for (const hotkey of [0, 10, -1, 1.5]) {
       expect(validateLabel({ ...ok, hotkey }, others, null)).toEqual([
         { field: "hotkey", code: "hotkeyRange" },
@@ -53,7 +53,7 @@ describe("validateLabel（ラベルの検証）", () => {
     }
   });
 
-  it("数字キーの重複は、使っているラベルを示す。自分自身は重複ではない", () => {
+  it("ショートカットキーの重複は、使っているラベルを示す。自分自身は重複ではない", () => {
     expect(validateLabel({ ...ok, hotkey: 2 }, others, null)).toEqual([
       { field: "hotkey", code: "hotkeyTaken", key: 2, name: "dog" },
     ]);

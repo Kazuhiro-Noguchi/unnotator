@@ -1,4 +1,4 @@
-// 数字キーのコマンド `core.label.pick1`〜`pick9`: 現在位置に分類ラベルを付ける・外す（006 の空の処理を置き換える）。
+// ショートカットキーのコマンド `core.label.pick1`〜`pick9`: 現在位置に分類ラベルを付ける・外す（006 の空の処理を置き換える）。
 import { format, t } from "../../i18n";
 import type { CommandRegistry } from "../commands/registry";
 import type { CurrentTarget } from "../explorer/types";

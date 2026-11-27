@@ -193,8 +193,8 @@ describe("classify（分類の付け方）", () => {
   });
 });
 
-describe("labelForKey（数字キーのラベル）", () => {
-  it("数字キーに割り当てたラベルを返す", () => {
+describe("labelForKey（ショートカットキーのラベル）", () => {
+  it("ショートカットキーに割り当てたラベルを返す", () => {
     const labels = [label("a", { hotkey: 1 }), label("b", { hotkey: 3 })];
     expect(labelForKey(labels, 3)?.id).toBe("b");
     expect(labelForKey(labels, 2)).toBeUndefined();

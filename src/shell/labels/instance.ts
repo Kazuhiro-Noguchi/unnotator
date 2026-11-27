@@ -13,7 +13,6 @@ import { ctx } from "../services";
 import type { Disposable, NotifyLevel } from "../types";
 import { createActiveLabel } from "./active";
 import {
-  classifyActiveLabels,
   clickLabel,
   type LabelClassifyDeps,
   provideLabelHandlers,
@@ -85,11 +84,4 @@ export function clickLabelCard(
     return;
   }
   labelsUi.click(label.id, mode, order);
-}
-
-/** 選択中のラベルを、現在位置の分類として付ける・外す。 */
-export function classifyActive(
-  notify: (level: NotifyLevel, text: string) => void,
-): Promise<void> {
-  return classifyActiveLabels(deps(notify));
 }

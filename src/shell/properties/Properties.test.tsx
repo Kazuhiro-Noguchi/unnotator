@@ -132,14 +132,15 @@ describe("Properties（プロパティパネル）", () => {
     expect(root.textContent).toContain(t("properties.noCurrent"));
   });
 
-  it("アセットの情報・分類・アノテーションの一覧を出し、未対応の種別を示す", async () => {
+  it("ファイルの情報とアノテーションの一覧を出し、未対応の種別を示す。分類は、アノテーションの 1 行として出る（別の「分類」の欄は無い）", async () => {
     const { root, open } = mount();
     open("a1");
     await flush();
     expect(root.textContent).toContain("a1.png");
-    expect(root.querySelector(".prop-chips")?.textContent).toContain("cat");
+    expect(root.querySelector(".prop-chips")).toBeNull();
     const items = root.querySelectorAll(".annotation-item");
     expect(items).toHaveLength(2);
+    expect(items[0]?.textContent).toContain("core/classification");
     const unsupported = root.querySelector(".annotation-item.unsupported");
     expect(unsupported?.textContent).toContain("com.example.shape/shape");
   });

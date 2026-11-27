@@ -212,7 +212,6 @@
   "properties.unsupported.hint": "No extension handles this type. The data is kept.",
   "properties.label": "Label",
   "properties.label.none": "None",
-  "properties.classification": "Classification",
   "properties.delete": "Delete",
   "properties.draft.title": "You have unsaved input",
   "properties.draft.apply": "Apply",
@@ -282,7 +281,6 @@
   "labels.show": "Show",
   "labels.drag": "Drag to reorder (arrow keys too)",
   "labels.newName": "New label",
-  "labels.classify.none": "Select a label.",
   "labels.classify.needMultiple": "Applying several labels needs core.classification.multiple.",
   "labels.deselect": "Deselect (Esc)"
 }

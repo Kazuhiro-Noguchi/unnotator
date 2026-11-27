@@ -212,7 +212,6 @@
   "properties.unsupported.hint": "対応する拡張機能がありません。データは保たれます。",
   "properties.label": "ラベル",
   "properties.label.none": "なし",
-  "properties.classification": "分類",
   "properties.delete": "削除",
   "properties.draft.title": "入力中の値があります",
   "properties.draft.apply": "確定する",
@@ -282,7 +281,6 @@
   "labels.show": "表示",
   "labels.drag": "ドラッグで並べ替え（↑↓キーも可）",
   "labels.newName": "新しいラベル",
-  "labels.classify.none": "ラベルを選んでください。",
   "labels.classify.needMultiple": "複数のラベルを付けるには、設定 core.classification.multiple が必要です。",
   "labels.deselect": "選択解除（Esc）"
 }

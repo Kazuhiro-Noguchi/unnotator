@@ -95,14 +95,6 @@ export const CORE_COMMANDS: readonly CoreCommandDef[] = [
     icon: "$(select-all)",
     keys: [{ key: "Ctrl+A" }],
   }),
-  // 選択中のラベルを、現在位置の分類として付ける・外す（008）。選ぶこと（1〜9・クリック）とは、別の操作。
-  def(
-    "core.label.classify",
-    "選択中のラベルを分類に付ける",
-    "Apply selected label as classification",
-    // 既定のキーは付けない（設計書 3.4 の表に無いため。利用者がキー割り当てで付けられる）。
-    { icon: "$(tag)" },
-  ),
   def("core.edit.deselect", "選択解除", "Deselect", {
     keys: [{ key: "Escape", when: NOT_IN_INPUT }],
   }),

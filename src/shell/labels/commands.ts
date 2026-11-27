@@ -4,7 +4,6 @@
 // - ショートカットキー `core.label.pick1`〜`pick9` は、ラベルのカードをクリックする操作のショートカット。ラベルを選択に足す・外す
 //   だけで、何も付かない（選択中のラベルのキーをもう一度押すと、選択から外す）。選んだラベルは、拡張機能がアノテーションを作るときに使う（`labels.active()`）。
 // - `core.edit.deselect`（選択解除。Esc）は、ラベルの選択を解除する。
-// - `core.label.classify` は、選択中のラベルを、現在位置（ファイル・アイテム）の分類として、付ける・外す（付いていれば外す）。
 //
 // リボンの「ファイル分類」モードのあいだは、選択が分類そのもの（`mirror.ts`）なので、操作の意味が変わる:
 // - ラベルのクリック・1〜9 キーは、そのラベルの分類を、表示中のファイルに付ける・外す（単一の設定では付け替え）。
@@ -74,9 +73,6 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
     deps.commands.provide("core.edit.deselect", () =>
       deps.classificationMode() ? clearClassification(deps) : deps.clear(),
     ),
-    deps.commands.provide("core.label.classify", () =>
-      classifyActiveLabels(deps),
-    ),
   );
   return {
     dispose() {
@@ -130,21 +126,6 @@ export async function clearClassification(
     deps,
     removals.length === 1 ? only : { kind: "transaction", commands: removals },
   );
-}
-
-/**
- * 選択中のラベル（複数なら、すべて）を、現在位置の分類として付ける。すべて付いていれば外す。
- * 単一のときは、別のラベルへの付け替え。複数のラベルを同時に付けるには、設定 `core.classification.multiple` が要る。
- */
-export async function classifyActiveLabels(
-  deps: LabelClassifyDeps,
-): Promise<void> {
-  const labels = deps.selected();
-  if (labels.length === 0) {
-    deps.notify("warn", t("labels.classify.none"));
-    return;
-  }
-  await applyClassification(deps, labels);
 }
 
 async function write(deps: LabelClassifyDeps, command: Command): Promise<void> {

@@ -126,9 +126,6 @@ export function Properties(props: PropertiesProps) {
     }),
   );
 
-  const labelName = (id: string | null) =>
-    labels().find((l) => l.id === id)?.name ?? t("properties.label.none");
-
   const setStatus = (status: Status) => {
     const d = details();
     if (d === null) return;
@@ -338,21 +335,6 @@ export function Properties(props: PropertiesProps) {
                   />
                 </section>
               </Show>
-              <section class="prop-section">
-                <h3>{t("properties.classification")}</h3>
-                <Show
-                  when={d().classification.length > 0}
-                  fallback={
-                    <p class="prop-empty">{t("properties.label.none")}</p>
-                  }
-                >
-                  <ul class="prop-chips">
-                    <For each={d().classification}>
-                      {(c) => <li>{labelName(c.label_id)}</li>}
-                    </For>
-                  </ul>
-                </Show>
-              </section>
               <section class="prop-section">
                 <h3>
                   {t("properties.section.annotations")}{" "}

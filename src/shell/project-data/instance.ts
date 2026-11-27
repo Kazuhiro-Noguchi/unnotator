@@ -14,6 +14,7 @@ export const projectData = createProjectData({
       commands.annotationsPage(assetId, itemKey, cursor),
     attributeUsage: (scope, target, names) =>
       commands.attributeUsage(scope, target, names),
+    labelUsage: (labelId) => commands.labelUsage(labelId),
     apply: (command) => commands.applyCommand(command),
   },
   current: explorer.current,

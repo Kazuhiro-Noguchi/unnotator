@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { LabelRow } from "../project-data/types";
-import { defaultLabelColor, filterLabels, nextSortOrder } from "./list";
+import {
+  defaultLabelColor,
+  filterLabels,
+  moveLabel,
+  nextSortOrder,
+} from "./list";
 
 const row = (name: string, sort_order = 0): LabelRow => ({
   id: name,
@@ -33,5 +38,22 @@ describe("ラベルの一覧", () => {
     const colors = [0, 1, 2, 3].map(defaultLabelColor);
     for (const c of colors) expect(c).toMatch(/^#[0-9a-f]{6}$/);
     expect(new Set(colors).size).toBe(4);
+  });
+
+  it("並びを動かす: 位置どおりに振り直し、変わるものだけを返す。端は null", () => {
+    const same = [row("a", 0), row("b", 0), row("c", 0)];
+    // 全部 0 でも、b を上へ: b, a, c → 0, 1, 2（b は 0 のままで、a と c の値が変わる）
+    expect(moveLabel(same, "b", "up")).toEqual([
+      { id: "a", sort_order: 1 },
+      { id: "c", sort_order: 2 },
+    ]);
+    const ordered = [row("a", 0), row("b", 1), row("c", 2)];
+    expect(moveLabel(ordered, "b", "down")).toEqual([
+      { id: "c", sort_order: 1 },
+      { id: "b", sort_order: 2 },
+    ]);
+    expect(moveLabel(ordered, "a", "up")).toBeNull();
+    expect(moveLabel(ordered, "c", "down")).toBeNull();
+    expect(moveLabel(ordered, "zzz", "up")).toBeNull();
   });
 });

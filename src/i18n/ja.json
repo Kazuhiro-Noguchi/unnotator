@@ -267,5 +267,9 @@
   "schema.itemError.name": "名前を入力してください。",
   "schema.itemError.duplicate": "同じ名前の属性があります。",
   "schema.itemError.options": "選択肢を 1 つ以上、重複なしで入力してください。",
-  "schema.itemError.default": "既定値が型に合いません。"
+  "schema.itemError.default": "既定値が型に合いません。",
+  "labels.moveUp": "上へ",
+  "labels.moveDown": "下へ",
+  "labels.delete.target": "付け替え先",
+  "labels.delete.schemas": "このラベル専用の属性スキーマも一緒に消えます。"
 }

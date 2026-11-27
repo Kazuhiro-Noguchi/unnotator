@@ -79,6 +79,12 @@ function setup() {
     },
     annotationsPage: async () => emptyPage,
     attributeUsage: async () => 0,
+    labelUsage: async () => ({
+      annotations: 0,
+      relations: 0,
+      groups: 0,
+      attribute_schemas: 0,
+    }),
     apply: async () => changeSet([]),
   };
   const current = createCurrentStore();

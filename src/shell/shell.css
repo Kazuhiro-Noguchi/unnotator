@@ -1648,3 +1648,17 @@ fieldset.ribbon-group {
   align-items: center;
   gap: 6px;
 }
+
+.label-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.label-delete {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-danger);
+  border-radius: 8px;
+}

@@ -267,5 +267,9 @@
   "schema.itemError.name": "Enter a name.",
   "schema.itemError.duplicate": "An attribute with this name already exists.",
   "schema.itemError.options": "Enter one or more unique options.",
-  "schema.itemError.default": "The default does not match the type."
+  "schema.itemError.default": "The default does not match the type.",
+  "labels.moveUp": "Move up",
+  "labels.moveDown": "Move down",
+  "labels.delete.target": "Reassign to",
+  "labels.delete.schemas": "Attribute schemas specific to this label are deleted too."
 }

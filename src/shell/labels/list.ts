@@ -30,3 +30,25 @@ export function defaultLabelColor(count: number): string {
   };
   return `#${channel(0)}${channel(8)}${channel(4)}`;
 }
+
+/**
+ * 1 つ上・下へ動かしたあとの並びを、先頭から 0, 1, 2… と振り直し、値が変わるラベルだけを返す。端なら `null`。
+ * 同じ値が並んでいても、位置どおりに動く。
+ */
+export function moveLabel(
+  labels: readonly LabelRow[],
+  id: string,
+  direction: "up" | "down",
+): Array<{ id: string; sort_order: number }> | null {
+  const index = labels.findIndex((l) => l.id === id);
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= labels.length) return null;
+  const order = [...labels];
+  const [moved] = order.splice(index, 1);
+  if (moved === undefined) return null;
+  order.splice(target, 0, moved);
+  return order
+    .map((l, position) => ({ label: l, position }))
+    .filter(({ label, position }) => label.sort_order !== position)
+    .map(({ label, position }) => ({ id: label.id, sort_order: position }));
+}

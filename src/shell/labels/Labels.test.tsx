@@ -45,6 +45,12 @@ function mount(initial: LabelRow[], fail = false) {
         listeners.delete(listener);
       };
     },
+    labelUsage: async () => ({
+      annotations: 0,
+      relations: 0,
+      groups: 0,
+      attribute_schemas: 0,
+    }),
     apply: async (command) => {
       if (fail) throw new Error("boom");
       applied.push(command);

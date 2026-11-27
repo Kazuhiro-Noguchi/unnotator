@@ -1,0 +1,175 @@
+// @vitest-environment happy-dom
+import { render } from "solid-js/web";
+import { afterEach, describe, expect, it } from "vitest";
+import { t } from "../../i18n";
+import type { Command, LabelRow, LabelUsage } from "../project-data/types";
+import { LabelsView, type LabelsViewProps } from "./LabelsView";
+
+let dispose: (() => void) | undefined;
+afterEach(() => {
+  dispose?.();
+  dispose = undefined;
+  document.body.innerHTML = "";
+});
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+const row = (
+  id: string,
+  name: string,
+  hotkey: number | null = null,
+  sort_order = 0,
+): LabelRow => ({
+  id,
+  name,
+  name_i18n_json: "{}",
+  color: "#112233",
+  hotkey,
+  sort_order,
+  hidden: false,
+  applies_to_json: "{}",
+});
+
+function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
+  const applied: Command[] = [];
+  const root = document.createElement("div");
+  document.body.append(root);
+  const data: LabelsViewProps["data"] = {
+    labels: () => labels,
+    subscribe: () => () => {},
+    labelUsage: async () => ({
+      annotations: 0,
+      relations: 0,
+      groups: 0,
+      attribute_schemas: 0,
+      ...usage,
+    }),
+    apply: async (command) => {
+      applied.push(command);
+      return { seq: 1, origin: "apply", changes: [], asset_ids: [] };
+    },
+  };
+  const notify: LabelsViewProps["notify"] = () => {};
+  dispose = render(() => <LabelsView data={data} notify={notify} />, root);
+  return { root, applied };
+}
+
+const itemButtons = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll<HTMLElement>(".label-item")]
+    .find((li) => li.querySelector(".label-name")?.textContent === name)
+    ?.querySelectorAll<HTMLButtonElement>("button") ?? [];
+
+const labelled = (root: HTMLElement, text: string) =>
+  [...root.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent === text || b.getAttribute("aria-label") === text,
+  );
+
+function type(el: HTMLInputElement, value: string) {
+  el.value = value;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+describe("ラベルの編集・並べ替え・削除", () => {
+  it("名前を変えて保存すると、変えた項目だけの update_label が渡る", async () => {
+    const { root, applied } = mount([row("1", "cat", 1)]);
+    labelled(root, t("labels.edit"))?.click();
+    await flush();
+    type(
+      root.querySelector(".label-form input[type=text]") as HTMLInputElement,
+      "kitten",
+    );
+    (
+      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
+    ).click();
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "update_label",
+        id: "1",
+        patch: { name: { kind: "set", value: "kitten" } },
+      },
+    ]);
+  });
+
+  it("他のラベルが使っている数字キーは、保存せずに拒む", async () => {
+    const { root, applied } = mount([row("1", "cat", 1), row("2", "dog", 2)]);
+    itemButtons(root, "dog")[2]?.click();
+    await flush();
+    const select = root.querySelector(
+      ".label-form select",
+    ) as HTMLSelectElement;
+    select.value = "1";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    (
+      root.querySelector(".label-form button[type=submit]") as HTMLButtonElement
+    ).click();
+    await flush();
+    expect(applied).toEqual([]);
+    expect(root.querySelector(".form-errors")?.textContent).toContain("cat");
+  });
+
+  it("下へ動かすと、並び順を振り直す update_label の transaction が渡る", async () => {
+    const { root, applied } = mount([
+      row("1", "a", null, 0),
+      row("2", "b", null, 1),
+    ]);
+    labelled(root, t("labels.moveDown"))?.click();
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "transaction",
+        commands: [
+          {
+            kind: "update_label",
+            id: "2",
+            patch: { sort_order: { kind: "set", value: 0 } },
+          },
+          {
+            kind: "update_label",
+            id: "1",
+            patch: { sort_order: { kind: "set", value: 1 } },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("使われていないラベルは、選択なしで削除できる", async () => {
+    const { root, applied } = mount([row("1", "cat")]);
+    itemButtons(root, "cat")[itemButtons(root, "cat").length - 1]?.click();
+    await flush();
+    expect(root.querySelector(".label-delete")?.textContent).toContain(
+      t("labels.delete.unused"),
+    );
+    (root.querySelector(".label-delete .primary") as HTMLButtonElement).click();
+    await flush();
+    expect(applied).toEqual([
+      { kind: "delete_label", id: "1", disposition: null },
+    ]);
+  });
+
+  it("使用中のラベルは、件数を示し、一緒に削除（既定）か、付け替えを選ぶ", async () => {
+    const { root, applied } = mount([row("1", "cat"), row("2", "dog")], {
+      annotations: 3,
+    });
+    const buttons = itemButtons(root, "cat");
+    buttons[buttons.length - 1]?.click();
+    await flush();
+    expect(root.querySelector(".label-delete")?.textContent).toContain("3");
+    const radios = root.querySelectorAll<HTMLInputElement>(
+      ".label-delete input[type=radio]",
+    );
+    radios[0]?.click();
+    radios[0]?.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    (root.querySelector(".label-delete .primary") as HTMLButtonElement).click();
+    await flush();
+    expect(applied).toEqual([
+      {
+        kind: "delete_label",
+        id: "1",
+        disposition: { kind: "reassign", to_label_id: "2" },
+      },
+    ]);
+  });
+});

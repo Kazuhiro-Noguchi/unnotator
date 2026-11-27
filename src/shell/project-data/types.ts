@@ -10,6 +10,7 @@ export type {
   GroupRow_Serialize as GroupRow,
   ItemDetails,
   LabelRow_Serialize as LabelRow,
+  LabelUsage,
   RelationRow_Serialize as RelationRow,
   SchemaRow,
   TargetDetails_Serialize as TargetDetails,

@@ -8,6 +8,7 @@ import type {
   ChangeSet,
   Command,
   LabelRow,
+  LabelUsage,
   SchemaRow,
   TargetDetails,
 } from "./types";
@@ -25,6 +26,8 @@ export interface ProjectDataIpc {
     itemKey: string | null,
     cursor: AnnotationCursor | null,
   ): Promise<AnnotationPage>;
+  /** ラベルを使っているものの件数（削除の前の確認）。 */
+  labelUsage(labelId: string): Promise<LabelUsage>;
   /** 属性スキーマを変えるときの、値が入っているものの件数。 */
   attributeUsage(
     scope: AttributeScope,
@@ -64,6 +67,7 @@ export interface ProjectData {
     target: string,
     names: string[],
   ): Promise<number>;
+  labelUsage(labelId: string): Promise<LabelUsage>;
   dispose(): void;
 }
 
@@ -161,6 +165,7 @@ export function createProjectData(deps: ProjectDataDeps): ProjectData {
     },
     attributeUsage: (scope, target, names) =>
       deps.ipc.attributeUsage(scope, target, names),
+    labelUsage: (labelId) => deps.ipc.labelUsage(labelId),
     dispose() {
       offCurrent();
       offChanged();

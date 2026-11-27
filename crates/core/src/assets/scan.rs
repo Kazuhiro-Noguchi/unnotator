@@ -63,8 +63,12 @@ pub enum ScanScope {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum ScanPhase {
+    /// フォルダを歩いて、ファイルを探している。
     Walking,
+    /// 見つけた結果を、プロジェクトへ登録している。
     Applying,
+    /// 終わった（変化が無くても送る。画面が完了を知らせるのに使う）。
+    Done,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

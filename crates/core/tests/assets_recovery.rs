@@ -75,27 +75,20 @@ fn pending(folder: &Path) -> PendingRecovery {
 }
 
 #[test]
-fn synced_assets_survive_a_crash_and_are_counted_as_unsaved() {
+fn synced_assets_are_in_project_db_already_and_are_not_counted_as_unsaved() {
     let dir = prepared();
     crash(spawn_child(dir.path()));
 
-    // 保存していないので、プロジェクトのファイルにはまだ入っていない
-    assert_eq!(support::count(&read_saved_conn(dir.path()), "assets"), 0);
+    // 走査の結果は、保存を待たずにプロジェクトのファイルへ入っている
+    assert_eq!(support::count(&read_saved_conn(dir.path()), "assets"), 2);
+    // 復元の候補になるのは、利用者の編集（ラベル 2 件）だけ
     let pending = pending(dir.path());
-    assert_eq!(
-        pending.candidate().entry_count,
-        3,
-        "ラベル 2 件と、自動登録 1 件"
-    );
+    assert_eq!(pending.candidate().entry_count, 2);
 
     let store = pending.restore().unwrap();
-    assert_eq!(
-        read_assets(dir.path()).len(),
-        2,
-        "復元すると、自動登録したアセットが残っている"
-    );
+    assert_eq!(read_assets(dir.path()).len(), 2);
     assert!(store.save_state().dirty);
-    assert_eq!(store.save_state().unsaved_count, 3);
+    assert_eq!(store.save_state().unsaved_count, 2);
 }
 
 #[test]

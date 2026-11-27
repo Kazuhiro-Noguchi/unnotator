@@ -23,7 +23,7 @@ use crate::db::migrate::{Migration, PROJECT_MIGRATIONS, apply_all, latest_versio
 use crate::db::{classify, open_connection, open_wal_connection};
 use crate::error::StoreError;
 use crate::event::{ChangeObserver, ChangeSet, EventHub, Origin};
-use crate::history::recorder::{Recorder, RowOp, apply_redo, apply_undo};
+use crate::history::recorder::{Recorder, RowOp, apply_changed_columns, apply_redo, apply_undo};
 use crate::history::{UNDO_LIMIT, UndoEntry, UndoStack, UndoState};
 use crate::id::{IdGenerator, UuidV7Generator};
 use crate::recovery::candidate::{Inspection, RecoveryCandidate, file_stamp, inspect};
@@ -112,6 +112,8 @@ pub struct ProjectStore {
     unsaved: u32,
     last_change_at: Option<i64>,
     saving: bool,
+    /// `project.db` へまだ書けていない、走査の結果（保存中・書き込みの失敗のときに溜める）。
+    pending_sync: Vec<RowOp>,
     /// 直前の `apply_command` で、食い違いなどのため飛ばした行の数（`SyncAssets`）。
     last_sync_skipped: u32,
     media_rules: MediaRules,
@@ -400,6 +402,7 @@ impl ProjectStore {
             unsaved: 0,
             last_change_at: None,
             saving: false,
+            pending_sync: Vec::new(),
             last_sync_skipped: 0,
             media_rules: MediaRules::default(),
             scan_options: ScanOptions::default(),
@@ -555,6 +558,14 @@ impl ProjectStore {
         if ops.is_empty() {
             return set;
         }
+        if origin == Origin::Sync {
+            // 走査・見張りの反映はプロジェクトの内部の扱い。Undo にも変更履歴にも未保存の件数にも入れず、
+            // 保存済みのファイルへは、走査の結果の列だけを直接書く（利用者の未保存の編集は書かない）。
+            self.pending_sync.extend(ops);
+            self.flush_sync();
+            self.hub.notify(&set);
+            return set;
+        }
         if origin == Origin::Apply {
             self.undo.push(UndoEntry { seq: self.seq, ops });
         }
@@ -562,6 +573,26 @@ impl ProjectStore {
         self.hub.notify(&set);
         self.notify_state();
         set
+    }
+
+    /// 溜めた走査の結果を `project.db` へ書く。保存中は、保存の仕上げまで待つ。
+    /// 失敗しても編集は失われない（作業用の複製に入っており、次の機会にもう一度書く）。
+    fn flush_sync(&mut self) {
+        if self.saving || self.pending_sync.is_empty() {
+            return;
+        }
+        let result = open_connection(&self.layout.db).and_then(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            apply_changed_columns(&tx, &self.pending_sync)?;
+            tx.commit()?;
+            Ok(())
+        });
+        match result {
+            Ok(()) => self.pending_sync.clear(),
+            Err(error) => {
+                tracing::warn!(%error, "走査の結果を project.db へ書けなかった。次の機会にもう一度書く");
+            }
+        }
     }
 
     /// 確定した操作を `journal.db` へ追記する。失敗しても、編集は失われない（`working.db` が正。R4）。
@@ -623,6 +654,7 @@ impl ProjectStore {
             self.last_change_at = None;
         }
         self.saving = false;
+        self.flush_sync();
         self.notify_state();
         Ok(self.save_state())
     }
@@ -631,6 +663,7 @@ impl ProjectStore {
     pub fn abort_save(&mut self) {
         if self.saving {
             self.saving = false;
+            self.flush_sync();
             self.notify_state();
         }
     }
@@ -678,6 +711,7 @@ impl ProjectStore {
                 Some(CloseAction::Discard) => {}
             }
         }
+        self.flush_sync();
         let Self {
             conn,
             journal,
@@ -796,6 +830,7 @@ impl PendingRecovery {
             unsaved,
             last_change_at: session.last_change_at,
             saving: false,
+            pending_sync: Vec::new(),
             last_sync_skipped: 0,
             media_rules: MediaRules::default(),
             scan_options: ScanOptions::default(),

@@ -4,7 +4,7 @@ import type {
   LabelRow,
   TargetDetails,
 } from "../project-data/types";
-import { classify, labelForKey } from "./classify";
+import { classify, classifyMany, labelForKey } from "./classify";
 
 function label(id: string, over: Partial<LabelRow> = {}): LabelRow {
   return {
@@ -198,5 +198,85 @@ describe("labelForKey（ショートカットキーのラベル）", () => {
     const labels = [label("a", { hotkey: 1 }), label("b", { hotkey: 3 })];
     expect(labelForKey(labels, 3)?.id).toBe("b");
     expect(labelForKey(labels, 2)).toBeUndefined();
+  });
+});
+
+describe("classifyMany（選択中の複数のラベルを、まとめて）", () => {
+  const two = [label("l1"), label("l2")];
+  const many = { ...base, labels: two, multiple: true };
+
+  it("1 つなら、classify と同じ", () => {
+    expect(
+      classifyMany({ ...base, labels: [label("l1")], details: details([]) }),
+    ).toEqual(classify({ ...base, label: label("l1"), details: details([]) }));
+  });
+
+  it("ラベルが無ければ、noLabel。単一の設定で複数なら、needMultiple", () => {
+    expect(classifyMany({ ...base, labels: [], details: details([]) })).toEqual(
+      {
+        kind: "refuse",
+        reason: "noLabel",
+      },
+    );
+    expect(
+      classifyMany({ ...base, labels: two, details: details([]) }),
+    ).toEqual({ kind: "refuse", reason: "needMultiple" });
+  });
+
+  it("どれも付いていなければ、すべてを付ける（1 つの transaction）", () => {
+    const r = classifyMany({ ...many, details: details([]) });
+    expect(r.kind).toBe("apply");
+    if (r.kind !== "apply" || r.command.kind !== "transaction") {
+      throw new Error("transaction のはず");
+    }
+    expect(r.command.commands.map((c) => c.kind)).toEqual([
+      "create_annotation",
+      "create_annotation",
+    ]);
+  });
+
+  it("一部が付いていれば、付いていないものだけを付ける", () => {
+    const r = classifyMany({
+      ...many,
+      details: details([existing("c1", "l1")]),
+    });
+    expect(r).toMatchObject({
+      kind: "apply",
+      command: { kind: "create_annotation", label_id: "l2" },
+    });
+  });
+
+  it("すべて付いていれば、選択中のラベルの分類を、すべて外す（ほかのラベルは残す）", () => {
+    const r = classifyMany({
+      ...many,
+      details: details([
+        existing("c1", "l1"),
+        existing("c2", "l2"),
+        existing("c3", "l9"),
+      ]),
+    });
+    expect(r).toEqual({
+      kind: "apply",
+      command: {
+        kind: "transaction",
+        commands: [
+          { kind: "delete_annotation", id: "c1" },
+          { kind: "delete_annotation", id: "c2" },
+        ],
+      },
+    });
+  });
+
+  it("付けられないラベルが混ざっていれば、理由を返して、何もしない", () => {
+    const blocked = label("l2", {
+      applies_to_json: '{"classification":false}',
+    });
+    expect(
+      classifyMany({
+        ...many,
+        labels: [label("l1"), blocked],
+        details: details([]),
+      }),
+    ).toEqual({ kind: "refuse", reason: "notAllowed" });
   });
 });

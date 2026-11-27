@@ -25,7 +25,7 @@ export function PropertiesHost(props: { fallback: JSX.Element }) {
         drafts={drafts}
         selection={selection}
         supported={supportedTypes}
-        activeLabel={activeLabel.get}
+        selectedLabels={activeLabel.selected}
         onClassify={() => void classifyActive(notifyAny)}
         notify={(level, text) => notify(level, text)}
       />

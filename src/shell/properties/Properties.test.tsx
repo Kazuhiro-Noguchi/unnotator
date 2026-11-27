@@ -68,7 +68,7 @@ function detailsOf(assetId: string): TargetDetails {
   };
 }
 
-function mount(fail = false, active: LabelRow | null = null) {
+function mount(fail = false, active: readonly LabelRow[] = []) {
   const current = createCurrentStore();
   const drafts = createDraftStore();
   const selection = createSelection();
@@ -120,7 +120,7 @@ function mount(fail = false, active: LabelRow | null = null) {
         selection={selection}
         supported={() => new Set<string>()}
         notify={notify}
-        activeLabel={() => active}
+        selectedLabels={() => active}
         onClassify={() => {
           classified.push("classify");
         }}
@@ -248,9 +248,9 @@ describe("Properties（プロパティパネル）", () => {
     expect(button?.textContent).toBe(t("labels.classify.select"));
   });
 
-  it("分類のボタン: 選んだラベルが付いていなければ「付ける」、付いていれば「外す」。押すと、分類の付け外しを頼む", async () => {
+  it("分類のボタン: 選んだラベルが付いていれば「外す」。押すと、分類の付け外しを頼む", async () => {
     // 詳細（detailsOf）の分類には、ラベル l1（cat）が付いている
-    const attached = mount(false, label);
+    const attached = mount(false, [label]);
     attached.open("a1");
     await flush();
     const detach =
@@ -263,13 +263,32 @@ describe("Properties（プロパティパネル）", () => {
     expect(attached.classified).toEqual(["classify"]);
   });
 
-  it("分類のボタン: 別のラベルを選んでいれば、「付ける」", async () => {
+  it("分類のボタン: 別のラベルを選んでいれば「付ける」", async () => {
     const other = { ...label, id: "l9", name: "dog" };
-    const t2 = mount(false, other);
+    const t2 = mount(false, [other]);
     t2.open("a1");
     await flush();
     expect(t2.root.querySelector(".classify-button")?.textContent).toBe(
       t("labels.classify.attach").replace("{name}", "dog"),
+    );
+  });
+
+  it("分類のボタン（複数選択）: すべて付いていれば「N 件を外す」、付いていないものがあれば「N 件を付ける」", async () => {
+    const other = { ...label, id: "l9", name: "dog" };
+    const some = mount(false, [label, other]);
+    some.open("a1");
+    await flush();
+    expect(some.root.querySelector(".classify-button")?.textContent).toBe(
+      t("labels.classify.attachMany").replace("{count}", "2"),
+    );
+    dispose?.();
+    document.body.innerHTML = "";
+    // 詳細の分類に、l1 しか付いていないので、l1 だけを選んでいる場合は「外す」
+    const all = mount(false, [label, { ...label }]);
+    all.open("a1");
+    await flush();
+    expect(all.root.querySelector(".classify-button")?.textContent).toBe(
+      t("labels.classify.detachMany").replace("{count}", "2"),
     );
   });
 });

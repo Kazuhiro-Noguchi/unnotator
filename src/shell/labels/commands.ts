@@ -11,13 +11,17 @@ import type { CurrentTarget } from "../explorer/types";
 import type { ProjectData } from "../project-data/store";
 import type { LabelRow } from "../project-data/types";
 import type { Disposable, NotifyLevel } from "../types";
-import { type ClassifyRefusal, classify, labelForKey } from "./classify";
+import { type ClassifyRefusal, classifyMany, labelForKey } from "./classify";
+import type { ClickMode } from "./selection";
 
 /** 選択の操作に要るもの。 */
 export interface LabelSelectDeps {
-  /** 選択中のラベル（有効なラベル。非表示・消えたものは、含まない）。 */
-  active(): LabelRow | null;
-  select(labelId: string | null): void;
+  /** 選択中のラベル（選んだ順。非表示・消えたものは、含まない）。 */
+  selected(): readonly LabelRow[];
+  /** ラベルをクリックしたのと同じに、選択を変える。 */
+  click(labelId: string, mode: ClickMode): void;
+  /** 選択を、すべて解除する。 */
+  clear(): void;
   notify(level: NotifyLevel, text: string): void;
 }
 
@@ -42,6 +46,7 @@ const REFUSAL: Record<
   hidden: "labels.pick.hidden",
   notAllowed: "labels.pick.notAllowed",
   noProvider: "labels.pick.notAllowed",
+  needMultiple: "labels.classify.needMultiple",
 };
 
 export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
@@ -60,9 +65,9 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
     );
   }
   handles.push(
-    deps.commands.provide("core.edit.deselect", () => deps.select(null)),
+    deps.commands.provide("core.edit.deselect", () => deps.clear()),
     deps.commands.provide("core.label.classify", () =>
-      classifyActiveLabel(deps),
+      classifyActiveLabels(deps),
     ),
   );
   return {
@@ -73,31 +78,38 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
 }
 
 /**
- * ラベルを選ぶ（カードのクリック・ショートカットキー）。選択中のラベルをもう一度選ぶと、選択を解除する。
- * 非表示のラベルは、選べない。
+ * ラベルを選ぶ（カードのクリック・ショートカットキー）。`replace`: そのラベルだけを選ぶ（選択中の 1 つだけを押すと、解除）。
+ * `toggle`（Ctrl / Cmd）: 選択に足す・外す。`range`（Shift）: 範囲を選ぶ。非表示のラベルは、選べない。
  */
-export function selectLabel(deps: LabelSelectDeps, label: LabelRow): void {
+export function selectLabel(
+  deps: LabelSelectDeps,
+  label: LabelRow,
+  mode: ClickMode = "replace",
+): void {
   if (label.hidden) {
     deps.notify("warn", t("labels.pick.hidden"));
     return;
   }
-  deps.select(deps.active()?.id === label.id ? null : label.id);
+  deps.click(label.id, mode);
 }
 
-/** 選択中のラベルを、現在位置の分類として付ける。付いていれば外す。単一のときは、別のラベルへの付け替え。 */
-export async function classifyActiveLabel(
+/**
+ * 選択中のラベル（複数なら、すべて）を、現在位置の分類として付ける。すべて付いていれば外す。
+ * 単一のときは、別のラベルへの付け替え。複数のラベルを同時に付けるには、設定 `core.classification.multiple` が要る。
+ */
+export async function classifyActiveLabels(
   deps: LabelClassifyDeps,
 ): Promise<void> {
-  const label = deps.active();
-  if (label === null) {
+  const labels = deps.selected();
+  if (labels.length === 0) {
     deps.notify("warn", t("labels.classify.none"));
     return;
   }
   const current = deps.current.get();
   // 現在位置が無いときは、何もしない（知らせもしない）。
   if (current === null) return;
-  const result = classify({
-    label,
+  const result = classifyMany({
+    labels,
     current,
     details: deps.data.details(),
     provider: deps.providerOf(current.mediaType),

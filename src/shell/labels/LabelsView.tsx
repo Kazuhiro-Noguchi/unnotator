@@ -18,6 +18,7 @@ import {
   nextSortOrder,
   reorderLabels,
 } from "./list";
+import type { ClickMode } from "./selection";
 import { createLabelsUi, type LabelsUi } from "./ui";
 
 export interface LabelsViewProps {
@@ -25,10 +26,13 @@ export interface LabelsViewProps {
   notify: (level: NotifyLevel, text: string) => void;
   /** 見出しの操作（追加・絞り込み）と共有する状態。省略すると、この一覧だけのものを使う。 */
   ui?: LabelsUi;
-  /** 選択中のラベルの ID（有効なラベル）。 */
-  selectedId?(): string | null;
-  /** カードのクリック: そのラベルを選ぶ（選択中なら解除。ショートカットキーと同じ）。分類は、付かない。 */
-  onPick?(label: LabelRow): void;
+  /** 選択中のラベルの ID（複数）。 */
+  selectedIds?(): ReadonlySet<string>;
+  /**
+   * カードのクリック: ラベルを選ぶ。`replace`（通常）はそのラベルだけ（選択中の 1 つなら解除）、`toggle`（Ctrl / Cmd）は足す・外す、
+   * `range`（Shift）は範囲。`order` は、見えているラベルの並び。分類は、付かない。
+   */
+  onPick?(label: LabelRow, mode: ClickMode, order: readonly string[]): void;
 }
 
 /** サイドバー「ラベル」。一覧・絞り込み・追加。 */
@@ -41,7 +45,7 @@ export function LabelsView(props: LabelsViewProps) {
   const ui = props.ui ?? createLabelsUi();
   const query = ui.query;
   const shown = () => filterLabels(labels(), query());
-  const selected = (id: string) => props.selectedId?.() === id;
+  const selected = (id: string) => props.selectedIds?.().has(id) ?? false;
   /** 隣のカードの「選ぶ」ボタンへ、フォーカスを移す（↑ ↓ キー）。選択は、押したときに決まる。 */
   const focusNeighbor = (id: string, step: -1 | 1) => {
     const list = shown();
@@ -215,7 +219,13 @@ export function LabelsView(props: LabelsViewProps) {
               dragging={drag()?.id === label.id}
               dropMark={dropMarkFor(label.id)}
               selected={selected(label.id)}
-              onSelect={() => props.onPick?.(label)}
+              onSelect={(mode) =>
+                props.onPick?.(
+                  label,
+                  mode,
+                  shown().map((l) => l.id),
+                )
+              }
               onNavigate={(step) => focusNeighbor(label.id, step)}
               editing={editing() === label.id}
               onEdit={() => {
@@ -275,7 +285,7 @@ function LabelItem(props: {
   canMove: boolean;
   /** 選択中か（カードをクリックして選ぶ）。 */
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (mode: ClickMode) => void;
   /** ↑ ↓ キーで、隣のカードを選ぶ。 */
   onNavigate: (step: -1 | 1) => void;
   /** 編集を開いているか（鉛筆は、開閉の切り替え）。 */
@@ -320,7 +330,13 @@ function LabelItem(props: {
           "button, input, select, textarea, label, .label-form, .label-delete",
         );
         if (inner !== null && !inner.classList.contains("label-pick")) return;
-        props.onSelect();
+        props.onSelect(
+          event.shiftKey
+            ? "range"
+            : event.ctrlKey || event.metaKey
+              ? "toggle"
+              : "replace",
+        );
       }}
       classList={{
         selected: props.selected,

@@ -54,22 +54,36 @@ function mount(labels: LabelRow[], usage: Partial<LabelUsage> = {}) {
   const notify: LabelsViewProps["notify"] = () => {};
   const ui = createLabelsUi();
   const picked: string[] = [];
-  const [selectedId, setSelectedId] = createSignal<string | null>(null);
+  const pickedModes: string[] = [];
+  const pickedOrders: string[][] = [];
+  const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(
+    new Set<string>(),
+  );
   dispose = render(
     () => (
       <LabelsView
         data={data}
         notify={notify}
         ui={ui}
-        selectedId={selectedId}
-        onPick={(label) => {
+        selectedIds={selectedIds}
+        onPick={(label, mode, order) => {
           picked.push(label.id);
+          pickedModes.push(mode);
+          pickedOrders.push([...order]);
         }}
       />
     ),
     root,
   );
-  return { root, applied, ui, picked, setSelectedId };
+  return {
+    root,
+    applied,
+    ui,
+    picked,
+    pickedModes,
+    pickedOrders,
+    setSelectedIds,
+  };
 }
 
 const itemButtons = (root: HTMLElement, name: string) =>
@@ -294,10 +308,11 @@ describe("ラベルの編集・並べ替え・削除", () => {
       (e) => e.textContent,
     );
 
-  it("カードをクリックすると、そのラベルを選ぶ（onPick）。選択の表示は、渡された選択に従う", async () => {
-    const { root, picked, setSelectedId } = mount([
+  it("カードをクリックすると、そのラベルを選ぶ（onPick）。選択の表示は、渡された選択に従う（複数も）", async () => {
+    const { root, picked, setSelectedIds } = mount([
       row("1", "a"),
       row("2", "b"),
+      row("3", "c"),
     ]);
     expect(selectedNames(root)).toEqual([]);
     card(root, "a")?.click();
@@ -305,17 +320,37 @@ describe("ラベルの編集・並べ替え・削除", () => {
     expect(picked).toEqual(["1"]);
     // クリックだけでは、表示は変わらない（選択は、呼び出し側が決めて、渡す）
     expect(selectedNames(root)).toEqual([]);
-    setSelectedId("1");
+    setSelectedIds(new Set(["1"]));
     await flush();
     expect(selectedNames(root)).toEqual(["a"]);
     expect(card(root, "a")?.getAttribute("aria-current")).toBe("true");
     expect(card(root, "b")?.getAttribute("aria-current")).toBeNull();
-    setSelectedId("2");
+    // 複数の選択も、そのまま表示される
+    setSelectedIds(new Set(["1", "3"]));
     await flush();
-    expect(selectedNames(root)).toEqual(["b"]);
-    setSelectedId(null);
+    expect(selectedNames(root)).toEqual(["a", "c"]);
+    setSelectedIds(new Set<string>());
     await flush();
     expect(selectedNames(root)).toEqual([]);
+  });
+
+  it("クリックの種類: 通常は置き換え、Ctrl / Cmd は足し引き、Shift は範囲。見えている並びも渡す", async () => {
+    const { root, pickedModes, pickedOrders } = mount([
+      row("1", "a"),
+      row("2", "b"),
+      row("3", "c"),
+    ]);
+    const click = (name: string, init: MouseEventInit = {}) =>
+      card(root, name)?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, ...init }),
+      );
+    click("a");
+    click("b", { ctrlKey: true });
+    click("c", { metaKey: true });
+    click("c", { shiftKey: true });
+    await flush();
+    expect(pickedModes).toEqual(["replace", "toggle", "toggle", "range"]);
+    expect(pickedOrders[0]).toEqual(["1", "2", "3"]);
   });
 
   it("キーボード: 「選ぶ」ボタン（Enter / Space）で選ぶ。↑ ↓ は、隣へフォーカスを移すだけ", async () => {

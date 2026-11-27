@@ -9,7 +9,8 @@ export type ClassifyRefusal =
   | "noLabel"
   | "hidden"
   | "notAllowed"
-  | "noProvider";
+  | "noProvider"
+  | "needMultiple";
 
 export type ClassifyResult =
   | { kind: "apply"; command: Command }
@@ -110,4 +111,45 @@ function single(commands: Command[]): Command {
   return commands.length === 1 && first !== undefined
     ? first
     : { kind: "transaction", commands };
+}
+
+export interface ClassifyManyInput extends Omit<ClassifyInput, "label"> {
+  /** 選択中のラベル（選んだ順）。 */
+  labels: readonly LabelRow[];
+}
+
+/**
+ * 選択中のラベルを、まとめて、現在位置の分類に付ける・外す。
+ * 1 つなら `classify` と同じ。複数のときは、複数の分類を許す設定が要る（`multiple`）。
+ * すべて付いていれば、選択中のラベルの分類をすべて外す。付いていないものがあれば、付いていないものを付ける。
+ */
+export function classifyMany(input: ClassifyManyInput): ClassifyResult {
+  const { labels, details, multiple } = input;
+  const [first, ...rest] = labels;
+  if (first === undefined) return { kind: "refuse", reason: "noLabel" };
+  if (rest.length === 0) return classify({ ...input, label: first });
+  if (!multiple) return { kind: "refuse", reason: "needMultiple" };
+  if (input.current === null || details === null) {
+    return { kind: "refuse", reason: "noCurrent" };
+  }
+  const attached = (label: LabelRow) =>
+    details.classification.filter((c) => c.label_id === label.id);
+  const missing = labels.filter((l) => attached(l).length === 0);
+  const commands: Command[] = [];
+  if (missing.length === 0) {
+    // すべて付いている: 選択中のラベルの分類を、すべて外す。
+    for (const label of labels) {
+      for (const row of attached(label)) {
+        commands.push({ kind: "delete_annotation", id: row.id });
+      }
+    }
+  } else {
+    // 付いていないものを付ける（複数を許すので、付け替えにはならない）。
+    for (const label of missing) {
+      const result = classify({ ...input, label, multiple: true });
+      if (result.kind === "refuse") return result;
+      commands.push(result.command);
+    }
+  }
+  return { kind: "apply", command: single(commands) };
 }

@@ -19,8 +19,10 @@ export function LabelsHost(props: { fallback: JSX.Element }) {
         data={projectData}
         notify={(level, text) => notify(level, text)}
         ui={labelsUi}
-        selectedId={() => activeLabel.get()?.id ?? null}
-        onPick={(label) => selectLabelCard(notifyLabel, label)}
+        selectedIds={() => new Set(activeLabel.selected().map((l) => l.id))}
+        onPick={(label, mode, order) =>
+          selectLabelCard(notifyLabel, label, mode, order)
+        }
       />
     </Show>
   );

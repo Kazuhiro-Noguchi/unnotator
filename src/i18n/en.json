@@ -285,5 +285,8 @@
   "labels.classify.none": "Select a label before applying it as the classification.",
   "labels.classify.attach": "Apply \"{name}\" as the classification",
   "labels.classify.detach": "Remove \"{name}\" from the classification",
-  "labels.classify.select": "Select a label to apply it as the classification"
+  "labels.classify.select": "Select a label to apply it as the classification",
+  "labels.classify.needMultiple": "To apply several labels as the classification, set core.classification.multiple to true in the project settings.",
+  "labels.classify.attachMany": "Apply the {count} selected labels as the classification",
+  "labels.classify.detachMany": "Remove the {count} selected labels from the classification"
 }

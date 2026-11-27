@@ -55,10 +55,12 @@ import {
   createUiSettingsWriter,
   loadUiSettings,
 } from "./shell/settings/ui-settings";
+import { createWindowCloseHandler } from "./shell/settings/window-close";
 import { fromContext } from "./shell/solid";
 import { startup } from "./shell/startup";
 import { StatusBar } from "./shell/status/StatusBar";
 import {
+  askCloseDecision,
   dialogFolderPicker,
   setAboutOpen,
   setPaletteOpen,
@@ -194,6 +196,18 @@ async function applySettings(): Promise<void> {
   setRecentProjects(settings.recentProjects);
 }
 
+// ウィンドウを閉じるとき。未保存なら確認し、正常に閉じて作業用データ（自動復元の元）を消す。
+const handleWindowClose = createWindowCloseHandler({
+  isOpen: () => ctx.get("projectOpen") === true,
+  isDirty: () => ctx.get("projectDirty") === true,
+  ask: askCloseDecision,
+  closeProject: async (action) => {
+    await commands.projectClose(action);
+  },
+  destroyWindow: () => getCurrentWindow().destroy(),
+  notify,
+});
+
 export function App() {
   const dirty = fromContext(ctx, () => ctx.get("projectDirty") === true);
   createEffect(() => {
@@ -207,6 +221,19 @@ export function App() {
     }
   });
   onMount(() => {
+    try {
+      void getCurrentWindow()
+        .onCloseRequested((event) => {
+          event.preventDefault();
+          void handleWindowClose();
+        })
+        .catch((error: unknown) => {
+          // 登録に失敗すると、閉じるときの確認が出ない。黙らせずに知らせる。
+          notify("error", `window close handler: ${String(error)}`);
+        });
+    } catch {
+      // Tauri の外（ブラウザでの確認）では、ウィンドウが無い。
+    }
     installKeyDispatcher(window, {
       keymap,
       commands: commandRegistry,

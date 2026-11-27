@@ -58,9 +58,10 @@ describe("tauri.conf.json", () => {
 });
 
 describe("capabilities/default.json", () => {
-  it("permissions が core:default・タイトルの変更・フォルダ選択（dialog:allow-open）だけ", () => {
+  it("permissions が core:default・タイトルの変更・ウィンドウの破棄（確認後に閉じる）・フォルダ選択（dialog:allow-open）だけ", () => {
     expect([...capability.permissions].sort()).toEqual([
       "core:default",
+      "core:window:allow-destroy",
       "core:window:allow-set-title",
       "dialog:allow-open",
     ]);

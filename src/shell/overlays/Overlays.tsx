@@ -5,6 +5,7 @@ import { useT } from "../solid";
 import {
   aboutOpen,
   backstageOpen,
+  closeRequest,
   folderRequest,
   paletteOpen,
   setAboutOpen,
@@ -62,6 +63,45 @@ function FolderDialog() {
   );
 }
 
+function CloseDialog() {
+  const t = useT();
+  return (
+    <Show when={closeRequest()}>
+      {(request) => (
+        <Dialog
+          title={t("close.title")}
+          onClose={() => request().resolve("cancel")}
+        >
+          <p>{t("close.message")}</p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              class="button primary"
+              onClick={() => request().resolve("save")}
+            >
+              {t("close.save")}
+            </button>
+            <button
+              type="button"
+              class="button"
+              onClick={() => request().resolve("discard")}
+            >
+              {t("close.discard")}
+            </button>
+            <button
+              type="button"
+              class="button"
+              onClick={() => request().resolve("cancel")}
+            >
+              {t("dialog.cancel")}
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </Show>
+  );
+}
+
 function AboutDialog() {
   const t = useT();
   const [info, setInfo] = createSignal<{
@@ -99,6 +139,7 @@ export function Overlays() {
         <AboutDialog />
       </Show>
       <FolderDialog />
+      <CloseDialog />
     </>
   );
 }

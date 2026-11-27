@@ -28,5 +28,21 @@ export const dialogFolderPicker = {
   },
 };
 
+/** ウィンドウを閉じるときの、未保存の確認。選ばれるまで待つ。 */
+export const [closeRequest, setCloseRequest] = createSignal<{
+  resolve: (decision: "save" | "discard" | "cancel") => void;
+} | null>(null);
+
+export function askCloseDecision(): Promise<"save" | "discard" | "cancel"> {
+  return new Promise((resolve) => {
+    setCloseRequest({
+      resolve: (decision) => {
+        setCloseRequest(null);
+        resolve(decision);
+      },
+    });
+  });
+}
+
 /** リボンで選んでいるタブ。 */
 export const [ribbonSelected, setRibbonSelected] = createSignal("home");

@@ -1607,7 +1607,7 @@ fieldset.ribbon-group {
   color: var(--color-fg-muted);
 }
 
-.attribute-field .field-error {
+.field-error {
   color: var(--color-danger);
 }
 

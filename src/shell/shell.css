@@ -1438,8 +1438,25 @@ fieldset.ribbon-group {
   border-style: dashed;
 }
 
-.label-card.hidden .label-name {
+/* 選べないラベル（非表示）は、グレーアウトする。目のアイコンで、表示に戻せる。 */
+.label-card.hidden {
+  background: transparent;
   color: var(--color-fg-disabled);
+}
+
+.label-card.hidden .label-name,
+.label-card.hidden .label-key,
+.label-card.hidden .label-swatch {
+  color: var(--color-fg-disabled);
+  opacity: 0.55;
+}
+
+.label-card.hidden:hover {
+  background: transparent;
+}
+
+.label-card.hidden .label-pick {
+  cursor: default;
 }
 
 /* カードの中に開く編集フォーム・削除の確認は、枠を重ねず、区切り線だけで分ける。 */

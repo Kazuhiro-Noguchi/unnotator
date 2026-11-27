@@ -233,8 +233,14 @@ describe("LabelsView", () => {
     expect(notes).toHaveLength(1);
   });
 
-  it("非表示のラベルは、印を付けて並べる", () => {
-    const { root } = mount([row("1", "cat", null, true)]);
+  it("非表示のラベルは、印を付けて並べる。選べないので、「選ぶ」ボタンも無効の印を出す", () => {
+    const { root } = mount([row("1", "cat", null, true), row("2", "dog")]);
     expect(root.querySelector(".label-item.hidden")).not.toBeNull();
+    const pick = (name: string) =>
+      [...root.querySelectorAll<HTMLElement>(".label-item")]
+        .find((li) => li.querySelector(".label-name")?.textContent === name)
+        ?.querySelector(".label-pick");
+    expect(pick("cat")?.getAttribute("aria-disabled")).toBe("true");
+    expect(pick("dog")?.getAttribute("aria-disabled")).toBeNull();
   });
 });

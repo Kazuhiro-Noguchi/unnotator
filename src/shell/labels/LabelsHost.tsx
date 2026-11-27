@@ -35,7 +35,6 @@ export function LabelsHeader() {
     <Show when={open()}>
       <LabelsHeaderActions
         ui={labelsUi}
-        hasSelection={() => activeLabel.selected().length > 0}
         onDeselect={() => void commands.execute("core.edit.deselect")}
       />
     </Show>

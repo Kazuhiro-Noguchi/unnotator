@@ -14,7 +14,7 @@ afterEach(() => {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function mount(selected = false) {
+function mount() {
   const ui = createLabelsUi();
   const deselected: string[] = [];
   const root = document.createElement("div");
@@ -23,7 +23,6 @@ function mount(selected = false) {
     () => (
       <LabelsHeaderActions
         ui={ui}
-        hasSelection={() => selected}
         onDeselect={() => {
           deselected.push("x");
         }}
@@ -73,28 +72,24 @@ describe("LabelsHeaderActions（見出しの右端のアイコン）", () => {
     expect(ui.query()).toBe("");
   });
 
-  it("選択解除のアイコン: 選択があるときだけ押せて、押すと解除を頼む。ツールチップに、ショートカット（Esc）を出す", async () => {
-    const none = mount(false);
-    expect(none.button(t("labels.deselect"))?.disabled).toBe(true);
-    dispose?.();
-    document.body.innerHTML = "";
-    const some = mount(true);
-    const deselect = some.button(t("labels.deselect"));
+  it("選択解除のアイコン: 何も選んでいなくても押せて、押すと解除を頼む。ツールチップに、ショートカット（Esc）を出す", async () => {
+    const { button, deselected } = mount();
+    const deselect = button(t("labels.deselect"));
     expect(deselect?.disabled).toBe(false);
     expect(deselect?.title).toContain("Esc");
     deselect?.click();
     await flush();
-    expect(some.deselected).toHaveLength(1);
+    expect(deselected).toHaveLength(1);
   });
 
-  it("アイコンの並びは、絞り込み・選択解除・追加（追加が右端）", () => {
-    const { root } = mount(true);
+  it("アイコンの並びは、選択解除（左端）・絞り込み・追加（右端）", () => {
+    const { root } = mount();
     const labels = [...root.querySelectorAll("button")].map((b) =>
       b.getAttribute("aria-label"),
     );
     expect(labels).toEqual([
-      t("labels.filter"),
       t("labels.deselect"),
+      t("labels.filter"),
       t("labels.add"),
     ]);
   });

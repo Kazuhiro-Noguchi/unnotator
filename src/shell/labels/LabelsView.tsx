@@ -372,6 +372,7 @@ function LabelItem(props: {
           type="button"
           class="label-pick"
           aria-pressed={props.selected}
+          aria-disabled={props.label.hidden ? "true" : undefined}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();

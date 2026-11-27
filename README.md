@@ -85,6 +85,14 @@ A project is a folder. unnotator keeps its data in `.unnotator/` inside it, so y
 - **Developer mode.** When on, any folder containing an extension manifest can be loaded as is; changes under its `dist/` are announced. A folder loaded this way takes precedence over an installed extension with the same id.
 - **`unno://`.** The app reads files through `unno://asset/<id>`, `unno://preview/<id>`, `unno://ext/<extension id>/...` and `unno://blob/<name>`. Range requests are supported; no response is larger than 4 MiB (the browser asks for the rest), and a path can never leave its folder (links, `..` and encoded forms are refused).
 
+### Explorer: tree, filters, navigation and preview
+
+- **Tree.** The sidebar's Explorer shows the assets as a folder tree, folders first and names in natural order (`img2` before `img10`, case and full-width letters ignored). Only the rows on screen are drawn, so a project with 100,000 assets stays light. Each asset shows its work status (to do / in progress / done / needs review) and a "missing" mark; each folder shows how many assets below it are done. Which folders you opened is remembered per project in your user settings (the project's own files are never touched).
+- **Filters.** Narrow the tree by part of the name, status, media type and missing files. Conditions combine with AND; one button clears them all. Folders that contain a match stay open.
+- **Navigation.** Previous / next (PageUp / PageDown), next unfinished (Ctrl+Shift+N) and done-and-next (Ctrl+Enter) follow the order you see in the tree and your filter. They move by the unit each media type declares (a whole asset, or its items, such as the pages of a document). Missing files are skipped and counted; at the end it stops instead of wrapping around. Marking done is one undoable step.
+- **Items.** Assets of a media type that provides items get an expand arrow. Items load in pages; if a provider fails, only that asset's row shows the error and a retry button.
+- **Preview.** When no extension supplies an editor, the editor area shows a read-only preview: images and UTF-8 text (the first 10 MB). Anything else shows the file's details and "Open in default app". Opening a file in the preview never changes the project.
+
 ## Development
 
 Run all six checks before considering any change done:

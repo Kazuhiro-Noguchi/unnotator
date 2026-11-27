@@ -49,7 +49,9 @@ fn the_core_key_table_has_the_documented_names_types_and_defaults() {
             "ui.layout",
             "ui.quickAccess",
             "ui.keybindings",
-            "ui.recentProjects"
+            "ui.recentProjects",
+            // エクスプローラー（007）。
+            "ui.explorer"
         ]
     );
     let (_dir, store, _) = opened_with_user(&[]);

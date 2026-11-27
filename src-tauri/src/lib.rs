@@ -3,9 +3,11 @@
 pub mod asset_commands;
 pub mod commands;
 pub mod extension_commands;
+pub mod open_commands;
 pub mod project_commands;
 pub mod selftest;
 pub mod settings_commands;
+pub mod tree_commands;
 pub mod unno_protocol;
 
 #[cfg(test)]
@@ -64,12 +66,20 @@ pub fn ipc_builder() -> Builder<tauri::Wry> {
             project_commands::undo_state,
             project_commands::label_usage,
             asset_commands::asset_list,
+            asset_commands::asset_get,
             asset_commands::asset_scan,
             asset_commands::asset_scan_cancel,
             asset_commands::asset_relink_candidates,
             asset_commands::asset_relink,
             asset_commands::asset_delete,
             asset_commands::asset_set_media_rules,
+            tree_commands::tree_view_set,
+            tree_commands::tree_rows,
+            tree_commands::tree_locate,
+            tree_commands::tree_neighbor,
+            tree_commands::item_statuses,
+            tree_commands::media_traits,
+            open_commands::open_in_default_app,
             settings_commands::settings_get,
             settings_commands::settings_set,
             settings_commands::settings_unset,
@@ -127,43 +137,44 @@ pub fn run() {
         }
     }
 
-    let result = unno_protocol::register(tauri::Builder::default().plugin(tauri_plugin_dialog::init()))
-        .on_page_load(|webview, payload| {
-            if payload.event() == tauri::webview::PageLoadEvent::Finished {
-                selftest::on_page_loaded(webview);
-            }
-        })
-        .invoke_handler(builder.invoke_handler())
-        .setup(move |app| {
-            builder.mount_events(app);
-            // 作業用データの置き場は、アプリのデータフォルダの下
-            let recovery_root = app.path().app_data_dir()?.join("recovery");
-            // 30 日を超えた孤立の作業用データを、背景で片付ける（開く処理を待たせない）
-            let cleanup_root = recovery_root.clone();
-            std::thread::spawn(move || project_commands::cleanup_recovery(&cleanup_root));
-            let user_settings = app.path().app_config_dir()?;
-            app.manage(
-                project_commands::ProjectState::new(recovery_root)
-                    .with_user_settings_dir(user_settings),
-            );
-            app.manage(selftest::SelfTest::default());
-            // `unno://` の配信（ブロブの置き場は、起動のたびに空にする）
-            let paths = app_paths(app)?;
-            let blobs = unnotator_core::serve::BlobStore::open(paths.blobs_dir())?;
-            if let Err(error) = blobs.clear() {
-                tracing::warn!(%error, "ブロブの置き場を空にできなかった");
-            }
-            let serve = unno_protocol::ServeState::new(
-                blobs,
-                unnotator_core::serve::PreviewCache::new(paths.previews_dir()),
-            );
-            let runtime = extension_commands::ExtensionRuntime::new(paths, &serve);
-            app.manage(serve);
-            app.manage(runtime);
-            extension_commands::start_dev_watch(app.handle());
-            Ok(())
-        })
-        .run(tauri::generate_context!());
+    let result =
+        unno_protocol::register(tauri::Builder::default().plugin(tauri_plugin_dialog::init()))
+            .on_page_load(|webview, payload| {
+                if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                    selftest::on_page_loaded(webview);
+                }
+            })
+            .invoke_handler(builder.invoke_handler())
+            .setup(move |app| {
+                builder.mount_events(app);
+                // 作業用データの置き場は、アプリのデータフォルダの下
+                let recovery_root = app.path().app_data_dir()?.join("recovery");
+                // 30 日を超えた孤立の作業用データを、背景で片付ける（開く処理を待たせない）
+                let cleanup_root = recovery_root.clone();
+                std::thread::spawn(move || project_commands::cleanup_recovery(&cleanup_root));
+                let user_settings = app.path().app_config_dir()?;
+                app.manage(
+                    project_commands::ProjectState::new(recovery_root)
+                        .with_user_settings_dir(user_settings),
+                );
+                app.manage(selftest::SelfTest::default());
+                // `unno://` の配信（ブロブの置き場は、起動のたびに空にする）
+                let paths = app_paths(app)?;
+                let blobs = unnotator_core::serve::BlobStore::open(paths.blobs_dir())?;
+                if let Err(error) = blobs.clear() {
+                    tracing::warn!(%error, "ブロブの置き場を空にできなかった");
+                }
+                let serve = unno_protocol::ServeState::new(
+                    blobs,
+                    unnotator_core::serve::PreviewCache::new(paths.previews_dir()),
+                );
+                let runtime = extension_commands::ExtensionRuntime::new(paths, &serve);
+                app.manage(serve);
+                app.manage(runtime);
+                extension_commands::start_dev_watch(app.handle());
+                Ok(())
+            })
+            .run(tauri::generate_context!());
     if let Err(error) = result {
         tracing::error!(%error, "アプリの起動に失敗した");
     }

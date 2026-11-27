@@ -119,23 +119,33 @@ export const CORE_COMMANDS: readonly CoreCommandDef[] = [
 
   // ナビゲーションと状態
   def("core.nav.prev", "前へ", "Previous", {
+    enablement: "projectOpen",
     icon: "$(prev)",
     keys: [{ key: "PageUp", when: NOT_IN_INPUT }],
   }),
   def("core.nav.next", "次へ", "Next", {
+    enablement: "projectOpen",
     icon: "$(next)",
     keys: [{ key: "PageDown", when: NOT_IN_INPUT }],
   }),
   def("core.nav.markDoneAndNext", "完了して次へ", "Done and next", {
+    enablement: "hasCurrent",
     icon: "$(next-unfinished)",
     keys: [{ key: "Ctrl+Enter" }],
   }),
   def("core.nav.nextUnfinished", "次の未完了", "Next unfinished", {
+    enablement: "projectOpen",
     icon: "$(next-unfinished)",
     keys: [{ key: "Ctrl+Shift+N" }],
   }),
-  def("core.status.markDone", "完了", "Done", { icon: "$(check)" }),
-  def("core.status.needsReview", "要確認", "Review", { icon: "$(flag)" }),
+  def("core.status.markDone", "完了", "Done", {
+    icon: "$(check)",
+    enablement: "hasCurrent",
+  }),
+  def("core.status.needsReview", "要確認", "Review", {
+    icon: "$(flag)",
+    enablement: "hasCurrent",
+  }),
 
   // ラベル・関係・グループ
   ...LABEL_PICKS,

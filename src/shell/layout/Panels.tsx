@@ -44,19 +44,6 @@ export function PrimarySidebar(props: { width: number }) {
   );
 }
 
-export function EditorArea() {
-  const t = useT();
-  return (
-    <main
-      class="editor-area"
-      data-region="editor"
-      aria-label={t("region.editor")}
-    >
-      <EmptyState message={t("empty.editor")} />
-    </main>
-  );
-}
-
 /** タブつきのパネルの共通部分（プロパティ・ボトムパネル）。 */
 function TabbedPanel(props: {
   region: "secondarySidebar" | "bottom";

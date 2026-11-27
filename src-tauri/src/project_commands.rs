@@ -55,6 +55,8 @@ pub struct ProjectState {
     user_settings_dir: Option<PathBuf>,
     /// 見張りの世代。開く・閉じるたびに進み、古い世代の見張りのスレッドは止まる。
     watch_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    /// アセットツリーの索引と見え方（007）。
+    tree: crate::tree_commands::SharedTree,
 }
 
 impl ProjectState {
@@ -65,6 +67,7 @@ impl ProjectState {
             scan_cancel: std::sync::Arc::default(),
             user_settings_dir: None,
             watch_generation: std::sync::Arc::default(),
+            tree: crate::tree_commands::SharedTree::default(),
         }
     }
 
@@ -90,6 +93,10 @@ impl ProjectState {
         self.user_settings_dir.as_deref()
     }
 
+    pub(crate) fn tree(&self) -> crate::tree_commands::SharedTree {
+        self.tree.clone()
+    }
+
     pub(crate) fn scan_cancel(&self) -> &std::sync::atomic::AtomicBool {
         &self.scan_cancel
     }
@@ -108,6 +115,32 @@ impl ProjectState {
 pub struct IpcError {
     pub code: String,
     pub message: String,
+}
+
+impl IpcError {
+    /// ツリーの窓の版が古い（アセットの増減などで索引が作り直された）。`tree_view_set` からやり直す。
+    pub fn stale_view() -> Self {
+        Self {
+            code: "stale_view".to_owned(),
+            message: "ツリーの表示の版が古い".to_owned(),
+        }
+    }
+
+    /// アセットのパスが、プロジェクトのルートと外部ルートの外に出る。
+    pub fn path_outside(detail: &str) -> Self {
+        Self {
+            code: "path_outside".to_owned(),
+            message: format!("パスがルートの外に出る: {detail}"),
+        }
+    }
+
+    /// リンク切れ（ファイルが見つからない）ため、開けない。
+    pub fn missing(detail: &str) -> Self {
+        Self {
+            code: "missing".to_owned(),
+            message: format!("ファイルが見つからない: {detail}"),
+        }
+    }
 }
 
 impl From<StoreError> for IpcError {
@@ -189,6 +222,16 @@ fn info_of(store: &ProjectStore) -> ProjectInfo {
 }
 
 fn attach(store: &mut ProjectStore, hooks: Hooks, state: &ProjectState) {
+    // 前のプロジェクトの索引を捨て、以後の差分を索引へ伝える（ロックの順序は、プロジェクト → 索引）。
+    let tree = state.tree();
+    tree.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .reset();
+    store.subscribe(Box::new(move |set| {
+        tree.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .note(set);
+    }));
     if let Some(dir) = state.user_settings_dir() {
         store.attach_user_settings(dir);
     }
@@ -529,6 +572,14 @@ pub fn recovery_delete(state: tauri::State<'_, ProjectState>, id: String) -> Res
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn tree_errors_have_stable_codes() {
+        assert_eq!(IpcError::stale_view().code, "stale_view");
+        assert_eq!(IpcError::path_outside("a").code, "path_outside");
+        assert_eq!(IpcError::missing("a").code, "missing");
+        assert!(IpcError::missing("x.png").message.contains("x.png"));
+    }
+
     use super::*;
     use std::sync::{Arc, Mutex};
     use unnotator_core::command::Command;

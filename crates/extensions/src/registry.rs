@@ -125,6 +125,23 @@ pub struct Problem {
     pub detail: Option<Value>,
 }
 
+/// 「次へ」の単位（マニフェストの `workUnit`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkUnit {
+    Asset,
+    Item,
+}
+
+/// 媒体種別の作業単位とアイテム提供の宣言。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaTraits {
+    /// 完全な媒体種別 ID。
+    pub media_type: String,
+    pub work_unit: WorkUnit,
+    /// アイテム提供元の完全な名前。
+    pub provider: Option<String>,
+}
+
 /// 名前空間つきで引ける宣言。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Contribution {
@@ -251,6 +268,30 @@ impl Registry {
             });
         }
         rules
+    }
+
+    /// 媒体種別ごとの、作業単位とアイテム提供の宣言（007）。宣言（`workUnit` が `item`、または
+    /// `itemProvider` がある）が無い媒体種別は含めない。完全な媒体種別 ID の昇順。
+    pub fn media_traits(&self) -> Vec<MediaTraits> {
+        self.contributions(ContributionKind::MediaType)
+            .into_iter()
+            .filter_map(|media| {
+                let work_unit = match media.value.get("workUnit").and_then(Value::as_str) {
+                    Some("item") => WorkUnit::Item,
+                    _ => WorkUnit::Asset,
+                };
+                let provider = media
+                    .value
+                    .get("itemProvider")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                (work_unit == WorkUnit::Item || provider.is_some()).then(|| MediaTraits {
+                    media_type: media.id.clone(),
+                    work_unit,
+                    provider,
+                })
+            })
+            .collect()
     }
 
     /// 拡張子 → `Content-Type` の対応。宣言から作る（コアは MIME の表を持たない）。

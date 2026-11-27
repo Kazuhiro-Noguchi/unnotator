@@ -93,3 +93,151 @@ export function fakeKeyEvent(init: FakeKeyInit) {
 export function fakeElement(tag: string, editable = false) {
   return { tagName: tag.toUpperCase(), isContentEditable: editable };
 }
+
+// ---------------------------------------------------------------------------
+// アセットツリー（007）
+// ---------------------------------------------------------------------------
+
+import type { AssetRow, Status } from "../../ipc";
+import type {
+  Located,
+  MediaSel,
+  Neighbor,
+  TreeFilter,
+  TreeRow,
+  TreeWindow,
+  ViewInfo,
+  ViewSpec,
+} from "../explorer/types";
+
+/** `AssetRow` を作る小さな工場。指定しない項目は、見本の値になる。 */
+export function makeAsset(
+  id: string,
+  relPath: string,
+  patch: Partial<AssetRow> = {},
+): AssetRow {
+  return {
+    id,
+    root_key: "",
+    rel_path: relPath,
+    media_type: null,
+    file_size: 1,
+    mtime_ms: 1,
+    status: "todo",
+    missing: false,
+    ...patch,
+  };
+}
+
+/** 窓の取得で版が古いときの印。実際の IPC が投げる `IpcError`（`code` と `message` の値）と同じ形。 */
+export function fakeStaleView(): { code: string; message: string } {
+  return { code: "stale_view", message: "StaleView" };
+}
+
+/** ツリーの偽の IPC。行は `setRows` で与え、版の進みと `StaleView` を再現できる。 */
+export class FakeTreeIpc {
+  rows: TreeRow[] = [];
+  version = 0;
+  viewCalls: ViewSpec[] = [];
+  rowCalls: Array<{ version: number; offset: number; limit: number }> = [];
+  neighborCalls: Array<{
+    from: string | null;
+    direction: "prev" | "next";
+    unfinishedOnly: boolean;
+    filter: TreeFilter;
+    itemMediaTypes: string[];
+  }> = [];
+  neighbors: Neighbor[] = [];
+  recorded = new Map<string, Array<{ key: string; status: Status }>>();
+  traits: Array<{
+    media_type: string;
+    work_unit: "asset" | "item";
+    provider: string | null;
+  }> = [];
+  opened: string[] = [];
+  located = new Map<string, Located>();
+
+  /** 見え方から行を作る（アイテムの枠など、見え方に応じて行が変わる検査用）。 */
+  rowsFn: ((spec: ViewSpec) => TreeRow[]) | null = null;
+
+  setRows(rows: TreeRow[]): void {
+    this.rows = rows;
+    this.version += 1;
+  }
+
+  /** 版を進める（アセットの増減の再現）。以後、古い版の取得は `StaleView`。 */
+  invalidate(): void {
+    this.version += 1;
+  }
+
+  async treeViewSet(spec: ViewSpec): Promise<ViewInfo> {
+    this.viewCalls.push(spec);
+    if (this.rowsFn) {
+      this.rows = this.rowsFn(spec);
+      this.version += 1;
+    }
+    return {
+      version: this.version,
+      total: this.rows.length,
+      generation: this.version,
+    };
+  }
+
+  async treeRows(
+    version: number,
+    offset: number,
+    limit: number,
+  ): Promise<TreeWindow> {
+    this.rowCalls.push({ version, offset, limit });
+    if (version !== this.version) throw fakeStaleView();
+    return {
+      version,
+      total: this.rows.length,
+      offset,
+      rows: this.rows.slice(offset, offset + limit),
+    };
+  }
+
+  async treeLocate(_version: number, assetId: string): Promise<Located | null> {
+    return this.located.get(assetId) ?? null;
+  }
+
+  async treeNeighbor(
+    from: string | null,
+    direction: "prev" | "next",
+    unfinishedOnly: boolean,
+    filter: TreeFilter,
+    itemMediaTypes: string[],
+  ): Promise<Neighbor> {
+    this.neighborCalls.push({
+      from,
+      direction,
+      unfinishedOnly,
+      filter,
+      itemMediaTypes,
+    });
+    return (
+      this.neighbors.shift() ?? {
+        asset_id: null,
+        media_type: null,
+        status: null,
+        skipped_missing: 0,
+        reached_end: true,
+      }
+    );
+  }
+
+  async itemStatuses(assetId: string) {
+    return this.recorded.get(assetId) ?? [];
+  }
+
+  async mediaTraits() {
+    return this.traits;
+  }
+
+  async openInDefaultApp(assetId: string): Promise<void> {
+    this.opened.push(assetId);
+  }
+}
+
+export type { MediaSel };

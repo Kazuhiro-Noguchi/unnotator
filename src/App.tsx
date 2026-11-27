@@ -6,6 +6,12 @@ import { openDirectoryDialog } from "./ipc/dialog";
 import { appearance } from "./shell/appearance";
 import { declareCoreCommands } from "./shell/commands/core-commands";
 import { provideCoreHandlers } from "./shell/commands/core-handlers";
+import { EditorSurface } from "./shell/explorer/EditorSurface";
+import {
+  explorer,
+  itemSource,
+  provideExplorerCommands,
+} from "./shell/explorer/instance";
 import { projectPort, settingsPort } from "./shell/ipc-port";
 import { defaultKeybindings } from "./shell/keys/defaults";
 import { installKeyDispatcher } from "./shell/keys/dispatch";
@@ -83,6 +89,7 @@ const actions = createProjectActions({
   close: async () => {
     await commands.projectClose(null);
     setProjectName(null);
+    await explorer.close();
     await projectContext.setOpen(false);
   },
   save: async () => {
@@ -104,6 +111,7 @@ const actions = createProjectActions({
   onOpened: async (folder) => {
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
+    await explorer.open(folder);
   },
   notify,
 });
@@ -127,17 +135,24 @@ provideCoreHandlers({
   openSettings: () => setSettingsOpen(true),
   openAbout: () => setAboutOpen(true),
 });
+provideExplorerCommands(commandRegistry, notify);
 // 設定を読む前は、OS の設定に合わせて描く。
 appearance.applyTheme("system");
 appearance.applyLanguage("system");
 // 開発ビルドだけ: 画面の部品を押して確かめられるよう、仮の処理（デモ）を結ぶ。
-if (import.meta.env.DEV) {
+// 開発ビルド、または `VITE_UNNO_DEV_TOOLS=1` を付けてビルドしたときだけ（実機での確認・計測用）。
+if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
   void import("./shell/dev/demo-commands").then((demo) =>
-    demo.installDemoCommands({
-      commands: commandRegistry,
-      ctx,
-      notify,
-    }),
+    import("./shell/dev/item-demo").then((itemDemo) =>
+      demo.installDemoCommands({
+        commands: commandRegistry,
+        ctx,
+        notify,
+        enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
+        measureExplorer: () =>
+          import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
+      }),
+    ),
   );
 }
 registerCoreViews(
@@ -211,7 +226,11 @@ export function App() {
   });
   return (
     <>
-      <Shell ribbon={<Ribbon />} statusBar={<StatusBar />} />
+      <Shell
+        ribbon={<Ribbon />}
+        statusBar={<StatusBar />}
+        editor={<EditorSurface />}
+      />
       <Toasts />
       <NotificationCenter />
       <Overlays />

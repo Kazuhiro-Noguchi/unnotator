@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { checkDirectVersions, checkMetadata } from "./check-deps.mjs";
+import {
+  checkDirectVersions,
+  checkMetadata,
+  checkPreviewSource,
+} from "./check-deps.mjs";
 
 // 作り物の `cargo metadata` の出力を組み立てる。
 function pkg(
@@ -110,5 +114,61 @@ describe("checkDirectVersions", () => {
       "workspace = true",
     ].join("\n");
     expect(checkDirectVersions("crates/x/Cargo.toml", toml)).toEqual([]);
+  });
+});
+
+describe("checkPreviewSource（src/preview/ はプロジェクトのデータを書かない）", () => {
+  it("ipc の書き込み系の呼び出しを検出する", () => {
+    const source = `import { commands } from "../ipc";\ncommands.applyCommand({});\ncommands.settingsSet("a", "b");`;
+    const problems = checkPreviewSource("src/preview/x.ts", source);
+    expect(problems.length).toBe(3);
+  });
+
+  it("許可は、型の import と、external.ts の openInDefaultApp だけ", () => {
+    expect(
+      checkPreviewSource(
+        "src/preview/Preview.tsx",
+        `import type { AssetRow } from "../ipc";`,
+      ),
+    ).toEqual([]);
+    expect(
+      checkPreviewSource(
+        "src/preview/external.ts",
+        `import { commands } from "../ipc";\nawait commands.openInDefaultApp(id);`,
+      ),
+    ).toEqual([]);
+    expect(
+      checkPreviewSource(
+        "src/preview/external.ts",
+        `import { commands } from "../ipc";\ncommands.undo();`,
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("external.ts 以外で commands を import したら、検出する", () => {
+    expect(
+      checkPreviewSource(
+        "src/preview/Preview.tsx",
+        `import { commands } from "../ipc";\ncommands.openInDefaultApp(id);`,
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("テストファイルは、検査しない", () => {
+    expect(
+      checkPreviewSource(
+        "src/preview/Preview.test.tsx",
+        `import { commands } from "../ipc";`,
+      ),
+    ).toEqual([]);
+  });
+
+  it("相対パスの深さが違っても、ipc の import を見つける", () => {
+    expect(
+      checkPreviewSource(
+        "src/preview/sub/x.ts",
+        `import { commands } from "../../ipc";`,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 });

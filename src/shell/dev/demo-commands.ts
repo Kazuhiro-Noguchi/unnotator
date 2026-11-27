@@ -9,12 +9,18 @@ export interface DemoDeps {
   commands: CommandRegistry;
   ctx: Context;
   notify: (level: NotifyLevel, text: string, options?: NotifyOptions) => void;
+  /** アイテムのデモを有効にする（`.pages` のファイルを、アイテムのある媒体にする）。 */
+  enableItemDemo?: () => Promise<void>;
+  /** エクスプローラーの画面側の計測を実行する（10 万件のプロジェクトを開いて使う）。 */
+  measureExplorer?: () => Promise<string>;
 }
 
 export function installDemoCommands({
   commands,
   ctx,
   notify,
+  enableItemDemo,
+  measureExplorer,
 }: DemoDeps): Disposable {
   // プロジェクトの状態を切り替えるデモのコマンド（パレットから実行する）。
   const declare = (
@@ -33,6 +39,25 @@ export function installDemoCommands({
       run,
     });
   };
+  if (measureExplorer) {
+    declare(
+      "dev.demo.measureExplorer",
+      "エクスプローラーを計測する",
+      "Measure the explorer",
+      () =>
+        void measureExplorer()
+          .then((text) => notify("info", text))
+          .catch(() => notify("error", "measure failed")),
+    );
+  }
+  if (enableItemDemo) {
+    declare(
+      "dev.demo.items",
+      "アイテムのデモを有効にする（.pages）",
+      "Enable item demo (.pages)",
+      () => void enableItemDemo().catch(() => {}),
+    );
+  }
   declare(
     "dev.demo.toggleProject",
     "プロジェクトの開閉",

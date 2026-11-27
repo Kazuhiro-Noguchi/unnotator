@@ -8,6 +8,7 @@ pub mod path;
 pub mod relink;
 pub mod roots;
 pub mod scan;
+pub mod tree;
 pub mod watch;
 
 use rusqlite::Connection;
@@ -117,6 +118,23 @@ pub fn all_assets(conn: &Connection) -> Result<Vec<AssetRow>, StoreError> {
     ))?;
     let rows = stmt
         .query_map([], read_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// 記録のあるアイテムの、キーと状態（キーの昇順）。
+pub fn item_statuses(
+    conn: &Connection,
+    asset_id: &str,
+) -> Result<Vec<(String, Status)>, StoreError> {
+    let mut stmt =
+        conn.prepare("SELECT item_key, status FROM items WHERE asset_id = ? ORDER BY item_key")?;
+    let rows = stmt
+        .query_map([asset_id], |row| {
+            let key: String = row.get(0)?;
+            let status: String = row.get(1)?;
+            Ok((key, Status::parse(&status).unwrap_or(Status::Todo)))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }

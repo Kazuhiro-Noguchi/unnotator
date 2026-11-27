@@ -1495,12 +1495,13 @@ fieldset.ribbon-group {
   pointer-events: none;
 }
 
+/* 位置は、カードの内側の縁（枠線 1px の内側）から数える。余白 4px の中央に、2px の線を置く。 */
 .label-card.drop-before::before {
-  top: -3px;
+  top: -4px;
 }
 
 .label-card.drop-end::after {
-  bottom: -3px;
+  bottom: -4px;
 }
 
 .label-head {

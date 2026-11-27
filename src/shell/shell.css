@@ -1402,16 +1402,18 @@ fieldset.ribbon-group {
 
 /* ラベル（008）。色はラベル自身の値（swatch）だけ。ほかはテーマの変数。 */
 .labels-view {
+  /* カード同士の間隔と、一覧の外側の余白（そろえる）。並べ替えの線の位置も、この値から決める。 */
+  --label-gap: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
+  gap: var(--label-gap);
+  padding: var(--label-gap);
 }
 
 .label-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--label-gap, 4px);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1495,13 +1497,13 @@ fieldset.ribbon-group {
   pointer-events: none;
 }
 
-/* 位置は、カードの内側の縁（枠線 1px の内側）から数える。余白 4px の中央に、2px の線を置く。 */
+/* 位置は、カードの内側の縁（枠線 1px の内側）から数える。余白（--label-gap）の中央に、2px の線を置く。 */
 .label-card.drop-before::before {
-  top: -4px;
+  top: calc(var(--label-gap, 4px) / -2 - 2px);
 }
 
 .label-card.drop-end::after {
-  bottom: -4px;
+  bottom: calc(var(--label-gap, 4px) / -2 - 2px);
 }
 
 .label-head {

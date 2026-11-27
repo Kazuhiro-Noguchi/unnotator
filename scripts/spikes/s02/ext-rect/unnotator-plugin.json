@@ -1,0 +1,7 @@
+{
+  "id": "dev.spike.rect",
+  "version": "0.0.1",
+  "engines": { "unnotator": "^1.0.0" },
+  "main": "dist/index.js",
+  "extensionDependencies": { "dev.spike.base": "^0.0.1" }
+}

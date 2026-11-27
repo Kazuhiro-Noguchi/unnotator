@@ -29,7 +29,6 @@
   "region.statusBar": "Status bar",
   "splitter.resize": "Resize",
   "project.pathEmpty": "Enter a folder path.",
-  "project.dirtyWarning": "There are unsaved changes. Save them first.",
   "project.openFailed": "Could not open the project: {path} ({reason})",
   "project.closeFailed": "Could not close the project ({reason})",
   "project.recoveryRestored": "Restored your previous work.",

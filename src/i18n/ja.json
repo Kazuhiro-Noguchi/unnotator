@@ -29,7 +29,6 @@
   "region.statusBar": "ステータスバー",
   "splitter.resize": "大きさを変える",
   "project.pathEmpty": "フォルダのパスを入力してください。",
-  "project.dirtyWarning": "未保存の変更があります。先に保存してください。",
   "project.openFailed": "プロジェクトを開けませんでした: {path}（{reason}）",
   "project.closeFailed": "プロジェクトを閉じられませんでした（{reason}）",
   "project.recoveryRestored": "前回の作業を復元しました。",

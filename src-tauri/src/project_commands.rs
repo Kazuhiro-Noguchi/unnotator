@@ -71,6 +71,14 @@ impl ProjectState {
         }
     }
 
+    /// プロジェクトが開いているか（復元の返事待ちは含めない）。
+    pub fn has_project(&self) -> bool {
+        self.slot
+            .lock()
+            .map(|slot| matches!(*slot, Slot::Open(_)))
+            .unwrap_or(false)
+    }
+
     /// 見張りの世代を進めて、新しい世代を返す。古い世代の見張りは止まる。
     pub(crate) fn next_watch_generation(&self) -> u64 {
         self.watch_generation

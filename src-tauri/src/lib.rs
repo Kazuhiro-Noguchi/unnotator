@@ -147,6 +147,8 @@ pub fn run() {
             .invoke_handler(builder.invoke_handler())
             .setup(move |app| {
                 builder.mount_events(app);
+                #[cfg(target_os = "macos")]
+                install_quit_menu(app)?;
                 // 作業用データの置き場は、アプリのデータフォルダの下
                 let recovery_root = app.path().app_data_dir()?.join("recovery");
                 // 30 日を超えた孤立の作業用データを、背景で片付ける（開く処理を待たせない）
@@ -174,8 +176,66 @@ pub fn run() {
                 extension_commands::start_dev_watch(app.handle());
                 Ok(())
             })
-            .run(tauri::generate_context!());
-    if let Err(error) = result {
-        tracing::error!(%error, "アプリの起動に失敗した");
+            .build(tauri::generate_context!());
+    match result {
+        Ok(app) => app.run(on_run_event),
+        Err(error) => tracing::error!(%error, "アプリの起動に失敗した"),
     }
+}
+
+/// 終了の要求。プロジェクトが開いているあいだは終了せず、ウィンドウを閉じるときと同じ流れ
+/// （未保存の確認 → 閉じる）に回す。閉じ終えたあとの終了は、プロジェクトが開いていないので、そのまま通る。
+/// 戻り値は、終了を止めて確認の流れに回したとき true。
+fn divert_quit(app: &tauri::AppHandle) -> bool {
+    use tauri::Emitter;
+    let open = app
+        .try_state::<project_commands::ProjectState>()
+        .is_some_and(|state| state.has_project());
+    if !open {
+        return false;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        // フロントの `onCloseRequested` が受け取るのと同じ名前の通知
+        let _ = window.emit("tauri://close-requested", ());
+    }
+    true
+}
+
+/// Dock の「終了」などは、ウィンドウの閉じる要求を通らずに終了の要求になる。
+fn on_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
+    if let tauri::RunEvent::ExitRequested {
+        api, code: None, ..
+    } = event
+        && divert_quit(app)
+    {
+        api.prevent_exit();
+    }
+}
+
+/// macOS の標準メニューの「終了」（Cmd+Q）は、OS が直接アプリを終わらせて、止められない。
+/// 自前の項目に差し替えて、`divert_quit` を通す。
+#[cfg(target_os = "macos")]
+fn install_quit_menu(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+    let handle = app.handle();
+    let menu = Menu::default(handle)?;
+    // 先頭のサブメニューがアプリのメニューで、「終了」はその最後の項目
+    if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+        let quit_name = format!("Quit {}", handle.package_info().name);
+        app_menu.remove_at(app_menu.items()?.len().saturating_sub(1))?;
+        app_menu.append(&MenuItem::with_id(
+            handle,
+            "app-quit",
+            quit_name,
+            true,
+            Some("CmdOrCtrl+Q"),
+        )?)?;
+    }
+    app.set_menu(menu)?;
+    app.on_menu_event(|app, event| {
+        if event.id().as_ref() == "app-quit" && !divert_quit(app) {
+            app.exit(0);
+        }
+    });
+    Ok(())
 }

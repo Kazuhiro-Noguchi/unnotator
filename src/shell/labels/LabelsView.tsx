@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, type JSX, Show } from "solid-js";
 import { format } from "../../i18n";
 import type { ProjectData } from "../project-data/store";
 import type { Command, LabelRow } from "../project-data/types";
@@ -145,14 +145,13 @@ export function LabelsView(props: LabelsViewProps) {
       <ul class="label-list">
         <For each={shown()}>
           {(label) => (
-            <>
-              <LabelItem
-                label={label}
-                canMove={query().trim() === ""}
-                onEdit={() => setEditing(label.id)}
-                onDelete={() => setDeleting(label.id)}
-                onMove={(direction) => move(label.id, direction)}
-              />
+            <LabelItem
+              label={label}
+              canMove={query().trim() === ""}
+              onEdit={() => setEditing(label.id)}
+              onDelete={() => setDeleting(label.id)}
+              onMove={(direction) => move(label.id, direction)}
+            >
               <Show when={editing() === label.id}>
                 <LabelForm
                   label={label}
@@ -174,7 +173,7 @@ export function LabelsView(props: LabelsViewProps) {
                   onCancel={() => setDeleting(null)}
                 />
               </Show>
-            </>
+            </LabelItem>
           )}
         </For>
       </ul>
@@ -191,23 +190,27 @@ function LabelItem(props: {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (direction: "up" | "down") => void;
+  /** 編集・削除の確認など、カードの中に開くもの。 */
+  children?: JSX.Element;
 }) {
   const t = useT();
   return (
     <li
-      class="label-item"
+      class="label-item label-card"
       classList={{ hidden: props.label.hidden }}
       data-label-id={props.label.id}
     >
-      <span
-        class="label-swatch"
-        style={{ background: props.label.color }}
-        aria-hidden="true"
-      />
-      <span class="label-name">{props.label.name}</span>
-      <Show when={props.label.hotkey !== null}>
-        <kbd class="label-key">{props.label.hotkey}</kbd>
-      </Show>
+      <div class="label-head">
+        <span
+          class="label-swatch"
+          style={{ background: props.label.color }}
+          aria-hidden="true"
+        />
+        <span class="label-name">{props.label.name}</span>
+        <Show when={props.label.hotkey !== null}>
+          <kbd class="label-key">{props.label.hotkey}</kbd>
+        </Show>
+      </div>
       <span class="label-actions">
         <Show when={props.canMove}>
           <button
@@ -236,6 +239,7 @@ function LabelItem(props: {
           {t("labels.delete")}
         </button>
       </span>
+      {props.children}
     </li>
   );
 }

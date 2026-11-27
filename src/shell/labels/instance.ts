@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { t } from "../../i18n";
 import type { CommandRegistry } from "../commands/registry";
 import { explorer, itemSource } from "../explorer/instance";
+import { modeStore } from "../mode/instance";
 import {
   projectData,
   readClassificationMultiple,
@@ -13,9 +14,11 @@ import type { Disposable, NotifyLevel } from "../types";
 import { createActiveLabel } from "./active";
 import {
   classifyActiveLabels,
+  clickLabel,
   type LabelClassifyDeps,
   provideLabelHandlers,
 } from "./commands";
+import { createClassificationMirrorFor } from "./mirror";
 import type { ClickMode } from "./selection";
 import { labelsUi } from "./ui";
 
@@ -24,11 +27,21 @@ export const activeLabel = createRoot(() =>
   createActiveLabel(labelsUi, projectData, ctx),
 );
 
+/** ファイル分類モードのあいだ、選択を、表示中のファイルの分類に合わせる。 */
+createRoot(() =>
+  createClassificationMirrorFor(
+    projectData,
+    () => modeStore.get() === "fileClassification",
+    labelsUi,
+  ),
+);
+
 /** アプリで使う、ラベルの操作の依存。 */
 function deps(
   notify: (level: NotifyLevel, text: string) => void,
 ): LabelClassifyDeps {
   return {
+    classificationMode: () => modeStore.get() === "fileClassification",
     selected: activeLabel.selected,
     // ショートカットキーは、全ラベルの並びで、範囲の計算はしない（通常のクリックと同じ扱い）。
     click: (id, mode) =>
@@ -53,13 +66,20 @@ export function provideLabelCommands(
   return provideLabelHandlers({ commands: registry, ...deps(notify) });
 }
 
-/** カードのクリック: そのラベルを選ぶ（通常・Ctrl / Cmd・Shift）。範囲の並びは、見えているラベル（`order`）。 */
-export function selectLabelCard(
+/**
+ * カードのクリック。ファイル分類モードなら、そのラベルの分類を、表示中のファイルに付ける・外す。
+ * そうでなければ、ラベルを選ぶ（通常・Ctrl / Cmd・Shift）。範囲の並びは、見えているラベル（`order`）。
+ */
+export function clickLabelCard(
   notify: (level: NotifyLevel, text: string) => void,
   label: LabelRow,
   mode: ClickMode,
   order: readonly string[],
 ): void {
+  if (modeStore.get() === "fileClassification") {
+    void clickLabel(deps(notify), label, mode);
+    return;
+  }
   if (label.hidden) {
     notify("warn", t("labels.pick.hidden"));
     return;

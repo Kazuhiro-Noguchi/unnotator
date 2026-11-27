@@ -45,6 +45,7 @@ function setup(
     classification?: string[];
     selected?: string[];
     multiple?: boolean;
+    mode?: boolean;
   } = {},
 ) {
   const handlers = new Map<string, () => unknown>();
@@ -109,6 +110,7 @@ function setup(
           : over.current,
     },
     multiple: async () => over.multiple ?? false,
+    classificationMode: () => over.mode ?? false,
     providerOf: () => null,
     notify: (level, text) => notes.push([level, text]),
   });
@@ -240,5 +242,67 @@ describe("複数選択（キー・解除）", () => {
     expect(t.selectedIds()).toEqual(["l3"]);
     await t.handlers.get("core.edit.deselect")?.();
     expect(t.selectedIds()).toEqual([]);
+  });
+});
+
+describe("ファイル分類モード（リボンの「モード」）", () => {
+  it("ショートカットキー（ラベルのクリックと同じ）は、そのラベルの分類を、表示中のファイルに付ける。選択は、触らない", async () => {
+    const t = setup({ mode: true });
+    await t.handlers.get("core.label.pick1")?.();
+    expect(t.applied).toHaveLength(1);
+    expect(t.applied[0]).toMatchObject({
+      kind: "create_annotation",
+      type: "core/classification",
+      label_id: "l1",
+    });
+    // 選択は、分類の結果として、mirror が決める（ここでは変えない）
+    expect(t.selectedIds()).toEqual([]);
+  });
+
+  it("付いていれば、外す。単一の設定では、別のラベルへの付け替え", async () => {
+    const detach = setup({ mode: true, classification: ["c1"] }); // c1 は l1 の分類
+    await detach.handlers.get("core.label.pick1")?.();
+    expect(detach.applied).toEqual([{ kind: "delete_annotation", id: "c1" }]);
+
+    const replace = setup({
+      mode: true,
+      classification: ["c1"],
+      labels: [label("l1", 1), label("l3", 3)],
+    });
+    await replace.handlers.get("core.label.pick3")?.();
+    expect(replace.applied[0]).toMatchObject({ kind: "transaction" });
+  });
+
+  it("選択解除は、表示中のファイルの分類を、すべて外す（モードのあいだだけ）", async () => {
+    const t = setup({ mode: true, classification: ["c1", "c2"] });
+    await t.handlers.get("core.edit.deselect")?.();
+    expect(t.applied).toEqual([
+      {
+        kind: "transaction",
+        commands: [
+          { kind: "delete_annotation", id: "c1" },
+          { kind: "delete_annotation", id: "c2" },
+        ],
+      },
+    ]);
+    const none = setup({ mode: true });
+    await none.handlers.get("core.edit.deselect")?.();
+    expect(none.applied).toEqual([]);
+
+    // モードが切れていれば、分類は外さない（選択だけを解除する）
+    const off = setup({ selected: ["l1"], classification: ["c1"] });
+    await off.handlers.get("core.edit.deselect")?.();
+    expect(off.applied).toEqual([]);
+    expect(off.selectedIds()).toEqual([]);
+  });
+
+  it("現在位置（ファイル）が無ければ、何もしない。非表示のラベルは、理由を知らせる", async () => {
+    const none = setup({ mode: true, current: null });
+    await none.handlers.get("core.label.pick1")?.();
+    expect(none.applied).toEqual([]);
+    const hidden = setup({ mode: true });
+    await hidden.handlers.get("core.label.pick2")?.();
+    expect(hidden.applied).toEqual([]);
+    expect(hidden.notes).toHaveLength(1);
   });
 });

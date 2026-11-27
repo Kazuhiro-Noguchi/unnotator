@@ -47,6 +47,8 @@ const EXPECTED_IDS = [
   "core.view.annotations.toggle",
   "core.view.labelNames.toggle",
   "core.tool.select",
+  // 008 で足した（リボンの「モード」。キーは付けない）。
+  "core.mode.fileClassification",
   "core.view.primarySidebar.toggle",
   "core.view.secondarySidebar.toggle",
   "core.view.bottom.toggle",

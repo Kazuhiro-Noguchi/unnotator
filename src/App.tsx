@@ -25,6 +25,7 @@ import {
 } from "./shell/layout/project-context";
 import { Shell } from "./shell/layout/Shell";
 import { normalizeLayout } from "./shell/layout/state";
+import { provideModeCommands } from "./shell/mode/instance";
 import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
 import { Overlays } from "./shell/overlays/Overlays";
@@ -145,6 +146,7 @@ provideCoreHandlers({
 });
 provideExplorerCommands(commandRegistry, notify);
 provideLabelCommands(commandRegistry, notify);
+provideModeCommands(commandRegistry);
 provideEditCommands(commandRegistry, notify);
 provideSchemaCommands(commandRegistry);
 // 設定を読む前は、OS の設定に合わせて描く。

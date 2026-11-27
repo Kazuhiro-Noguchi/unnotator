@@ -4,7 +4,7 @@ import { commands, ctx, notify } from "../services";
 import { fromContext } from "../solid";
 import type { NotifyLevel } from "../types";
 import { LabelsHeaderActions } from "./HeaderActions";
-import { activeLabel, selectLabelCard } from "./instance";
+import { activeLabel, clickLabelCard } from "./instance";
 import { LabelsView } from "./LabelsView";
 import { labelsUi } from "./ui";
 
@@ -21,7 +21,7 @@ export function LabelsHost(props: { fallback: JSX.Element }) {
         ui={labelsUi}
         selectedIds={() => new Set(activeLabel.selected().map((l) => l.id))}
         onPick={(label, mode, order) =>
-          selectLabelCard(notifyLabel, label, mode, order)
+          clickLabelCard(notifyLabel, label, mode, order)
         }
       />
     </Show>

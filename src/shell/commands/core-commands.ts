@@ -167,6 +167,10 @@ export const CORE_COMMANDS: readonly CoreCommandDef[] = [
   }),
   def("core.group.ungroup", "解除", "Ungroup", { icon: "$(ungroup)" }),
   def("core.tool.select", "選択", "Select", { icon: "$(cursor)" }),
+  // リボンの「モード」（008）。ファイル分類: 表示中のファイルの分類を、ラベルの選択として扱う。
+  def("core.mode.fileClassification", "ファイル分類", "File classification", {
+    icon: "$(tag)",
+  }),
 
   // 表示
   def("core.view.annotations.toggle", "アノテーション", "Annotations", {

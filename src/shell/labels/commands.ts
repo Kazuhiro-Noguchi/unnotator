@@ -4,12 +4,16 @@
 // - ショートカットキー `core.label.pick1`〜`pick9` は、ラベルのカードをクリックする操作のショートカット。ラベルを選択に足す・外す
 //   だけで、何も付かない（選択中のラベルのキーをもう一度押すと、選択から外す）。選んだラベルは、拡張機能がアノテーションを作るときに使う（`labels.active()`）。
 // - `core.edit.deselect`（選択解除。Esc）は、ラベルの選択を解除する。
-// - `core.label.classify` は、選択中のラベルを、現在位置（アセット・アイテム）の分類として、付ける・外す（付いていれば外す）。
+// - `core.label.classify` は、選択中のラベルを、現在位置（ファイル・アイテム）の分類として、付ける・外す（付いていれば外す）。
+//
+// リボンの「ファイル分類」モードのあいだは、選択が分類そのもの（`mirror.ts`）なので、操作の意味が変わる:
+// - ラベルのクリック・1〜9 キーは、そのラベルの分類を、表示中のファイルに付ける・外す（単一の設定では付け替え）。
+// - 選択解除は、表示中のファイルの分類を、すべて外す。
 import { format, t } from "../../i18n";
 import type { CommandRegistry } from "../commands/registry";
 import type { CurrentTarget } from "../explorer/types";
 import type { ProjectData } from "../project-data/store";
-import type { LabelRow } from "../project-data/types";
+import type { Command, LabelRow } from "../project-data/types";
 import type { Disposable, NotifyLevel } from "../types";
 import { type ClassifyRefusal, classifyMany, labelForKey } from "./classify";
 import type { ClickMode } from "./selection";
@@ -27,6 +31,8 @@ export interface LabelSelectDeps {
 
 /** 分類の付け外しに要るもの。 */
 export interface LabelClassifyDeps extends LabelSelectDeps {
+  /** リボンの「ファイル分類」モードか。 */
+  classificationMode(): boolean;
   data: Pick<ProjectData, "labels" | "details" | "apply">;
   current: { get(): CurrentTarget | null };
   /** 設定 `core.classification.multiple`。 */
@@ -60,12 +66,14 @@ export function provideLabelHandlers(deps: LabelCommandDeps): Disposable {
               "warn",
               format(t("labels.pick.none"), { key: String(key) }),
             )
-          : selectLabel(deps, label);
+          : clickLabel(deps, label, "toggle");
       }),
     );
   }
   handles.push(
-    deps.commands.provide("core.edit.deselect", () => deps.clear()),
+    deps.commands.provide("core.edit.deselect", () =>
+      deps.classificationMode() ? clearClassification(deps) : deps.clear(),
+    ),
     deps.commands.provide("core.label.classify", () =>
       classifyActiveLabels(deps),
     ),
@@ -94,6 +102,37 @@ export function selectLabel(
 }
 
 /**
+ * ラベルのクリック・ショートカットキー。ファイル分類モードなら、そのラベルの分類を付ける・外す。
+ * そうでなければ、ラベルを選ぶ（`selectLabel`）。
+ */
+export async function clickLabel(
+  deps: LabelClassifyDeps,
+  label: LabelRow,
+  mode: ClickMode,
+): Promise<void> {
+  if (!deps.classificationMode()) {
+    selectLabel(deps, label, mode);
+    return;
+  }
+  await applyClassification(deps, [label]);
+}
+
+/** ファイル分類モードで、選択解除: 表示中のファイルの分類を、すべて外す（1 つの元に戻せる操作）。 */
+export async function clearClassification(
+  deps: LabelClassifyDeps,
+): Promise<void> {
+  const removals: Command[] = (deps.data.details()?.classification ?? []).map(
+    (c) => ({ kind: "delete_annotation", id: c.id }),
+  );
+  const [only] = removals;
+  if (only === undefined) return;
+  await write(
+    deps,
+    removals.length === 1 ? only : { kind: "transaction", commands: removals },
+  );
+}
+
+/**
  * 選択中のラベル（複数なら、すべて）を、現在位置の分類として付ける。すべて付いていれば外す。
  * 単一のときは、別のラベルへの付け替え。複数のラベルを同時に付けるには、設定 `core.classification.multiple` が要る。
  */
@@ -105,6 +144,26 @@ export async function classifyActiveLabels(
     deps.notify("warn", t("labels.classify.none"));
     return;
   }
+  await applyClassification(deps, labels);
+}
+
+async function write(deps: LabelClassifyDeps, command: Command): Promise<void> {
+  try {
+    await deps.data.apply(command);
+  } catch (e) {
+    deps.notify(
+      "error",
+      format(t("labels.pick.failed"), {
+        reason: e instanceof Error ? e.message : String(e),
+      }),
+    );
+  }
+}
+
+async function applyClassification(
+  deps: LabelClassifyDeps,
+  labels: readonly LabelRow[],
+): Promise<void> {
   const current = deps.current.get();
   // 現在位置が無いときは、何もしない（知らせもしない）。
   if (current === null) return;
@@ -120,14 +179,5 @@ export async function classifyActiveLabels(
     deps.notify("warn", t(REFUSAL[result.reason]));
     return;
   }
-  try {
-    await deps.data.apply(result.command);
-  } catch (e) {
-    deps.notify(
-      "error",
-      format(t("labels.pick.failed"), {
-        reason: e instanceof Error ? e.message : String(e),
-      }),
-    );
-  }
+  await write(deps, result.command);
 }

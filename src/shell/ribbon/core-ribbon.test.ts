@@ -37,6 +37,7 @@ describe("コアのリボンの定義", () => {
       "home.clipboard",
       "home.edit",
       "home.tools",
+      "home.mode",
       "home.relations",
       "home.schema",
       "home.status",
@@ -55,7 +56,11 @@ describe("コアのリボンの定義", () => {
     expect(listed.length).toBeGreaterThan(0);
     for (const id of listed) expect(ours, id).toContain(id);
     // 契約に載せていないコアのグループ（拡張機能が項目を足す先にしない）。
-    expect(ours.filter((id) => !listed.includes(id))).toEqual(["home.schema"]);
+    // `home.mode`（008）は、契約の説明文に足す提案を、人の承認待ち（契約の変更のため）。
+    expect(ours.filter((id) => !listed.includes(id))).toEqual([
+      "home.mode",
+      "home.schema",
+    ]);
   });
 
   it("リボンが指すコマンドは、すべてコアの一覧にある", () => {
@@ -81,6 +86,7 @@ describe("コアのリボンの定義", () => {
     expect(priority["home.edit"]).toBe(20);
     expect(priority["home.relations"]).toBe(30);
     expect(priority["home.tools"]).toBe(40);
+    expect(priority["home.mode"]).toBe(45);
     expect(priority["home.status"]).toBe(70);
   });
 

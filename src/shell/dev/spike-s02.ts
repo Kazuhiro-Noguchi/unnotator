@@ -247,6 +247,18 @@ export async function runSpikeS02(): Promise<string> {
     v.stop();
     return { messages, v: v.list };
   };
+  for (const file of ["view.html", "view-module.html"]) {
+    try {
+      const m = await frameCase(file, "allow-scripts");
+      add(
+        `4m iframe sandbox="allow-scripts"（opaque origin）${file}`,
+        m.messages.length >= 1,
+        `${JSON.stringify(m.messages)} violations=${m.v.join("|")}`,
+      );
+    } catch (e) {
+      add("4m iframe", false, String(e));
+    }
+  }
   for (const sandbox of ["allow-scripts", "allow-scripts allow-same-origin"]) {
     try {
       const a = await frameCase("view.html", sandbox);

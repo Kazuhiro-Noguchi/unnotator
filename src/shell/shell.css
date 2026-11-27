@@ -1438,21 +1438,8 @@ fieldset.ribbon-group {
   border-style: dashed;
 }
 
-/* 選べないラベル（非表示）は、グレーアウトする。目のアイコンで、表示に戻せる。 */
-.label-card.hidden {
-  background: transparent;
+.label-card.hidden .label-name {
   color: var(--color-fg-disabled);
-}
-
-.label-card.hidden .label-name,
-.label-card.hidden .label-key,
-.label-card.hidden .label-swatch {
-  color: var(--color-fg-disabled);
-  opacity: 0.55;
-}
-
-.label-card.hidden:hover {
-  background: transparent;
 }
 
 .label-card.hidden .label-pick {
@@ -1881,4 +1868,25 @@ fieldset.ribbon-group {
   margin-bottom: 6px;
   padding: 0 12px;
   font-size: 12px;
+}
+
+/*
+ * 押せないボタンは、必ずグレーアウトする（見た目から、押せるかどうかが分かるように）。
+ * ボタンの種類（.primary・.icon-button・.danger など）ごとに、色や背景が決まっていても、押せないときは、この規則が勝つ
+ * （種類の名前を足した、詳しい書き方にしてあるため）。新しい種類を足したら、ここにも足す（button-disabled.test.ts が検査する）。
+ */
+.button:disabled,
+.button.primary:disabled,
+.button.icon-button:disabled,
+.button.danger:disabled,
+.button.classify-button:disabled {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-fg-disabled);
+  cursor: default;
+  text-decoration: none;
+}
+
+.button.icon-button:disabled {
+  border-color: transparent;
 }

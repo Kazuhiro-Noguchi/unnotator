@@ -17,9 +17,24 @@ fn is_safe_id(id: &str) -> bool {
 /// `id` の拡張機能の HTML に付ける CSP。`granted` は、同意済みの権限。
 ///
 /// ID の形が不正なら、何も読み込めない CSP を返す。
-#[allow(unused_variables)] // T009 で実装する
 pub fn ext_csp(id: &str, granted: &[String]) -> String {
-    todo!()
+    if !is_safe_id(id) {
+        return "default-src 'none'; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+            .to_owned();
+    }
+    // 自分のフォルダだけ。`unno:` 単独だと、他の拡張機能のファイルも読めてしまう
+    // （S-02 の追加検証で、パス付きの指定が 3 OS で効くことを確認済み）。
+    let own = format!("unno://localhost/ext/{id}/ http://unno.localhost/ext/{id}/");
+    let loadable = if granted.iter().any(|p| p == ASSETS_READ) {
+        "data: unno: http://unno.localhost".to_owned()
+    } else {
+        format!("data: {own}")
+    };
+    format!(
+        "default-src 'none'; script-src {own}; style-src unno: http://unno.localhost; \
+         img-src {loadable}; media-src {loadable}; font-src {loadable}; \
+         connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    )
 }
 
 #[cfg(test)]

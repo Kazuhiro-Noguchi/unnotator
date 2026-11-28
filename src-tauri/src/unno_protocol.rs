@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use unnotator_core::serve::mime::{EXT_HTML_CSP, FALLBACK_CONTENT_TYPE, web_content_type};
+use unnotator_core::serve::ext_csp::ext_csp;
+use unnotator_core::serve::mime::{FALLBACK_CONTENT_TYPE, web_content_type};
 use unnotator_core::serve::{
     BYTE_BUDGET, BlobStore, Budget, MAX_CONCURRENT, PreviewCache, ResponseContext, ServeError,
     ServeResponse, Target, confine_inside, confine_no_links, error_response, parse_target,
@@ -33,6 +34,8 @@ pub struct ServeState {
     pub budget: Budget,
     /// 有効な拡張機能の ID → 展開先のフォルダ。
     ext_dirs: RwLock<BTreeMap<String, PathBuf>>,
+    /// 拡張機能 ID → 同意済みの権限（CSP の組み立てに使う。未設定なら、権限なしとして扱う）。
+    ext_grants: RwLock<BTreeMap<String, Vec<String>>>,
     mime: RwLock<MimeRules>,
 }
 
@@ -44,6 +47,7 @@ impl ServeState {
             previews,
             budget: Budget::new(BYTE_BUDGET, MAX_CONCURRENT),
             ext_dirs: RwLock::new(BTreeMap::new()),
+            ext_grants: RwLock::new(BTreeMap::new()),
             mime: RwLock::new(MimeRules::default()),
         }
     }
@@ -62,6 +66,23 @@ impl ServeState {
         if let Ok(mut slot) = self.mime.write() {
             *slot = registry.mime_rules(state);
         }
+    }
+
+    /// 拡張機能ごとの同意済みの権限を入れ替える。登録簿・同意が変わるたびに呼ぶ。
+    pub fn set_ext_grants(&self, grants: BTreeMap<String, Vec<String>>) {
+        if let Ok(mut slot) = self.ext_grants.write() {
+            *slot = grants;
+        }
+    }
+
+    fn ext_csp_of(&self, id: &str) -> String {
+        let granted = self
+            .ext_grants
+            .read()
+            .ok()
+            .and_then(|g| g.get(id).cloned())
+            .unwrap_or_default();
+        ext_csp(id, &granted)
     }
 
     fn ext_dir(&self, id: &str) -> Option<PathBuf> {
@@ -190,10 +211,7 @@ fn respond(
                     .unwrap_or(FALLBACK_CONTENT_TYPE)
                     .to_owned();
                 let extra = if content_type.starts_with("text/html") {
-                    vec![(
-                        "Content-Security-Policy".to_owned(),
-                        EXT_HTML_CSP.to_owned(),
-                    )]
+                    vec![("Content-Security-Policy".to_owned(), serve.ext_csp_of(id))]
                 } else {
                     Vec::new()
                 };
@@ -517,6 +535,35 @@ mod tests {
             handle(&project, &serve, &get("/preview/asset-0")).status,
             404
         );
+    }
+
+    #[test]
+    fn extension_html_gets_a_csp_built_from_its_id_and_consented_permissions() {
+        let temp = Temp::new();
+        std::fs::write(temp.0.join("ext/views/a.html"), b"<p>hi</p>").expect("書ける");
+        let project = project_state(&temp);
+        let serve = serve_state(&temp);
+        let (registry, state) = registry_with_text_extension(&temp, false);
+        serve.update(&registry, &state);
+        let csp_of = |serve: &ServeState| {
+            handle(&project, serve, &get("/ext/com.example.text/views/a.html"))
+                .header("content-security-policy")
+                .expect("ある")
+                .to_owned()
+        };
+
+        let csp = csp_of(&serve);
+        assert!(csp.contains(
+            "script-src unno://localhost/ext/com.example.text/ http://unno.localhost/ext/com.example.text/;"
+        ));
+        assert!(!csp.contains("img-src data: unno: "), "{csp}");
+        assert!(csp.contains("connect-src 'none'"));
+
+        serve.set_ext_grants(BTreeMap::from([(
+            "com.example.text".to_owned(),
+            vec!["assets.read".to_owned()],
+        )]));
+        assert!(csp_of(&serve).contains("img-src data: unno: http://unno.localhost"));
     }
 
     #[test]

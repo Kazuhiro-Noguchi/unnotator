@@ -21,7 +21,4 @@ pub fn web_content_type(file_name: &str) -> Option<&'static str> {
     })
 }
 
-/// `unno://ext/` の HTML に付ける、厳しい CSP。
-pub const EXT_HTML_CSP: &str = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'";
-
 pub const FALLBACK_CONTENT_TYPE: &str = "application/octet-stream";

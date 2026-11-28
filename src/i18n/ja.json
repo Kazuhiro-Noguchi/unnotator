@@ -305,5 +305,16 @@
   "host.suggestion.rejectAll": "すべて却下",
   "host.suggestion.title": "候補",
   "host.suggestion.none": "候補はありません。",
-  "host.suggestion.failed": "候補を採用できませんでした: {reason}"
+  "host.suggestion.failed": "候補を採用できませんでした: {reason}",
+  "host.consent.warning": "この権限は、データの外部への送信などにつながる可能性があります。",
+  "host.permission.assets.metadata": "アセットのメタ情報の記録",
+  "host.permission.labels.read": "ラベルの読み取り",
+  "host.permission.labels.write": "ラベルの作成・変更・削除",
+  "host.permission.project.status": "作業状態の変更",
+  "host.permission.project.files": "プロジェクトのファイルの読み書き",
+  "host.permission.fs.export": "ファイルの書き出し",
+  "host.permission.fs.import": "ファイルの取り込み",
+  "host.permission.python.spawn": "Python の処理の実行",
+  "host.permission.network": "ネットワークへの通信",
+  "host.notice.untrusted": "拡張機能の表示"
 }

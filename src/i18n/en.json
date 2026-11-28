@@ -305,5 +305,16 @@
   "host.suggestion.rejectAll": "Reject all",
   "host.suggestion.title": "Suggestions",
   "host.suggestion.none": "There are no suggestions.",
-  "host.suggestion.failed": "Could not accept the suggestion: {reason}"
+  "host.suggestion.failed": "Could not accept the suggestion: {reason}",
+  "host.consent.warning": "This permission may allow data to be sent outside the app.",
+  "host.permission.assets.metadata": "Record metadata on assets",
+  "host.permission.labels.read": "Read labels",
+  "host.permission.labels.write": "Create, edit and delete labels",
+  "host.permission.project.status": "Change work status",
+  "host.permission.project.files": "Read and write project files",
+  "host.permission.fs.export": "Write exported files",
+  "host.permission.fs.import": "Read files to import",
+  "host.permission.python.spawn": "Run Python tasks",
+  "host.permission.network": "Network access",
+  "host.notice.untrusted": "Extension notice"
 }

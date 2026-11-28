@@ -1867,3 +1867,26 @@ fieldset.ribbon-group {
 .button.icon-button:disabled {
   border-color: transparent;
 }
+
+/* 権限の確認ダイアログ（ホストが描く） */
+.consent-list {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+}
+
+.consent-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+.consent-list li.consent-warning span {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.consent-list small {
+  color: var(--color-fg-muted);
+}

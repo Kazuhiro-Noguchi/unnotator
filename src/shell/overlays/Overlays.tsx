@@ -16,6 +16,7 @@ import {
   setSettingsOpen,
   settingsOpen,
 } from "../ui-state";
+import { ConsentDialog } from "./ConsentDialog";
 import { Dialog } from "./Dialog";
 
 const Palette = lazy(() => import("./Palette"));
@@ -146,6 +147,7 @@ export function Overlays() {
       </Show>
       <FolderDialog />
       <CloseDialog />
+      <ConsentDialog />
     </>
   );
 }

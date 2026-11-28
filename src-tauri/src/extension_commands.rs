@@ -601,6 +601,19 @@ impl ExtensionRuntime {
         Ok(registry)
     }
 
+    /// 導入済みの拡張機能のメディアの判定規則を、開いているプロジェクトへ流し込む。
+    /// 登録簿が変わったとき（`refresh`）に加えて、プロジェクトを開いたときにも要る
+    /// （開いたプロジェクトは、規則が空の状態から始まるため）。開いていなければ何もしない。
+    pub fn apply_media_rules(&self, project: &ProjectState) -> Result<(), IpcError> {
+        let registry = self.registry();
+        let state = self.state.lock().map_err(lock_err)?.clone();
+        match set_rules(project, registry.media_rules(&state)) {
+            Ok(_) => Ok(()),
+            Err(e) if e.code == "not_open" => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
     /// 有効な拡張機能ごとの、宣言していて同意済みの権限を、配信の CSP の元に渡す。
     /// 登録簿の作り直し・同意・取り消しのたびに呼ぶ（未設定の間は「権限なし」で安全側）。
     pub fn sync_grants(&self, serve: &ServeState) {
@@ -1355,6 +1368,23 @@ mod tests {
         );
         let rt = ExtensionRuntime::new(temp.paths(), &serve);
         (rt, serve, ProjectState::new(temp.0.join("recovery")))
+    }
+
+    #[test]
+    fn opening_a_project_applies_the_installed_media_rules_without_a_registry_refresh() {
+        // 判定規則は、登録簿の変更（`refresh`）だけでなく、プロジェクトを開いたときにも流し込む。
+        let temp = Temp::new();
+        temp.install_text_extension("1.0.0", &["assets.read"]);
+        std::fs::write(temp.0.join("project/a.txt"), b"hello").expect("書ける");
+        let (rt, _serve, project) = parts(&temp);
+        open_project(&project, &temp.0.join("project"), true, Hooks::default()).expect("開ける");
+        rt.apply_media_rules(&project).expect("流し込める");
+        scan(&project, ScanScope::Full, &|_| {}).expect("走査できる");
+        let page = list_assets(&project, &AssetFilter::default(), &Page::first(10)).expect("一覧");
+        assert_eq!(
+            page.items[0].media_type.as_deref(),
+            Some("com.example.text/text")
+        );
     }
 
     #[test]

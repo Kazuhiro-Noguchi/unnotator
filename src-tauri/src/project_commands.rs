@@ -472,6 +472,15 @@ fn hooks_for(app: &tauri::AppHandle) -> Hooks {
     }
 }
 
+/// 開いたプロジェクトへ、導入済みの拡張機能のメディアの判定規則を流し込む（走査の前に行う）。失敗は記録だけする。
+fn apply_extension_media_rules(app: &tauri::AppHandle, project: &ProjectState) {
+    use tauri::Manager;
+    let rt = app.state::<crate::extension_commands::ExtensionRuntime>();
+    if let Err(error) = rt.apply_media_rules(project) {
+        tracing::warn!(code = %error.code, "拡張機能のメディアの判定規則を流し込めなかった");
+    }
+}
+
 #[tauri::command(async)]
 #[specta::specta]
 pub fn project_open(
@@ -482,6 +491,7 @@ pub fn project_open(
 ) -> Result<OpenResult, IpcError> {
     let result = open_project(&state, Path::new(&folder), create, hooks_for(&app))?;
     if matches!(result, OpenResult::Opened { .. }) {
+        apply_extension_media_rules(&app, &state);
         crate::asset_commands::start_auto_scan(&app);
     }
     Ok(result)
@@ -494,6 +504,7 @@ pub fn recovery_restore(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<ProjectInfo, IpcError> {
     let info = restore_recovery(&state)?;
+    apply_extension_media_rules(&app, &state);
     crate::asset_commands::start_auto_scan(&app);
     Ok(info)
 }
@@ -505,6 +516,7 @@ pub fn recovery_discard(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<ProjectInfo, IpcError> {
     let info = discard_recovery(&state)?;
+    apply_extension_media_rules(&app, &state);
     crate::asset_commands::start_auto_scan(&app);
     Ok(info)
 }

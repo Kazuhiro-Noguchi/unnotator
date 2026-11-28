@@ -20,7 +20,10 @@ function ext(
   };
 }
 
-function setup(list: ExtensionDescriptor[], deps: Partial<ActivationDeps> = {}) {
+function setup(
+  list: ExtensionDescriptor[],
+  deps: Partial<ActivationDeps> = {},
+) {
   const started: string[] = [];
   const stopped: string[] = [];
   const full: ActivationDeps = {
@@ -40,7 +43,9 @@ function setup(list: ExtensionDescriptor[], deps: Partial<ActivationDeps> = {}) 
 
 describe("起動時は何も読まない", () => {
   it("setExtensions だけでは start を呼ばない", () => {
-    const { started } = setup([ext("a.b", { activationEvents: ["onStartup"] })]);
+    const { started } = setup([
+      ext("a.b", { activationEvents: ["onStartup"] }),
+    ]);
     expect(started).toEqual([]);
   });
 });
@@ -85,7 +90,11 @@ describe("1 回だけ", () => {
         await gate;
       }),
     });
-    const p = [manager.activate("a.b"), manager.activate("a.b"), manager.activate("a.b")];
+    const p = [
+      manager.activate("a.b"),
+      manager.activate("a.b"),
+      manager.activate("a.b"),
+    ];
     expect(manager.state("a.b").status).toBe("activating");
     release();
     await Promise.all(p);
@@ -181,14 +190,11 @@ describe("依存順", () => {
 
 describe("失敗", () => {
   it("start の失敗は failed と理由になり、他の拡張機能に影響しない", async () => {
-    const { manager } = setup(
-      [ext("a.bad"), ext("a.good")],
-      {
-        start: vi.fn(async (id: string) => {
-          if (id === "a.bad") throw new Error("boom");
-        }),
-      },
-    );
+    const { manager } = setup([ext("a.bad"), ext("a.good")], {
+      start: vi.fn(async (id: string) => {
+        if (id === "a.bad") throw new Error("boom");
+      }),
+    });
     await manager.activate("a.bad");
     await manager.activate("a.good");
     expect(manager.state("a.bad")).toMatchObject({
@@ -294,9 +300,9 @@ describe("Registrations", () => {
     const first = vi.fn();
     const second = vi.fn();
     regs.add("a.b", "commands", "run", { dispose: first });
-    expect(() => regs.add("a.c", "commands", "run", { dispose: second })).toThrow(
-      /already registered/,
-    );
+    expect(() =>
+      regs.add("a.c", "commands", "run", { dispose: second }),
+    ).toThrow(/already registered/);
     expect(regs.owner("commands", "run")).toBe("a.b");
     regs.disposeAll("a.c");
     expect(first).not.toHaveBeenCalled();

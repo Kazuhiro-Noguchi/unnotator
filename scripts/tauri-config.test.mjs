@@ -32,7 +32,6 @@ describe("tauri.conf.json", () => {
           .map((d) => d.trim())
           .find((d) => d.startsWith(`${name} `)) ?? "";
       for (const name of [
-        "script-src",
         "img-src",
         "media-src",
         "font-src",
@@ -42,6 +41,12 @@ describe("tauri.conf.json", () => {
         expect(directive(name), name).toMatch(/\bunno:/);
         expect(directive(name), name).toMatch(/http:\/\/unno\.localhost/);
       }
+      // 本体のスクリプトは本体だけ。unno:// のスクリプトは動かさない（拡張機能の枠の CSP が別に許す。FR-032）
+      expect(directive("script-src"), "script-src").not.toMatch(/unno/);
+      // 枠は拡張機能のパスだけ
+      expect(directive("frame-src"), "frame-src").toBe(
+        "frame-src unno://localhost/ext/ http://unno.localhost/ext/",
+      );
       // 実行の許可は広げない
       expect(csp).not.toMatch(/unsafe-eval/);
       expect(directive("script-src")).not.toMatch(/unsafe-inline/);

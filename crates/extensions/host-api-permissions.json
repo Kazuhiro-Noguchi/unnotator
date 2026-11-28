@@ -101,6 +101,8 @@
     "delete_attribute_schema": "labels.write",
     "set_asset_status": "project.status",
     "set_item_status": "project.status",
+    "set_asset_metadata": "assets.metadata",
+    "set_item_metadata": "assets.metadata",
     "set_asset_note": false,
     "set_asset_attributes": false,
     "set_item_attributes": false,

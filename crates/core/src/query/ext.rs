@@ -222,6 +222,8 @@ pub struct ExtRelation {
 #[serde(default)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ExtRelationFilter {
+    /// この ID の関係だけ（ホストが、更新の前に現在の値を読むために使う）。
+    pub ids: Vec<String>,
     /// どちらかの端がこれらのアノテーションである関係。
     pub annotation_ids: Vec<String>,
     /// どちらかの端がこのアセットのアノテーションである関係。
@@ -235,6 +237,9 @@ pub fn ext_relations(
 ) -> Result<Vec<ExtRelation>, StoreError> {
     let mut params: Vec<Value> = Vec::new();
     let mut conditions: Vec<String> = Vec::new();
+    if !filter.ids.is_empty() {
+        conditions.push(in_clause("id", &filter.ids, &mut params));
+    }
     if !filter.annotation_ids.is_empty() {
         let from = in_clause("from_id", &filter.annotation_ids, &mut params);
         let to = in_clause("to_id", &filter.annotation_ids, &mut params);
@@ -296,6 +301,8 @@ pub struct ExtGroup {
 #[serde(default)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ExtGroupFilter {
+    /// この ID のグループだけ。
+    pub ids: Vec<String>,
     /// これらのアノテーションを含むグループ。
     pub annotation_ids: Vec<String>,
     /// このアセットのアノテーションを含むグループ。
@@ -306,6 +313,9 @@ pub struct ExtGroupFilter {
 pub fn ext_groups(conn: &Connection, filter: &ExtGroupFilter) -> Result<Vec<ExtGroup>, StoreError> {
     let mut params: Vec<Value> = Vec::new();
     let mut conditions: Vec<String> = Vec::new();
+    if !filter.ids.is_empty() {
+        conditions.push(in_clause("id", &filter.ids, &mut params));
+    }
     if !filter.annotation_ids.is_empty() {
         let inner = in_clause("annotation_id", &filter.annotation_ids, &mut params);
         conditions.push(format!(

@@ -106,6 +106,9 @@ export function createHostApp(deps: HostAppDeps): HostApp {
     onFrameRemove(frame) {
       detaches.get(frame)?.();
       detaches.delete(frame);
+      // 裏の枠が無くなる（拡張機能が止まる）とき、開きっぱなしの transaction を捨てる。
+      if (frame.role === "background")
+        app.api.closeExtension(frame.extensionId);
     },
     onLog(extId, value) {
       const record =
@@ -141,7 +144,14 @@ export function createHostApp(deps: HostAppDeps): HostApp {
     },
   };
   (app as { api: HostApi }).api = createHostApi(
-    { ipc: deps.ipc, gate, state, locale: deps.locale },
+    {
+      ipc: deps.ipc,
+      gate,
+      state,
+      locale: deps.locale,
+      manifests: deps.manifests,
+      onApplied: (set, name) => changes.noteLabel(set.seq, name),
+    },
     deps.handlers?.(app) ?? [],
   );
   return app;

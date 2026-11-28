@@ -345,6 +345,12 @@ id?: string | null; name: string; name_i18n_json?: string | null; color: string;
 { kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
 /**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
 { kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
+/**  拡張機能のメタ情報（`assets.setMetadata`）。`namespace`（拡張機能 ID）の中身を丸ごと置き換える。 */
+{ kind: "set_asset_metadata"; asset_id: string; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+namespace: string; 
+/**  JSON のオブジェクト。 */
+metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -369,6 +375,12 @@ id: string | null; name: string; name_i18n_json: string | null; color: string; h
 { kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
 /**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
 { kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
+/**  拡張機能のメタ情報（`assets.setMetadata`）。`namespace`（拡張機能 ID）の中身を丸ごと置き換える。 */
+{ kind: "set_asset_metadata"; asset_id: string; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+namespace: string; 
+/**  JSON のオブジェクト。 */
+metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -518,6 +530,8 @@ export type ExtGroup = ExtGroup_Serialize | ExtGroup_Deserialize;
 export type ExtGroupFilter = ExtGroupFilter_Serialize | ExtGroupFilter_Deserialize;
 
 export type ExtGroupFilter_Deserialize = {
+	/**  この ID のグループだけ。 */
+	ids?: string[],
 	/**  これらのアノテーションを含むグループ。 */
 	annotation_ids?: string[],
 	/**  このアセットのアノテーションを含むグループ。 */
@@ -526,6 +540,8 @@ export type ExtGroupFilter_Deserialize = {
 };
 
 export type ExtGroupFilter_Serialize = {
+	/**  この ID のグループだけ。 */
+	ids: string[],
 	/**  これらのアノテーションを含むグループ。 */
 	annotation_ids: string[],
 	/**  このアセットのアノテーションを含むグループ。 */
@@ -571,6 +587,8 @@ export type ExtRelation = ExtRelation_Serialize | ExtRelation_Deserialize;
 export type ExtRelationFilter = ExtRelationFilter_Serialize | ExtRelationFilter_Deserialize;
 
 export type ExtRelationFilter_Deserialize = {
+	/**  この ID の関係だけ（ホストが、更新の前に現在の値を読むために使う）。 */
+	ids?: string[],
 	/**  どちらかの端がこれらのアノテーションである関係。 */
 	annotation_ids?: string[],
 	/**  どちらかの端がこのアセットのアノテーションである関係。 */
@@ -579,6 +597,8 @@ export type ExtRelationFilter_Deserialize = {
 };
 
 export type ExtRelationFilter_Serialize = {
+	/**  この ID の関係だけ（ホストが、更新の前に現在の値を読むために使う）。 */
+	ids: string[],
 	/**  どちらかの端がこれらのアノテーションである関係。 */
 	annotation_ids: string[],
 	/**  どちらかの端がこのアセットのアノテーションである関係。 */

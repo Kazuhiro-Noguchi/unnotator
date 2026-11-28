@@ -473,6 +473,22 @@ fn scenarios() -> Vec<Scenario> {
             },
         },
         Scenario {
+            command: "set_asset_metadata",
+            prepare: |_| Command::SetAssetMetadata {
+                asset_id: "a1".into(),
+                namespace: "com.example.ext".into(),
+                metadata_json: "{\"width\":10}".into(),
+            },
+        },
+        Scenario {
+            command: "set_item_metadata",
+            prepare: |_| Command::SetItemMetadata {
+                item: item(),
+                namespace: "com.example.ext".into(),
+                metadata_json: "{\"page\":3}".into(),
+            },
+        },
+        Scenario {
             command: "transaction",
             prepare: |_| Command::Transaction {
                 commands: vec![

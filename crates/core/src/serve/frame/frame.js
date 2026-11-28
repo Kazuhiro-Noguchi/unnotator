@@ -141,6 +141,8 @@
 			"delete_attribute_schema": "labels.write",
 			"set_asset_status": "project.status",
 			"set_item_status": "project.status",
+			"set_asset_metadata": "assets.metadata",
+			"set_item_metadata": "assets.metadata",
 			"set_asset_note": false,
 			"set_asset_attributes": false,
 			"set_item_attributes": false,
@@ -214,6 +216,22 @@
 			} else if (full === "selection.set") target[name] = (ids) => {
 				deps.mirror.apply("selection", ids);
 				return deps.request(full, [ids]);
+			};
+			else if (full === "annotations.transaction") target[name] = async (label, fn) => {
+				if (typeof fn !== "function") throw new TypeError("fn must be a function");
+				await deps.request(full, {
+					op: "begin",
+					label: String(label)
+				});
+				let result;
+				try {
+					result = await fn();
+				} catch (error) {
+					await deps.request(full, { op: "abort" }).catch(() => {});
+					throw error;
+				}
+				await deps.request(full, { op: "commit" });
+				return result;
 			};
 			else if (full === "i18n.locale") Object.defineProperty(target, "locale", {
 				get: () => deps.locale,

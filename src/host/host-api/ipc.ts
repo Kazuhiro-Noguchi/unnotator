@@ -66,6 +66,7 @@ export interface RelationDto {
 }
 
 export interface RelationFilterDto {
+  ids: string[];
   annotation_ids: string[];
   asset_id: string | null;
   types: string[];
@@ -82,6 +83,7 @@ export interface GroupDto {
 }
 
 export interface GroupFilterDto {
+  ids: string[];
   annotation_ids: string[];
   asset_id: string | null;
   types: string[];

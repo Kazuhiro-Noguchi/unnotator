@@ -22,6 +22,8 @@ export interface ManifestFacts {
     statusBarItems: string[];
     tools: string[];
   };
+  /** 宣言した種別（ローカル名）の版。 */
+  annotationTypeVersions: Record<string, number>;
   settingKeys: string[];
 }
 
@@ -35,6 +37,21 @@ function names(list: unknown): string[] {
   return list.flatMap((entry) =>
     isRecord(entry) && typeof entry.id === "string" ? [entry.id] : [],
   );
+}
+
+function versions(list: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!Array.isArray(list)) return out;
+  for (const entry of list) {
+    if (
+      isRecord(entry) &&
+      typeof entry.id === "string" &&
+      typeof entry.version === "number" &&
+      Number.isInteger(entry.version)
+    )
+      out[entry.id] = entry.version;
+  }
+  return out;
 }
 
 export function parseManifest(source: ManifestSource): ManifestFacts | null {
@@ -71,6 +88,7 @@ export function parseManifest(source: ManifestSource): ManifestFacts | null {
       statusBarItems: names(c.statusBarItems),
       tools: names(c.tools),
     },
+    annotationTypeVersions: versions(c.annotationTypes),
     settingKeys: Object.keys(properties),
   };
 }

@@ -279,6 +279,7 @@ describe("annotations / relations / groups の query", () => {
       },
     ]);
     expect(ipc.relationsQuery).toHaveBeenCalledWith("com.example.a", {
+      ids: [],
       annotation_ids: ["n1"],
       asset_id: null,
       types: [],

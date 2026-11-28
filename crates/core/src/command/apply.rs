@@ -79,7 +79,9 @@ pub fn run(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
         }
         Command::SetAssetNote { .. }
         | Command::SetAssetAttributes { .. }
-        | Command::SetItemAttributes { .. } => meta::handle(ctx, command),
+        | Command::SetItemAttributes { .. }
+        | Command::SetAssetMetadata { .. }
+        | Command::SetItemMetadata { .. } => meta::handle(ctx, command),
         Command::SyncAssets { .. } | Command::RelinkAsset { .. } | Command::DeleteAsset { .. } => {
             asset::handle(ctx, command)
         }

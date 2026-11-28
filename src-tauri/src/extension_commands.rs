@@ -110,6 +110,11 @@ fn pin_source(command: &mut Command, ext_id: &str) {
         Command::CreateAnnotation { source, .. }
         | Command::CreateRelation { source, .. }
         | Command::CreateGroup { source, .. } => *source = Some(ext_id.to_owned()),
+        // メタ情報の名前空間は、呼び出した拡張機能の ID に固定する（他の拡張機能の領域には書けない）。
+        Command::SetAssetMetadata { namespace, .. }
+        | Command::SetItemMetadata { namespace, .. } => {
+            *namespace = ext_id.to_owned();
+        }
         _ => {}
     }
 }
@@ -1599,5 +1604,113 @@ mod tests {
         };
         let chunk = read_asset_range(&file, 0, None).expect("読める");
         assert_eq!(chunk.len() as u64, MAX_ASSET_READ_BYTES);
+    }
+
+    fn metadata_of(project: &ProjectState, asset: &str) -> serde_json::Value {
+        let row = crate::project_commands::with_store(project, |store| store.ext_asset(asset))
+            .expect("読める")
+            .expect("ある");
+        serde_json::from_str(&row.metadata_json).expect("JSON")
+    }
+
+    #[test]
+    fn ext_metadata_is_pinned_to_the_extension_namespace_and_round_trips() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(&temp, &["assets.metadata"], &["assets.metadata"]);
+        let id = "com.example.text";
+        // 他の拡張機能の名前空間を名乗っても、自分の名前空間に書かれる
+        ext_apply(
+            &rt,
+            &project,
+            id,
+            Command::SetAssetMetadata {
+                asset_id: asset.clone(),
+                namespace: "com.example.other".to_owned(),
+                metadata_json: r#"{"w":1}"#.to_owned(),
+            },
+        )
+        .expect("書ける");
+        assert_eq!(
+            metadata_of(&project, &asset),
+            serde_json::json!({"com.example.text": {"w": 1}})
+        );
+        // apply → undo → redo で一致する
+        crate::project_commands::undo_project(&project).expect("戻せる");
+        assert_eq!(metadata_of(&project, &asset), serde_json::json!({}));
+        crate::project_commands::redo_project(&project).expect("やり直せる");
+        assert_eq!(
+            metadata_of(&project, &asset),
+            serde_json::json!({"com.example.text": {"w": 1}})
+        );
+    }
+
+    #[test]
+    fn ext_transaction_is_one_undo_and_a_failure_leaves_nothing() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(
+            &temp,
+            &["annotations.write", "annotations.read", "assets.metadata"],
+            &["annotations.write", "annotations.read", "assets.metadata"],
+        );
+        let id = "com.example.text";
+        let count = |project: &ProjectState| {
+            ext_annotations(
+                &rt,
+                project,
+                id,
+                &unnotator_core::query::ext::ExtAnnotationFilter::default(),
+            )
+            .expect("読める")
+            .len()
+        };
+        let metadata = |value: &str| Command::SetAssetMetadata {
+            asset_id: asset.clone(),
+            namespace: id.to_owned(),
+            metadata_json: value.to_owned(),
+        };
+        // 成功: 3 つの操作が 1 回の Undo になる
+        ext_apply(
+            &rt,
+            &project,
+            id,
+            Command::Transaction {
+                commands: vec![
+                    create_annotation(&asset, None),
+                    create_annotation(&asset, Some("manual")),
+                    metadata(r#"{"k":1}"#),
+                ],
+            },
+        )
+        .expect("通る");
+        assert_eq!(count(&project), 2);
+        crate::project_commands::undo_project(&project).expect("戻せる");
+        assert_eq!(count(&project), 0);
+        assert_eq!(metadata_of(&project, &asset), serde_json::json!({}));
+        crate::project_commands::redo_project(&project).expect("やり直せる");
+        assert_eq!(count(&project), 2);
+        // 途中の失敗（存在しないアセット）では、何も残さない
+        let failing = ext_apply(
+            &rt,
+            &project,
+            id,
+            Command::Transaction {
+                commands: vec![
+                    create_annotation(&asset, None),
+                    create_annotation("no-such-asset", None),
+                ],
+            },
+        );
+        assert!(failing.is_err());
+        assert_eq!(count(&project), 2);
+        // 入れ子は開かない
+        let nested = ext_apply(
+            &rt,
+            &project,
+            id,
+            Command::Transaction {
+                commands: vec![Command::Transaction { commands: vec![] }],
+            },
+        );
+        assert!(nested.is_err());
     }
 }

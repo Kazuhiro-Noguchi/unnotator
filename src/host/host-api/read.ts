@@ -79,6 +79,7 @@ function annotationFilter(v: unknown) {
 function linkFilter(v: unknown) {
   const q = optObj(v, "query") ?? {};
   return {
+    ids: [],
     annotation_ids: strList(q.annotationIds, "annotationIds"),
     asset_id: optStr(q.assetId, "assetId") ?? null,
     types: strList(q.types, "types"),

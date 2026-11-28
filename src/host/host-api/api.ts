@@ -4,11 +4,14 @@ import type { HostRequest } from "../channel";
 import type { Ctx, Handlers, HostApiDeps } from "./api-types";
 import { HostApiError } from "./permissions";
 import { readHandlers } from "./read";
+import { createWriteHandlers } from "./write";
 
 export type { HostApiDeps } from "./api-types";
 
 export interface HostApi {
   handle(request: HostRequest): Promise<unknown>;
+  /** 拡張機能の枠がすべて無くなったとき（開いている transaction などを捨てる）。 */
+  closeExtension(extId: string): void;
 }
 
 /** Rust の `IpcError`（`code`・`message`）を、拡張機能に返すエラーにする。 */
@@ -37,8 +40,15 @@ export function createHostApi(
   deps: HostApiDeps,
   extra: Handlers[] = [],
 ): HostApi {
-  const handlers: Handlers = Object.assign({}, readHandlers, ...extra);
+  const write = createWriteHandlers();
+  const handlers: Handlers = Object.assign(
+    {},
+    readHandlers,
+    write.handlers,
+    ...extra,
+  );
   return {
+    closeExtension: (extId) => write.abortTransactions(extId),
     async handle(request) {
       try {
         // 門は、実装の有無によらず先に通す（宣言のない呼び出しは、何も起こさない）。

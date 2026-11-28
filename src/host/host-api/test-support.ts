@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import type { HostRequest } from "../channel";
 import { createHostApi, type HostApi, type HostApiDeps } from "./api";
 import type { HostIpc } from "./ipc";
+import { createManifestIndex } from "./manifests";
 import { createPermissionGate, type PermissionGate } from "./permissions";
 import { createHostState } from "./state";
 
@@ -74,6 +75,7 @@ export function setup(
   const api = createHostApi({
     gate: openGate(),
     locale: () => "ja",
+    manifests: createManifestIndex(() => []),
     ...overrides,
     ipc,
     state,

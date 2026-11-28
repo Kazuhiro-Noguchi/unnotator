@@ -316,6 +316,19 @@ pub enum Command {
         item: ItemRef,
         attributes_json: String,
     },
+    /// 拡張機能のメタ情報（`assets.setMetadata`）。`namespace`（拡張機能 ID）の中身を丸ごと置き換える。
+    SetAssetMetadata {
+        asset_id: String,
+        /// 拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。
+        namespace: String,
+        /// JSON のオブジェクト。
+        metadata_json: String,
+    },
+    SetItemMetadata {
+        item: ItemRef,
+        namespace: String,
+        metadata_json: String,
+    },
     /// 走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。
     SyncAssets {
         #[serde(default)]
@@ -369,6 +382,8 @@ pub const COMMAND_NAMES: &[&str] = &[
     "set_asset_note",
     "set_asset_attributes",
     "set_item_attributes",
+    "set_asset_metadata",
+    "set_item_metadata",
     "sync_assets",
     "relink_asset",
     "delete_asset",
@@ -401,6 +416,8 @@ impl Command {
             Self::SetAssetNote { .. } => "set_asset_note",
             Self::SetAssetAttributes { .. } => "set_asset_attributes",
             Self::SetItemAttributes { .. } => "set_item_attributes",
+            Self::SetAssetMetadata { .. } => "set_asset_metadata",
+            Self::SetItemMetadata { .. } => "set_item_metadata",
             Self::SyncAssets { .. } => "sync_assets",
             Self::RelinkAsset { .. } => "relink_asset",
             Self::DeleteAsset { .. } => "delete_asset",
@@ -615,8 +632,18 @@ mod tests {
                 attributes_json: "{}".into(),
             },
             Command::SetItemAttributes {
-                item,
+                item: item.clone(),
                 attributes_json: "{}".into(),
+            },
+            Command::SetAssetMetadata {
+                asset_id: "a".into(),
+                namespace: "x.y".into(),
+                metadata_json: "{}".into(),
+            },
+            Command::SetItemMetadata {
+                item,
+                namespace: "x.y".into(),
+                metadata_json: "{}".into(),
             },
             Command::SyncAssets {
                 added: vec![],

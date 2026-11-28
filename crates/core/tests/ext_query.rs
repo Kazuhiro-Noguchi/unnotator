@@ -205,6 +205,36 @@ fn relations_and_groups_filter_by_annotation_and_asset() {
     assert_eq!(groups.len(), 1);
     // メンバーは position 順（作成時の並び）。
     assert_eq!(groups[0].member_ids, vec![ids[1].clone(), ids[0].clone()]);
+    // ID で絞る（更新の前に、現在の値を読む）
+    assert_eq!(
+        store
+            .ext_groups(&ExtGroupFilter {
+                ids: vec![groups[0].id.clone()],
+                ..Default::default()
+            })
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(
+        store
+            .ext_groups(&ExtGroupFilter {
+                ids: vec!["nope".into()],
+                ..Default::default()
+            })
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        store
+            .ext_relations(&ExtRelationFilter {
+                ids: vec![by_end[0].id.clone()],
+                ..Default::default()
+            })
+            .unwrap()
+            .len(),
+        1
+    );
     assert!(
         store
             .ext_groups(&ExtGroupFilter {

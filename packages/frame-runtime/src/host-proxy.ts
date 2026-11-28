@@ -118,6 +118,22 @@ export function createHost(deps: HostProxyDeps): {
         deps.mirror.apply("selection", ids); // 楽観。食い違えばホストの差分で上書きされる。
         return deps.request(full, [ids]);
       };
+    } else if (full === "annotations.transaction") {
+      // 関数は枠の外へ渡せない。begin → fn → commit に分け、途中の書き込みはホストが溜めて 1 回で適用する。
+      target[name] = async (label: unknown, fn: unknown) => {
+        if (typeof fn !== "function")
+          throw new TypeError("fn must be a function");
+        await deps.request(full, { op: "begin", label: String(label) });
+        let result: unknown;
+        try {
+          result = await (fn as () => unknown)();
+        } catch (error) {
+          await deps.request(full, { op: "abort" }).catch(() => {});
+          throw error;
+        }
+        await deps.request(full, { op: "commit" });
+        return result;
+      };
     } else if (full === "i18n.locale") {
       Object.defineProperty(target, "locale", {
         get: () => deps.locale,

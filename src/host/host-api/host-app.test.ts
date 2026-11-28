@@ -115,6 +115,45 @@ describe("Host API の本体（host-app）", () => {
     expect(emit).not.toHaveBeenCalled();
   });
 
+  it("書き込み: transaction のあいだは溜め、commit で 1 回だけ送る。裏の枠が無くなったら捨てる", async () => {
+    const applyCommand = vi.fn(async () => ({
+      seq: 5,
+      origin: "apply",
+      changes: [],
+      asset_ids: [],
+    }));
+    const ipc = fakeIpc({
+      checkPermission: vi.fn(async () => ({
+        verdict: "allowed",
+        warning: false,
+      })),
+      applyCommand,
+    });
+    const app = createHostApp({
+      ipc,
+      manifests: createManifestIndex(() => []),
+      locale: () => "ja",
+      nameOf: (id) => id,
+      ask: async () => true,
+      readSetting: async () => undefined,
+    });
+    const call = (m: string, a: unknown) =>
+      app.handle({ extId: "com.example.a", m, a });
+    const create = [
+      { target: { assetId: "a1" }, type: "com.example.a/rect", selector: {} },
+    ];
+    await call("annotations.transaction", { op: "begin", label: "x" });
+    await call("annotations.create", create);
+    expect(applyCommand).not.toHaveBeenCalled();
+    app.onFrameRemove({
+      extensionId: "com.example.a",
+      role: "background",
+      channel: { emit: vi.fn() },
+    } as unknown as Frame);
+    await call("annotations.create", create);
+    expect(applyCommand).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshSettings: 宣言されたキーを読み直して、写しの設定を更新する", async () => {
     const t = setup();
     const frame = t.frame();

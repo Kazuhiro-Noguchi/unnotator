@@ -6,15 +6,16 @@
 //   shot <out.png>          メインウィンドウのスクリーンショット
 //   click <x> <y>           ウィンドウ内の座標（点。左上が 0,0）をクリック
 //   open-project <path>     「既存プロジェクトを開く」ダイアログでフォルダを選ぶ（プロジェクトが未オープンのとき）
-// ログは UNNO_DEV_LOG（既定 /tmp/unnotator-dev.log）。`pnpm tauri dev > $UNNO_DEV_LOG 2>&1 &` で起動する。
+// ログは UNNO_DEV_LOG（既定は一時フォルダの unnotator-dev.log）。`pnpm tauri dev > $UNNO_DEV_LOG 2>&1 &` で起動する。
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const LOG = process.env.UNNO_DEV_LOG ?? "/tmp/unnotator-dev.log";
-const MARK = "/tmp/unnotator-dev.mark";
+const LOG = process.env.UNNO_DEV_LOG ?? join(tmpdir(), "unnotator-dev.log");
+const MARK = join(tmpdir(), "unnotator-dev.mark");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const countReady = () => {

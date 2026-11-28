@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../i18n";
@@ -97,6 +98,56 @@ describe("EditorArea（部品）", () => {
     await wait();
     expect(document.querySelector(".my-editor")?.textContent).toBe("a1");
     expect(document.querySelector(".preview")).toBeNull();
+  });
+
+  it("別のアセットへ切り替えると、差し込み口をもう一度呼ぶ（最初の 1 回だけにしない）", async () => {
+    const calls: string[] = [];
+    const s = setup([row("a1", "a.txt"), row("a2", "b.txt")], {
+      resolveSurface: (asset) => {
+        calls.push(asset.id);
+        return <div class="my-editor">{asset.id}</div>;
+      },
+    });
+    open(s, "a1");
+    await wait();
+    expect(document.querySelector(".my-editor")?.textContent).toBe("a1");
+    open(s, "a2");
+    await wait();
+    expect(document.querySelector(".my-editor")?.textContent).toBe("a2");
+    expect(calls).toEqual(["a1", "a2"]);
+  });
+
+  it("差し込み口が読む信号が変わると（拡張機能の読み込みが済んだとき）、選び直す", async () => {
+    const [ready, setReady] = createSignal(false);
+    const s = setup([row("a1", "a.txt")], {
+      resolveSurface: (asset) =>
+        ready() ? <div class="my-editor">{asset.id}</div> : null,
+    });
+    open(s, "a1");
+    await wait();
+    expect(document.querySelector(".my-editor")).toBeNull();
+    expect(document.querySelector(".preview")).not.toBeNull();
+    setReady(true);
+    await wait();
+    expect(document.querySelector(".my-editor")?.textContent).toBe("a1");
+    expect(document.querySelector(".preview")).toBeNull();
+  });
+
+  it("同じアセットの再取得（変更の通知）では、エディターを作り直さない", async () => {
+    let created = 0;
+    const s = setup([row("a1", "a.txt")], {
+      resolveSurface: (asset) => {
+        created += 1;
+        return <div class="my-editor">{asset.id}</div>;
+      },
+    });
+    open(s, "a1");
+    await wait();
+    s.store.set("a1", row("a1", "a.txt", { file_size: 99 }));
+    s.changed.emit();
+    await wait();
+    expect(created).toBe(1);
+    expect(document.querySelector(".my-editor")).not.toBeNull();
   });
 
   it("差し込み口が null を返したら、プレビューに落ちる", async () => {

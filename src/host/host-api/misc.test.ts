@@ -14,7 +14,7 @@ const manifest = JSON.stringify({
     importers: [{ id: "csv" }],
     statusBarItems: [
       {
-        id: "zoom",
+        id: "tool-a",
         alignment: "right",
         priority: 5,
         command: "com.example.a/run",
@@ -216,31 +216,31 @@ describe("ui / context（表示する文字は文字として扱い、長さを�
     const setStatusBarItem = vi.fn();
     const { call } = miscSetup({ shell: fakeShell({ setStatusBarItem }) });
     await call("ui.setStatusBarItem", [
-      "zoom",
+      "tool-a",
       { text: "100%", tooltip: "倍率" },
     ]);
     expect(setStatusBarItem).toHaveBeenCalledWith(
       {
         source: EXT,
-        id: "zoom",
+        id: "tool-a",
         alignment: "right",
         priority: 5,
         text: "100%",
         tooltip: "倍率",
         command: "com.example.a/run",
       },
-      { source: EXT, id: "zoom" },
+      { source: EXT, id: "tool-a" },
     );
-    await call("ui.setStatusBarItem", ["zoom", null]);
+    await call("ui.setStatusBarItem", ["tool-a", null]);
     expect(setStatusBarItem).toHaveBeenLastCalledWith(null, {
       source: EXT,
-      id: "zoom",
+      id: "tool-a",
     });
     await expect(
       call("ui.setStatusBarItem", ["undeclared", { text: "x" }]),
     ).rejects.toMatchObject({ code: "ValidationFailed" });
     await expect(
-      call("ui.setStatusBarItem", ["zoom", { text: 5 }]),
+      call("ui.setStatusBarItem", ["tool-a", { text: 5 }]),
     ).rejects.toMatchObject({ code: "ValidationFailed" });
   });
 

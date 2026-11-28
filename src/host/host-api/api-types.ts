@@ -3,6 +3,7 @@ import type { ChangeSetDto, HostIpc } from "./ipc";
 import type { ManifestIndex } from "./manifests";
 import type { PermissionGate } from "./permissions";
 import type { HostState } from "./state";
+import type { TypeChecks } from "./type-checks";
 
 export interface HostApiDeps {
   ipc: HostIpc;
@@ -12,6 +13,8 @@ export interface HostApiDeps {
   locale(): string;
   /** マニフェストの宣言（種別・アイテム提供の名前など）。 */
   manifests: ManifestIndex;
+  /** 種別の `validate` / `summarize`（定義側の枠へ問い合わせる）。無ければ検査しない。 */
+  typeChecks?: TypeChecks;
   /** 書き込みが済んだとき（通知にコマンドの表示名を結ぶ）。 */
   onApplied?(set: ChangeSetDto, name: string): void;
 }

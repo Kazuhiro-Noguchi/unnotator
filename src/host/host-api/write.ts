@@ -187,6 +187,15 @@ export function createWriteHandlers(): WriteApi {
         local === undefined
           ? undefined
           : ctx.deps.manifests.get(ctx.extId)?.annotationTypeVersions[local];
+      // 書き込みの前に、定義側の枠へ問い合わせる（失敗したら書かない）。
+      const summary =
+        (
+          await ctx.deps.typeChecks?.check({
+            type,
+            selector,
+            assetId: t.assetId,
+          })
+        )?.summary ?? "";
       const id = uuidv7();
       const command = {
         kind: "create_annotation",
@@ -195,6 +204,7 @@ export function createWriteHandlers(): WriteApi {
         type,
         ...(version === undefined ? {} : { type_version: version }),
         selector_json: selectorJson,
+        ...(summary === "" ? {} : { summary }),
         label_id: label ?? null,
         attributes_json: JSON.stringify(attributes),
         ...(z === undefined ? {} : { z_order: z }),
@@ -213,7 +223,7 @@ export function createWriteHandlers(): WriteApi {
         selector,
         labelId: label ?? null,
         attributes,
-        summary: "",
+        summary,
         zOrder: z ?? 0,
         source: ctx.extId,
         createdAt: now,
@@ -229,6 +239,28 @@ export function createWriteHandlers(): WriteApi {
         const json = JSON.stringify(p.selector);
         if (json === undefined) throw invalid("selector must be JSON");
         patch.selector_json = { kind: "set", value: json };
+        if (ctx.deps.typeChecks !== undefined) {
+          // 検査には、既存の種別とアセットが要る（読み取りの権限を確かめる）。
+          await needRead(ctx);
+          const rows = await ctx.ipc.annotationsQuery(ctx.extId, {
+            asset_id: null,
+            item_key: null,
+            types: [],
+            label_ids: [],
+            ids: [id],
+            limit: 1,
+            offset: null,
+          });
+          const row = rows[0];
+          if (row === undefined)
+            throw new HostApiError("NotFound", "annotation not found");
+          const { summary } = await ctx.deps.typeChecks.check({
+            type: row.type,
+            selector: p.selector,
+            assetId: row.asset_id,
+          });
+          patch.summary = { kind: "set", value: summary };
+        }
       }
       const label = labelId(p.labelId);
       if (label !== undefined) patch.label_id = field(label);

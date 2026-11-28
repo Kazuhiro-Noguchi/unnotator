@@ -72,6 +72,14 @@ export const hostApp = createHostApp({
   locale: () => detectLanguage(),
   nameOf: displayName,
   ask: (prompt) => askConsent(prompt),
+  background: async (id) => {
+    try {
+      await extensionHost.manager.activate(id);
+    } catch {
+      return undefined;
+    }
+    return extensionHost.frames.background(id)?.channel;
+  },
   readSetting: async (key) => {
     const setting = await commands.settingsGet(key);
     return JSON.parse(setting.value_json) as unknown;

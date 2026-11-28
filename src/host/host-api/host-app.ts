@@ -14,6 +14,7 @@ import {
   type PermissionGate,
 } from "./permissions";
 import { createHostState, type HostState, MIRROR_KEYS } from "./state";
+import { createTypeChecks } from "./type-checks";
 
 export interface HostAppDeps {
   ipc: HostIpc;
@@ -25,6 +26,10 @@ export interface HostAppDeps {
   ask(prompt: ConsentPrompt & { name: string }): Promise<boolean>;
   /** 設定の現在の値（有効な値。無ければ `undefined`）。 */
   readSetting(key: string): Promise<unknown>;
+  /** 種別を定義した拡張機能の裏の枠（必要なら有効化する）。得られなければ `undefined`。 */
+  background?(
+    extId: string,
+  ): Promise<{ call(m: string, a: unknown): Promise<unknown> } | undefined>;
   /** 各部の実装（write・events・misc など）。 */
   handlers?: (app: HostApp) => Handlers[];
 }
@@ -74,6 +79,16 @@ export function createHostApp(deps: HostAppDeps): HostApp {
   });
 
   const changes = createChangeBridge({ allowed });
+
+  /** 種別の実装が登録したメンバー（`register` の `members`）。`validate` があるかを知る。 */
+  const members = new Map<string, readonly string[]>();
+  const typeChecks = createTypeChecks({
+    manifests: deps.manifests,
+    background: async (extId) => deps.background?.(extId),
+    members: (extId, localId) => members.get(`${extId}\u0000${localId}`) ?? [],
+    asset: (assetId) => deps.ipc.internalAsset(assetId),
+    locale: deps.locale,
+  });
 
   // 枠ごとの購読の解除。同じ枠から 2 度は結ばない。
   const detaches = new Map<Frame, () => void>();
@@ -150,6 +165,7 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       state,
       locale: deps.locale,
       manifests: deps.manifests,
+      typeChecks,
       onApplied: (set, name) => changes.noteLabel(set.seq, name),
     },
     deps.handlers?.(app) ?? [],

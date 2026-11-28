@@ -140,7 +140,7 @@ describe("Host API の本体（host-app）", () => {
     const call = (m: string, a: unknown) =>
       app.handle({ extId: "com.example.a", m, a });
     const create = [
-      { target: { assetId: "a1" }, type: "com.example.a/rect", selector: {} },
+      { target: { assetId: "a1" }, type: "core/classification", selector: {} },
     ];
     await call("annotations.transaction", { op: "begin", label: "x" });
     await call("annotations.create", create);

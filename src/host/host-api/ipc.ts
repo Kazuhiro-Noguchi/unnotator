@@ -121,6 +121,8 @@ export interface HostIpc {
   ): Promise<PermissionVerdict>;
   consent(extId: string, permissions: string[]): Promise<void>;
   assetGet(extId: string, assetId: string): Promise<AssetDto | null>;
+  /** ホストが検査のために読むアセット（拡張機能の権限とは別。`validate` に `Asset` を渡す）。 */
+  internalAsset(assetId: string): Promise<AssetDto | null>;
   itemGet(
     extId: string,
     assetId: string,
@@ -178,6 +180,12 @@ export const realHostIpc: HostIpc = {
     await commands.extensionConsent(extId, permissions);
   },
   assetGet: (extId, assetId) => commands.extAssetGet(extId, assetId),
+  internalAsset: async (assetId) => {
+    const row = await commands.assetGet(assetId);
+    return row === null
+      ? null
+      : { ...row, metadata_json: "{}", attributes_json: "{}" };
+  },
   itemGet: (extId, assetId, itemKey) =>
     commands.extItemGet(extId, assetId, itemKey),
   assetRead: (extId, assetId, offset, length) =>

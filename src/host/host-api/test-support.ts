@@ -19,6 +19,7 @@ export function fakeIpc(overrides: Partial<HostIpc> = {}): HostIpc {
     "checkPermission",
     "consent",
     "assetGet",
+    "internalAsset",
     "itemGet",
     "assetRead",
     "annotationsQuery",

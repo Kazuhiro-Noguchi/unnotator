@@ -1,0 +1,10 @@
+{
+  "id": "com.example.surfaces",
+  "version": "0.1.0",
+  "engines": { "unnotator": "^0.0.1" },
+  "main": "dist/index.js",
+  "contributes": {
+    "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
+    "views": [{ "id": "list", "title": "List", "location": "panel" }]
+  }
+}

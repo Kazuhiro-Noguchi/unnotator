@@ -3,5 +3,8 @@
   "bad-id-pattern.json": "pattern",
   "reserved-core-id.json": "pattern",
   "unknown-property.json": "additionalProperties",
-  "bad-version.json": "pattern"
+  "bad-version.json": "pattern",
+  "editor-without-entry.json": "required",
+  "previewer-without-entry.json": "required",
+  "view-without-entry.json": "required"
 }

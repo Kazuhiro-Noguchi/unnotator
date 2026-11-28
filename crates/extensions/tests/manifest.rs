@@ -104,3 +104,53 @@ fn a_failure_still_reports_the_extension_id_when_it_can_be_read() {
     let problems = parse_manifest(br#"{ "id": "com.example.x", "version": "nope", "engines": {"unnotator":"^1.0.0"}, "main": "dist/index.js" }"#).unwrap_err();
     assert_eq!(problems[0].extension_id, "com.example.x");
 }
+
+#[test]
+fn an_editor_a_previewer_and_a_view_must_each_declare_an_entry() {
+    for (kind, item) in [
+        (
+            "editors",
+            json!({ "id": "e", "title": "e", "mediaTypes": ["t"] }),
+        ),
+        ("previewers", json!({ "id": "p", "mediaTypes": ["t"] })),
+        (
+            "views",
+            json!({ "id": "v", "title": "v", "location": "panel" }),
+        ),
+    ] {
+        let build = |item: serde_json::Value| {
+            manifest("com.example.a", "1.0.0")
+                .media_type("t", &[".t"], &[])
+                .push(kind, item)
+                .bytes()
+        };
+        let problems = parse_manifest(&build(item.clone())).expect_err(kind);
+        assert_eq!(
+            problems[0].pointer,
+            format!("/contributes/{kind}/0"),
+            "{kind}"
+        );
+        let mut with_entry = item;
+        with_entry["entry"] = json!("dist/surface.js");
+        let parsed = parse_manifest(&build(with_entry));
+        assert!(parsed.is_ok(), "{kind}: {:?}", parsed.err());
+    }
+}
+
+#[test]
+fn an_entry_must_be_a_relative_path_inside_the_package() {
+    for bad in ["/abs.js", "../up.js", "a\\b.js"] {
+        let m = manifest("com.example.a", "1.0.0")
+            .media_type("t", &[".t"], &[])
+            .push(
+                "previewers",
+                json!({ "id": "p", "mediaTypes": ["t"], "entry": bad }),
+            )
+            .bytes();
+        let problems = parse_manifest(&m).expect_err(bad);
+        assert_eq!(
+            problems[0].pointer, "/contributes/previewers/0/entry",
+            "{bad}"
+        );
+    }
+}

@@ -139,6 +139,10 @@ export class ActivationManager {
     for (const d of list) this.descriptors.set(d.id, d);
   }
 
+  versionOf(id: string): string {
+    return this.descriptors.get(id)?.version ?? "";
+  }
+
   state(id: string): RuntimeState {
     const descriptor = this.descriptors.get(id);
     if (descriptor !== undefined && !descriptor.enabled) {

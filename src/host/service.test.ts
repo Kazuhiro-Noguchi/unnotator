@@ -11,11 +11,19 @@ function info(
     id,
     version: "1.0.0",
     status,
-    manifest: JSON.stringify({ id, version: "1.0.0", main: "dist/index.js", ...manifest }),
+    manifest: JSON.stringify({
+      id,
+      version: "1.0.0",
+      main: "dist/index.js",
+      ...manifest,
+    }),
   };
 }
 
-function setup(list: ExtensionInfo[], behaviour: "ready" | "error" | "silent" = "ready") {
+function setup(
+  list: ExtensionInfo[],
+  behaviour: "ready" | "error" | "silent" = "ready",
+) {
   const ports = new Map<string, MessagePort>();
   const sent: { id: string; message: unknown }[] = [];
   const report = vi.fn();
@@ -31,11 +39,13 @@ function setup(list: ExtensionInfo[], behaviour: "ready" | "error" | "silent" = 
     handle: async () => null,
     report,
     startTimeoutMs: 50,
+    stopTimeoutMs: 20,
     deliverInit: (element, init, port) => {
       const id = (init as { ext: { id: string } }).ext.id;
       ports.set(id, port);
       port.onmessage = (event) => sent.push({ id, message: event.data });
-      if (behaviour === "ready") port.postMessage({ t: "rep", kind: "ready", v: null });
+      if (behaviour === "ready")
+        port.postMessage({ t: "rep", kind: "ready", v: null });
       if (behaviour === "error")
         port.postMessage({
           t: "rep",
@@ -46,9 +56,17 @@ function setup(list: ExtensionInfo[], behaviour: "ready" | "error" | "silent" = 
     },
   });
   const loadFrames = () => {
-    for (const el of container.querySelectorAll("iframe")) el.dispatchEvent(new Event("load"));
+    for (const el of container.querySelectorAll("iframe"))
+      el.dispatchEvent(new Event("load"));
   };
-  return { host, container, sent, report, loadFrames, setList: (l: ExtensionInfo[]) => (current = l) };
+  return {
+    host,
+    container,
+    sent,
+    report,
+    loadFrames,
+    setList: (l: ExtensionInfo[]) => (current = l),
+  };
 }
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
@@ -82,7 +100,10 @@ describe("createExtensionHost", () => {
   });
 
   it("読み込みの失敗は failed になり、利用者に知らせる", async () => {
-    const t = setup([info("a.bad", { activationEvents: ["onStartup"] })], "error");
+    const t = setup(
+      [info("a.bad", { activationEvents: ["onStartup"] })],
+      "error",
+    );
     const p = t.host.startup();
     await tick();
     t.loadFrames();
@@ -91,13 +112,20 @@ describe("createExtensionHost", () => {
       status: "failed",
       failure: { code: "StartFailed", message: "load failed" },
     });
-    expect(t.report).toHaveBeenCalledWith("error", expect.stringContaining("load failed"), "a.bad");
+    expect(t.report).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("load failed"),
+      "a.bad",
+    );
     // 失敗した枠は残さない。
     expect(t.container.querySelectorAll("iframe")).toHaveLength(0);
   });
 
   it("枠が応答しなければ、時間切れで failed", async () => {
-    const t = setup([info("a.slow", { activationEvents: ["onStartup"] })], "silent");
+    const t = setup(
+      [info("a.slow", { activationEvents: ["onStartup"] })],
+      "silent",
+    );
     const p = t.host.startup();
     await tick();
     t.loadFrames();
@@ -107,7 +135,9 @@ describe("createExtensionHost", () => {
   });
 
   it("trigger で、あとから有効にできる", async () => {
-    const t = setup([info("a.lazy", { activationEvents: ["onCommand:a.lazy.run"] })]);
+    const t = setup([
+      info("a.lazy", { activationEvents: ["onCommand:a.lazy.run"] }),
+    ]);
     await t.host.startup();
     expect(t.container.querySelectorAll("iframe")).toHaveLength(0);
     const p = t.host.trigger("onCommand:a.lazy.run");
@@ -123,7 +153,9 @@ describe("createExtensionHost", () => {
     await tick();
     t.loadFrames();
     await p;
-    t.setList([info("a.start", { activationEvents: ["onStartup"] }, "disabled")]);
+    t.setList([
+      info("a.start", { activationEvents: ["onStartup"] }, "disabled"),
+    ]);
     const r = t.host.refresh();
     await tick();
     // 枠が `deactivate` に応答しなくても、時間切れのあとで取り除かれる。
@@ -143,7 +175,9 @@ describe("createExtensionHost", () => {
   });
 
   it("マニフェストが読めないものは、無視する", async () => {
-    const t = setup([{ id: "a.broken", version: "1.0.0", status: "enabled", manifest: "{" }]);
+    const t = setup([
+      { id: "a.broken", version: "1.0.0", status: "enabled", manifest: "{" },
+    ]);
     await expect(t.host.startup()).resolves.toBeUndefined();
   });
 });

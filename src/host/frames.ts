@@ -90,6 +90,8 @@ export interface FrameManager {
   removeAll(extensionId: string): void;
   framesOf(extensionId: string): Frame[];
   background(extensionId: string): Frame | undefined;
+  /** 裏の枠を持つ拡張機能の ID。 */
+  backgroundIds(): string[];
 }
 
 export function createFrameManager(options: FrameManagerOptions): FrameManager {
@@ -192,5 +194,7 @@ export function createFrameManager(options: FrameManagerOptions): FrameManager {
     },
     framesOf,
     background,
+    backgroundIds: () =>
+      [...frames.keys()].filter((id) => background(id) !== undefined),
   };
 }

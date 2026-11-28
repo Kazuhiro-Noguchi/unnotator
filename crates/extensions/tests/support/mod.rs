@@ -119,7 +119,7 @@ impl ManifestBuilder {
     pub fn editor(self, local: &str, media_types: &[&str]) -> Self {
         self.push(
             "editors",
-            json!({ "id": local, "title": local, "mediaTypes": media_types }),
+            json!({ "id": local, "title": local, "mediaTypes": media_types, "entry": "dist/editor.js" }),
         )
     }
 

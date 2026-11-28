@@ -17,6 +17,7 @@ import {
   setSettingsOpen,
   settingsOpen,
 } from "../ui-state";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ConsentDialog } from "./ConsentDialog";
 import { Dialog } from "./Dialog";
 
@@ -149,6 +150,7 @@ export function Overlays() {
       <FolderDialog />
       <CloseDialog />
       <ConsentDialog />
+      <ConfirmDialog />
       <StandaloneHost />
     </>
   );

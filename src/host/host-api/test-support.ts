@@ -1,7 +1,9 @@
 // Host API のテスト用の部品（本番では使わない）。
 import { vi } from "vitest";
+import { Registrations } from "../activation";
 import type { HostRequest } from "../channel";
 import { createHostApi, type HostApi, type HostApiDeps } from "./api";
+import type { ShellPort } from "./api-types";
 import type { HostIpc } from "./ipc";
 import { createManifestIndex } from "./manifests";
 import { createPermissionGate, type PermissionGate } from "./permissions";
@@ -61,6 +63,20 @@ export function gateAllowing(...allowed: string[]): PermissionGate {
   });
 }
 
+/** 何もしないシェル。必要な関数だけ差し替える。 */
+export function fakeShell(overrides: Partial<ShellPort> = {}): ShellPort {
+  return {
+    notify: vi.fn(),
+    confirm: vi.fn(async () => true),
+    setStatusBarItem: vi.fn(),
+    showView: vi.fn(),
+    setContext: vi.fn(),
+    provideCommand: vi.fn(() => ({ dispose: vi.fn() })),
+    executeCommand: vi.fn(async () => ({ ok: true as const })),
+    ...overrides,
+  };
+}
+
 export function setup(
   overrides: Omit<Partial<HostApiDeps>, "ipc"> & {
     ipc?: Partial<HostIpc>;
@@ -77,6 +93,13 @@ export function setup(
     gate: openGate(),
     locale: () => "ja",
     manifests: createManifestIndex(() => []),
+    registrations: (
+      (regs) => () =>
+        regs
+    )(new Registrations()),
+    members: new Map(),
+    shell: fakeShell(),
+    callFrame: vi.fn(async () => null),
     ...overrides,
     ipc,
     state,

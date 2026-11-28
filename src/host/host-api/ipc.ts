@@ -197,15 +197,17 @@ export const realHostIpc: HostIpc = {
   labelsList: (extId) => commands.extLabelsList(extId),
   schemasList: (extId) => commands.extSchemasList(extId),
   applyCommand: (extId, command) => commands.extApplyCommand(extId, command),
-  // 次の 3 つの IPC は、書き込み・保存領域の実装（T041・T047）で足す。
-  storageGet: unavailable("storage"),
-  storageSet: unavailable("storage"),
-  projectFileRead: unavailable("projectFiles"),
-  projectFileWrite: unavailable("projectFiles"),
-  log: unavailable("log"),
+  storageGet: (extId, scope, key) =>
+    commands.extStorageGet(extId, scope.kind, scope.id, key),
+  storageSet: async (extId, scope, key, valueJson) => {
+    await commands.extStorageSet(extId, scope.kind, scope.id, key, valueJson);
+  },
+  projectFileRead: (extId, relPath) =>
+    commands.extProjectFileRead(extId, relPath),
+  projectFileWrite: async (extId, relPath, data) => {
+    await commands.extProjectFileWrite(extId, relPath, data);
+  },
+  log: async (extId, level, message) => {
+    await commands.extLog(extId, level, message);
+  },
 };
-
-function unavailable(name: string): () => Promise<never> {
-  return () =>
-    Promise.reject({ code: "internal", message: `${name} is not wired` });
-}

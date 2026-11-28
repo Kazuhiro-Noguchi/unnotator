@@ -319,5 +319,6 @@
   "host.permission.fs.import": "Read files to import",
   "host.permission.python.spawn": "Run Python tasks",
   "host.permission.network": "Network access",
-  "host.notice.untrusted": "Extension notice"
+  "host.notice.untrusted": "Extension notice",
+  "host.confirm.title": "Confirmation from the extension \"{name}\""
 }

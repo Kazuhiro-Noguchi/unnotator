@@ -10,6 +10,7 @@ pub mod group;
 pub mod items;
 pub mod label;
 pub mod meta;
+pub mod plugin_data;
 pub mod relation;
 pub mod rows;
 pub mod status;
@@ -102,6 +103,30 @@ impl AttributeScope {
             Self::AnnotationType => "annotation_type",
             Self::RelationType => "relation_type",
             Self::GroupType => "group_type",
+            Self::Asset => "asset",
+            Self::Item => "item",
+        }
+    }
+}
+
+/// 拡張機能専用の保存領域の単位（`plugin_data.scope`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub enum PluginScope {
+    /// プロジェクト全体（`scope_id` は空）。
+    Project,
+    /// アセット（`scope_id` はアセット ID）。
+    Asset,
+    /// アイテム（`scope_id` は `<アセット ID>/<アイテムのキー>`）。
+    Item,
+}
+
+impl PluginScope {
+    /// 契約の CHECK の値。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Project => "project",
             Self::Asset => "asset",
             Self::Item => "item",
         }
@@ -329,6 +354,15 @@ pub enum Command {
         namespace: String,
         metadata_json: String,
     },
+    /// 拡張機能専用の値の保存（`host.storage.set`）。Undo に積まない。値は丸ごと置き換わる。
+    SetPluginData {
+        /// 拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。
+        plugin_id: String,
+        scope: PluginScope,
+        scope_id: String,
+        key: String,
+        value_json: String,
+    },
     /// 走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。
     SyncAssets {
         #[serde(default)]
@@ -384,6 +418,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "set_item_attributes",
     "set_asset_metadata",
     "set_item_metadata",
+    "set_plugin_data",
     "sync_assets",
     "relink_asset",
     "delete_asset",
@@ -418,6 +453,7 @@ impl Command {
             Self::SetItemAttributes { .. } => "set_item_attributes",
             Self::SetAssetMetadata { .. } => "set_asset_metadata",
             Self::SetItemMetadata { .. } => "set_item_metadata",
+            Self::SetPluginData { .. } => "set_plugin_data",
             Self::SyncAssets { .. } => "sync_assets",
             Self::RelinkAsset { .. } => "relink_asset",
             Self::DeleteAsset { .. } => "delete_asset",
@@ -428,7 +464,7 @@ impl Command {
     /// Undo の履歴に積む操作か。走査・見張りの反映（`SyncAssets`）は積まない。
     pub fn undoable(&self) -> bool {
         match self {
-            Self::SyncAssets { .. } => false,
+            Self::SyncAssets { .. } | Self::SetPluginData { .. } => false,
             Self::Transaction { commands } => commands.iter().all(Command::undoable),
             _ => true,
         }
@@ -644,6 +680,13 @@ mod tests {
                 item,
                 namespace: "x.y".into(),
                 metadata_json: "{}".into(),
+            },
+            Command::SetPluginData {
+                plugin_id: "x.y".into(),
+                scope: PluginScope::Project,
+                scope_id: String::new(),
+                key: "k".into(),
+                value_json: "1".into(),
             },
             Command::SyncAssets {
                 added: vec![],

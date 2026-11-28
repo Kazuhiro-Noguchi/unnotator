@@ -228,6 +228,17 @@ impl ProjectStore {
         crate::query::ext::ext_item(&self.conn, asset_id, item_key)
     }
 
+    /// 拡張機能専用の値（009。`host.storage.get`）。
+    pub fn plugin_value(
+        &self,
+        plugin_id: &str,
+        scope: crate::command::PluginScope,
+        scope_id: &str,
+        key: &str,
+    ) -> Result<Option<String>, StoreError> {
+        crate::query::ext::plugin_value(&self.conn, plugin_id, scope, scope_id, key)
+    }
+
     pub fn ext_annotations(
         &self,
         filter: &crate::query::ext::ExtAnnotationFilter,

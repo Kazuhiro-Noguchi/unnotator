@@ -103,6 +103,7 @@
     "set_item_status": "project.status",
     "set_asset_metadata": "assets.metadata",
     "set_item_metadata": "assets.metadata",
+    "set_plugin_data": false,
     "set_asset_note": false,
     "set_asset_attributes": false,
     "set_item_attributes": false,

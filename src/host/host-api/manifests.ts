@@ -24,6 +24,11 @@ export interface ManifestFacts {
   };
   /** 宣言した種別（ローカル名）の版。 */
   annotationTypeVersions: Record<string, number>;
+  /** 宣言したステータスバー項目（ローカル名 → 位置・優先度・コマンド）。 */
+  statusBarItems: Record<
+    string,
+    { alignment: "left" | "right"; priority: number; command?: string }
+  >;
   settingKeys: string[];
 }
 
@@ -50,6 +55,24 @@ function versions(list: unknown): Record<string, number> {
       Number.isInteger(entry.version)
     )
       out[entry.id] = entry.version;
+  }
+  return out;
+}
+
+function statusBarSpecs(list: unknown): ManifestFacts["statusBarItems"] {
+  const out: ManifestFacts["statusBarItems"] = {};
+  if (!Array.isArray(list)) return out;
+  for (const entry of list) {
+    if (!isRecord(entry) || typeof entry.id !== "string") continue;
+    const alignment = entry.alignment === "right" ? "right" : "left";
+    const priority =
+      typeof entry.priority === "number" && Number.isFinite(entry.priority)
+        ? entry.priority
+        : 0;
+    out[entry.id] =
+      typeof entry.command === "string"
+        ? { alignment, priority, command: entry.command }
+        : { alignment, priority };
   }
   return out;
 }
@@ -89,6 +112,7 @@ export function parseManifest(source: ManifestSource): ManifestFacts | null {
       tools: names(c.tools),
     },
     annotationTypeVersions: versions(c.annotationTypes),
+    statusBarItems: statusBarSpecs(c.statusBarItems),
     settingKeys: Object.keys(properties),
   };
 }

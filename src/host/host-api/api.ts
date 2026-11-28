@@ -2,6 +2,7 @@
 // 送り主の拡張機能 ID は、枠の経路（port）で決まったもの。引数の中の自己申告は使わない。
 import type { HostRequest } from "../channel";
 import type { Ctx, Handlers, HostApiDeps } from "./api-types";
+import { createMiscHandlers } from "./misc";
 import { HostApiError } from "./permissions";
 import { readHandlers } from "./read";
 import { createWriteHandlers } from "./write";
@@ -45,6 +46,7 @@ export function createHostApi(
     {},
     readHandlers,
     write.handlers,
+    createMiscHandlers(),
     ...extra,
   );
   return {

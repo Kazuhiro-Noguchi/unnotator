@@ -314,6 +314,222 @@ pub fn ext_asset_bytes(
     read_asset_range(&file, to_u64(offset), length.map(to_u64))
 }
 
+/// `host.storage.get`。自分の名前空間だけを読む（`plugin_id` は `ext_id` に固定）。
+pub fn ext_storage_value(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    scope: unnotator_core::command::PluginScope,
+    scope_id: &str,
+    key: &str,
+) -> Result<Option<String>, IpcError> {
+    ext_check_method(rt, ext_id, "storage.get")?;
+    crate::project_commands::with_store(project, |store| {
+        store.plugin_value(ext_id, scope, scope_id, key)
+    })
+}
+
+/// `host.storage.set`。書き込みは `apply_command` の経路（Undo には積まない）。
+pub fn ext_storage_write(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    scope: unnotator_core::command::PluginScope,
+    scope_id: &str,
+    key: &str,
+    value_json: &str,
+) -> Result<(), IpcError> {
+    ext_check_method(rt, ext_id, "storage.set")?;
+    crate::project_commands::apply(
+        project,
+        Command::SetPluginData {
+            plugin_id: ext_id.to_owned(),
+            scope,
+            scope_id: scope_id.to_owned(),
+            key: key.to_owned(),
+            value_json: value_json.to_owned(),
+        },
+    )
+    .map(|_| ())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_storage_get(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    scope: unnotator_core::command::PluginScope,
+    scope_id: String,
+    key: String,
+) -> Result<Option<String>, IpcError> {
+    ext_storage_value(&rt, &project, &ext_id, scope, &scope_id, &key)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_storage_set(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    scope: unnotator_core::command::PluginScope,
+    scope_id: String,
+    key: String,
+    value_json: String,
+) -> Result<(), IpcError> {
+    ext_storage_write(&rt, &project, &ext_id, scope, &scope_id, &key, &value_json)
+}
+
+/// `host.projectFiles` の 1 回の書き込みの大きさの上限（バイト）。
+pub const MAX_PROJECT_FILE_BYTES: usize = 16 * 1024 * 1024;
+
+/// `.unnotator/plugins/<ext_id>/` の中の `rel_path` の場所。`..`・絶対パス・区切りの違い・空の成分は拒否する。
+pub fn plugin_file_path(
+    project_folder: &std::path::Path,
+    ext_id: &str,
+    rel_path: &str,
+) -> Result<PathBuf, IpcError> {
+    let bad = |message: &str| IpcError {
+        code: "invalid_command".to_owned(),
+        message: message.to_owned(),
+    };
+    if ext_id.is_empty() || ext_id.contains(['/', '\\', '\0']) || ext_id == "." || ext_id == ".." {
+        return Err(bad("拡張機能 ID が使えません"));
+    }
+    if rel_path.is_empty()
+        || rel_path.len() > 1024
+        || rel_path.contains(['\\', '\0', ':'])
+        || rel_path.starts_with('/')
+    {
+        return Err(bad("パスが使えません"));
+    }
+    let mut path = project_folder
+        .join(".unnotator")
+        .join("plugins")
+        .join(ext_id);
+    for part in rel_path.split('/') {
+        if part.is_empty() || part == "." || part == ".." || part.len() > 255 {
+            return Err(bad("パスが使えません"));
+        }
+        path.push(part);
+    }
+    Ok(path)
+}
+
+/// 書く先が、すでにある領域の外へ出ていない（シンボリックリンクで抜けない）ことを確かめる。
+fn inside_plugin_dir(base: &std::path::Path, target: &std::path::Path) -> bool {
+    let Ok(base) = base.canonicalize() else {
+        return true; // まだ無い領域は、これから作る
+    };
+    let mut probe = target.to_path_buf();
+    // 無いところは、いちばん近い親で確かめる。
+    while !probe.exists() {
+        if !probe.pop() {
+            return false;
+        }
+    }
+    probe
+        .canonicalize()
+        .is_ok_and(|real| real.starts_with(base))
+}
+
+pub fn ext_project_file_bytes(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    rel_path: &str,
+) -> Result<Option<Vec<u8>>, IpcError> {
+    ext_check_method(rt, ext_id, "projectFiles.read")?;
+    let folder =
+        crate::project_commands::with_store(project, |store| Ok(store.folder().to_path_buf()))?;
+    let path = plugin_file_path(&folder, ext_id, rel_path)?;
+    let base = folder.join(".unnotator").join("plugins").join(ext_id);
+    if !inside_plugin_dir(&base, &path) {
+        return Err(IpcError {
+            code: "permission_denied".to_owned(),
+            message: "領域の外です".to_owned(),
+        });
+    }
+    match std::fs::read(&path) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(IpcError {
+            code: "io".to_owned(),
+            message: error.to_string(),
+        }),
+    }
+}
+
+pub fn ext_project_file_put(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    rel_path: &str,
+    data: &[u8],
+) -> Result<(), IpcError> {
+    ext_check_method(rt, ext_id, "projectFiles.write")?;
+    if data.len() > MAX_PROJECT_FILE_BYTES {
+        return Err(IpcError {
+            code: "invalid_command".to_owned(),
+            message: "ファイルが大きすぎます".to_owned(),
+        });
+    }
+    let folder =
+        crate::project_commands::with_store(project, |store| Ok(store.folder().to_path_buf()))?;
+    let path = plugin_file_path(&folder, ext_id, rel_path)?;
+    let base = folder.join(".unnotator").join("plugins").join(ext_id);
+    if !inside_plugin_dir(&base, &path) {
+        return Err(IpcError {
+            code: "permission_denied".to_owned(),
+            message: "領域の外です".to_owned(),
+        });
+    }
+    unnotator_core::fsio::atomic_write(&path, data, None).map_err(IpcError::from)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_project_file_read(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    rel_path: String,
+) -> Result<Option<Vec<u8>>, IpcError> {
+    ext_project_file_bytes(&rt, &project, &ext_id, &rel_path)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_project_file_write(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    rel_path: String,
+    data: Vec<u8>,
+) -> Result<(), IpcError> {
+    ext_project_file_put(&rt, &project, &ext_id, &rel_path, &data)
+}
+
+/// `host.log`。拡張機能 ID つきで `tracing` に記録する。長さは呼び出し側（本体）が制限済みだが、ここでも切る。
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_log(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    ext_id: String,
+    level: String,
+    message: String,
+) -> Result<(), IpcError> {
+    ext_check_method(&rt, &ext_id, "log")?;
+    let message: String = message.chars().take(2000).collect();
+    match level.as_str() {
+        "debug" => tracing::debug!(extension = %ext_id, "{message}"),
+        "warn" => tracing::warn!(extension = %ext_id, "{message}"),
+        "error" => tracing::error!(extension = %ext_id, "{message}"),
+        _ => tracing::info!(extension = %ext_id, "{message}"),
+    }
+    Ok(())
+}
+
 /// 拡張機能の状態（登録簿・利用者の状態・同意）。
 pub struct ExtensionRuntime {
     paths: AppPaths,
@@ -1712,5 +1928,124 @@ mod tests {
             },
         );
         assert!(nested.is_err());
+    }
+
+    #[test]
+    fn ext_storage_is_scoped_to_the_extension_and_counts_as_unsaved() {
+        use unnotator_core::command::PluginScope;
+        let temp = Temp::new();
+        let (rt, project, _asset) = ready(&temp, &[], &[]);
+        let id = "com.example.text";
+        ext_storage_write(
+            &rt,
+            &project,
+            id,
+            PluginScope::Project,
+            "",
+            "k",
+            "{\"a\":1}",
+        )
+        .expect("書ける");
+        assert_eq!(
+            ext_storage_value(&rt, &project, id, PluginScope::Project, "", "k").expect("読める"),
+            Some("{\"a\":1}".to_owned())
+        );
+        // 保存の対象になる
+        let state =
+            crate::project_commands::with_store(&project, |s| Ok(s.save_state())).expect("状態");
+        assert!(state.dirty);
+        // 知らない拡張機能は読み書きできない
+        assert_eq!(
+            ext_storage_write(
+                &rt,
+                &project,
+                "com.example.ghost",
+                PluginScope::Project,
+                "",
+                "k",
+                "1"
+            )
+            .unwrap_err()
+            .code,
+            "not_found"
+        );
+        // ext_apply_command からは書けない（専用の IPC だけ）
+        let direct = Command::SetPluginData {
+            plugin_id: "com.example.other".to_owned(),
+            scope: PluginScope::Project,
+            scope_id: String::new(),
+            key: "k".to_owned(),
+            value_json: "1".to_owned(),
+        };
+        assert_eq!(
+            ext_apply(&rt, &project, id, direct).unwrap_err().code,
+            "permission_denied"
+        );
+    }
+
+    #[test]
+    fn project_files_stay_inside_the_extension_directory() {
+        let temp = Temp::new();
+        let (rt, project, _asset) = ready(&temp, &["project.files"], &["project.files"]);
+        let id = "com.example.text";
+        ext_project_file_put(&rt, &project, id, "notes/a.txt", b"hello").expect("書ける");
+        assert_eq!(
+            ext_project_file_bytes(&rt, &project, id, "notes/a.txt").expect("読める"),
+            Some(b"hello".to_vec())
+        );
+        assert_eq!(
+            ext_project_file_bytes(&rt, &project, id, "none.txt").expect("読める"),
+            None
+        );
+        for bad in [
+            "../x",
+            "/abs",
+            "a/../../b",
+            "a//b",
+            "",
+            "C:/x",
+            "a\\b",
+            "./a",
+        ] {
+            assert!(
+                ext_project_file_put(&rt, &project, id, bad, b"x").is_err(),
+                "{bad}"
+            );
+            assert!(
+                ext_project_file_bytes(&rt, &project, id, bad).is_err(),
+                "{bad}"
+            );
+        }
+        // 他の拡張機能の領域には、書いた場所が入らない
+        let other = temp
+            .0
+            .join("project/.unnotator/plugins/com.example.other/notes/a.txt");
+        assert!(!other.exists());
+        assert!(
+            temp.0
+                .join("project/.unnotator/plugins/com.example.text/notes/a.txt")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn project_files_need_the_permission() {
+        let temp = Temp::new();
+        let (rt, project, _asset) = ready(&temp, &["project.files"], &[]);
+        assert_eq!(
+            ext_project_file_put(&rt, &project, "com.example.text", "a.txt", b"x")
+                .unwrap_err()
+                .code,
+            "needs_consent"
+        );
+    }
+
+    #[test]
+    fn project_file_paths_are_resolved_without_touching_the_disk() {
+        let base = std::path::Path::new("/p");
+        let ok = plugin_file_path(base, "com.example.text", "a/b.txt").expect("通る");
+        assert!(ok.ends_with("plugins/com.example.text/a/b.txt"));
+        assert!(plugin_file_path(base, "../evil", "a").is_err());
+        assert!(plugin_file_path(base, "a/b", "a").is_err());
     }
 }

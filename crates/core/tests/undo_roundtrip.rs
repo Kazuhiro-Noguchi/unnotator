@@ -509,7 +509,7 @@ fn scenarios() -> Vec<Scenario> {
 
 /// 往復テストの網羅から外すコマンド。全コマンドが揃ったので空。
 /// 往復の対象外のコマンド（Undo に積まない書き込み。振る舞いは `sync_command.rs` で確かめる）。
-const PENDING: &[&str] = &["sync_assets"];
+const PENDING: &[&str] = &["sync_assets", "set_plugin_data"];
 
 #[test]
 fn every_command_round_trips() {

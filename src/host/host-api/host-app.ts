@@ -1,9 +1,10 @@
 // Host API の本体（アプリで 1 つ）。権限の門・各部の実装・本体の状態の写しを束ねる。
 // `instance.ts` が、拡張機能ホスト（`createExtensionHost`）の `handle` などに結ぶ。
+import { Registrations } from "../activation";
 import type { HostRequest } from "../channel";
 import type { Frame } from "../frames";
 import { createHostApi, type HostApi } from "./api";
-import type { Handlers } from "./api-types";
+import type { Handlers, ShellPort } from "./api-types";
 import { type ChangeBridge, createChangeBridge } from "./events";
 import type { HostIpc } from "./ipc";
 import type { ManifestIndex } from "./manifests";
@@ -30,6 +31,10 @@ export interface HostAppDeps {
   background?(
     extId: string,
   ): Promise<{ call(m: string, a: unknown): Promise<unknown> } | undefined>;
+  /** 拡張機能ごとの登録（止めたとき、まとめて取り消す）。`ActivationManager` のものを渡す。 */
+  registrations?: () => Registrations;
+  /** シェル（画面）側の受け口。無ければ何もしない（テスト用）。 */
+  shell?: ShellPort;
   /** 各部の実装（write・events・misc など）。 */
   handlers?: (app: HostApp) => Handlers[];
 }
@@ -53,6 +58,16 @@ export interface HostApp {
 const LOG_LEVELS = new Set(["debug", "info", "warn", "error"]);
 /** `host.log` 1 件の文字数の上限。 */
 export const MAX_LOG_CHARS = 2000;
+
+const IDLE_SHELL: ShellPort = {
+  notify: () => {},
+  confirm: async () => false,
+  setStatusBarItem: () => {},
+  showView: () => {},
+  setContext: () => {},
+  provideCommand: () => ({ dispose() {} }),
+  executeCommand: async () => ({ ok: false, reason: "unknown" }),
+};
 
 export function createHostApp(deps: HostAppDeps): HostApp {
   const state = createHostState();
@@ -82,6 +97,8 @@ export function createHostApp(deps: HostAppDeps): HostApp {
 
   /** 種別の実装が登録したメンバー（`register` の `members`）。`validate` があるかを知る。 */
   const members = new Map<string, readonly string[]>();
+  const fallbackRegistrations = new Registrations();
+  const registrations = () => deps.registrations?.() ?? fallbackRegistrations;
   const typeChecks = createTypeChecks({
     manifests: deps.manifests,
     background: async (extId) => deps.background?.(extId),
@@ -165,6 +182,15 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       state,
       locale: deps.locale,
       manifests: deps.manifests,
+      registrations,
+      members,
+      shell: deps.shell ?? IDLE_SHELL,
+      callFrame: async (extId, m, a) => {
+        const frame = await deps.background?.(extId);
+        if (frame === undefined)
+          throw new Error(`extension is not running: ${extId}`);
+        return frame.call(m, a);
+      },
       typeChecks,
       onApplied: (set, name) => changes.noteLabel(set.seq, name),
     },

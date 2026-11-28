@@ -143,6 +143,7 @@
 			"set_item_status": "project.status",
 			"set_asset_metadata": "assets.metadata",
 			"set_item_metadata": "assets.metadata",
+			"set_plugin_data": false,
 			"set_asset_note": false,
 			"set_asset_attributes": false,
 			"set_item_attributes": false,
@@ -207,7 +208,10 @@
 				deps.request(full, {
 					localId,
 					members: memberNames(impl)
-				});
+				}).catch((error) => deps.report("log", {
+					level: "error",
+					args: [`${full}(${localId}) was rejected: ${error instanceof Error ? error.message : String(error)}`]
+				}));
 				return { dispose: () => void handlers.delete(`${space}:${localId}`) };
 			};
 			else if (full in EVENT_KEYS) {

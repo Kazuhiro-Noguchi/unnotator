@@ -1,6 +1,8 @@
 //! 適用の入口。1 回の適用は 1 トランザクションで、行の変更を `Recorder` に記録する。
 
-use super::{Command, annotation, asset, attribute_schema, group, label, meta, relation, status};
+use super::{
+    Command, annotation, asset, attribute_schema, group, label, meta, plugin_data, relation, status,
+};
 use crate::error::StoreError;
 use crate::history::recorder::Recorder;
 use crate::id::IdGenerator;
@@ -82,6 +84,7 @@ pub fn run(ctx: &mut Ctx<'_>, command: &Command) -> Result<(), StoreError> {
         | Command::SetItemAttributes { .. }
         | Command::SetAssetMetadata { .. }
         | Command::SetItemMetadata { .. } => meta::handle(ctx, command),
+        Command::SetPluginData { .. } => plugin_data::handle(ctx, command),
         Command::SyncAssets { .. } | Command::RelinkAsset { .. } | Command::DeleteAsset { .. } => {
             asset::handle(ctx, command)
         }

@@ -106,7 +106,17 @@ export function createHost(deps: HostProxyDeps): {
     if (name === "register") {
       target[name] = (localId: string, impl: unknown) => {
         handlers.set(`${space}:${localId}`, impl);
-        void deps.request(full, { localId, members: memberNames(impl) });
+        // 登録はホストが宣言と照らして決める。拒否されたら、ログに残す（例外にはしない）。
+        deps
+          .request(full, { localId, members: memberNames(impl) })
+          .catch((error: unknown) =>
+            deps.report("log", {
+              level: "error",
+              args: [
+                `${full}(${localId}) was rejected: ${error instanceof Error ? error.message : String(error)}`,
+              ],
+            }),
+          );
         return { dispose: () => void handlers.delete(`${space}:${localId}`) };
       };
     } else if (full in EVENT_KEYS) {

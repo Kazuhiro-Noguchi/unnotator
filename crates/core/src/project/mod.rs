@@ -485,6 +485,7 @@ impl ProjectStore {
             ctx.into_recorder().into_ops()
         };
         let undoable = command.undoable();
+        let plain = matches!(command, Command::SetPluginData { .. });
         let origin = if undoable {
             Origin::Apply
         } else {
@@ -492,6 +493,19 @@ impl ProjectStore {
         };
         self.hub.run_before_commit(&tx, origin, &ops)?;
         tx.commit()?;
+        if plain {
+            // 拡張機能専用の値: Undo にも差分の通知にも入れないが、未保存に数えて保存の対象にする。
+            self.seq += 1;
+            let entry = EntryMeta {
+                label: command.name().to_owned(),
+                source: command.source().unwrap_or("user").to_owned(),
+                command_json: json_of(&command),
+                inverse: Vec::new(),
+            };
+            self.append_journal(&entry, None);
+            self.notify_state();
+            return Ok(ChangeSet::from_ops(self.seq, Origin::Apply, &[], &|_| None));
+        }
         let entry = EntryMeta {
             label: command.name().to_owned(),
             source: command.source().unwrap_or("user").to_owned(),

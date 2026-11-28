@@ -3,9 +3,16 @@ import { detectLanguage } from "../i18n";
 import { commands, events } from "../ipc";
 import { explorer } from "../shell/explorer/instance";
 import { activeLabel } from "../shell/labels/instance";
+import { showExtensionView } from "../shell/layout/surfaces-instance";
+import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
 import { reportProblem } from "../shell/problems";
-import { notify } from "../shell/services";
+import {
+  ctx,
+  notify,
+  commands as shellCommands,
+  statusStore,
+} from "../shell/services";
 import { createHostApp } from "./host-api/host-app";
 import { realHostIpc } from "./host-api/ipc";
 import { createManifestIndex } from "./host-api/manifests";
@@ -72,6 +79,22 @@ export const hostApp = createHostApp({
   locale: () => detectLanguage(),
   nameOf: displayName,
   ask: (prompt) => askConsent(prompt),
+  registrations: () => extensionHost.manager.registrations,
+  shell: {
+    notify: (level, text, source) => notify(level, text, { source }),
+    confirm: (prompt) =>
+      askConfirm({ ...prompt, name: displayName(prompt.extId) }),
+    setStatusBarItem: (item, key) => statusStore.setItem(item, key),
+    showView: (id) => void showExtensionView(id),
+    setContext: (extId, key, value) => ctx.setNamespaced(extId, key, value),
+    provideCommand: (id, run) => shellCommands.provide(id, run),
+    executeCommand: async (id, args) => {
+      const result = await shellCommands.execute(id, args);
+      return result.ok
+        ? { ok: true, value: result.value }
+        : { ok: false, reason: result.reason };
+    },
+  },
   background: async (id) => {
     try {
       await extensionHost.manager.activate(id);

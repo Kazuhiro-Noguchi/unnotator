@@ -1954,3 +1954,10 @@ fieldset.ribbon-group {
 .consent-list small {
   color: var(--color-fg-muted);
 }
+
+/* 拡張機能の確認ダイアログの本文（文字として、折り返して出す） */
+.confirm-message {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

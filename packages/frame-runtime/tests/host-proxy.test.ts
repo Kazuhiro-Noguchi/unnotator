@@ -91,6 +91,42 @@ describe("annotations.transaction（関数を渡せないので begin / commit /
   });
 });
 
+describe("register", () => {
+  it("localId と、実装の関数メンバーの名前を送る。拒否されたらログに残す", async () => {
+    const report = vi.fn();
+    const request = vi.fn(async () => {
+      throw new Error("not declared");
+    });
+    const { host } = createHost({
+      ext: { id: "com.example.a", version: "1.0.0", path: "" },
+      mirror: createMirror({}),
+      locale: "ja",
+      messages: {},
+      base: "unno://localhost",
+      request,
+      report,
+    });
+    const annotationTypes = host.annotationTypes as Record<
+      string,
+      (...a: unknown[]) => unknown
+    >;
+    annotationTypes.register?.("rect", {
+      summarize: () => "",
+      validate: () => [],
+      note: 1,
+    });
+    expect(request).toHaveBeenCalledWith("annotationTypes.register", {
+      localId: "rect",
+      members: ["summarize", "validate"],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(report).toHaveBeenCalledWith(
+      "log",
+      expect.objectContaining({ level: "error" }),
+    );
+  });
+});
+
 describe("そのほかの呼び出しは、位置引数の配列のまま req になる", () => {
   it("annotations.create / groups.setMembers / assets.setMetadata", async () => {
     const t = setup();

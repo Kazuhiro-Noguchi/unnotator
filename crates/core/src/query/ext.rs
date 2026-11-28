@@ -367,3 +367,21 @@ pub fn ext_groups(conn: &Connection, filter: &ExtGroupFilter) -> Result<Vec<ExtG
     }
     Ok(groups)
 }
+
+/// 拡張機能専用の値（無ければ `None`）。
+pub fn plugin_value(
+    conn: &Connection,
+    plugin_id: &str,
+    scope: crate::command::PluginScope,
+    scope_id: &str,
+    key: &str,
+) -> Result<Option<String>, StoreError> {
+    Ok(conn
+        .query_row(
+            "SELECT value_json FROM plugin_data \
+             WHERE plugin_id = ?1 AND scope = ?2 AND scope_id = ?3 AND key = ?4",
+            [plugin_id, scope.as_str(), scope_id, key],
+            |row| row.get(0),
+        )
+        .optional()?)
+}

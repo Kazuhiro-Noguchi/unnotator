@@ -36,6 +36,12 @@ export const commands = {
 	extRelationsQuery: (extId: string, filter: ExtRelationFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExtRelation_Serialize[]>("ext_relations_query", { extId, filter }, options),
 	extGroupsQuery: (extId: string, filter: ExtGroupFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExtGroup_Serialize[]>("ext_groups_query", { extId, filter }, options),
 	extAssetRead: (extId: string, assetId: string, offset: number | null, length: number | null, options?: InvokeOptions) => __TAURI_INVOKE<number[]>("ext_asset_read", { extId, assetId, offset, length }, options),
+	extStorageGet: (extId: string, scope: PluginScope, scopeId: string, key: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("ext_storage_get", { extId, scope, scopeId, key }, options),
+	extStorageSet: (extId: string, scope: PluginScope, scopeId: string, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_storage_set", { extId, scope, scopeId, key, valueJson }, options),
+	extProjectFileRead: (extId: string, relPath: string, options?: InvokeOptions) => __TAURI_INVOKE<number[] | null>("ext_project_file_read", { extId, relPath }, options),
+	extProjectFileWrite: (extId: string, relPath: string, data: number[], options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_project_file_write", { extId, relPath, data }, options),
+	/**  `host.log`。拡張機能 ID つきで `tracing` に記録する。長さは呼び出し側（本体）が制限済みだが、ここでも切る。 */
+	extLog: (extId: string, level: string, message: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_log", { extId, level, message }, options),
 	devmodeGet: (options?: InvokeOptions) => __TAURI_INVOKE<DevModeDto>("devmode_get", undefined, options),
 	devmodeSet: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_set", { enabled }, options),
 	devmodeAddFolder: (path: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_add_folder", { path }, options),
@@ -351,6 +357,10 @@ id?: string | null; name: string; name_i18n_json?: string | null; color: string;
 namespace: string; 
 /**  JSON のオブジェクト。 */
 metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
+/**  拡張機能専用の値の保存（`host.storage.set`）。Undo に積まない。値は丸ごと置き換わる。 */
+{ kind: "set_plugin_data"; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+plugin_id: string; scope: PluginScope; scope_id: string; key: string; value_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -381,6 +391,10 @@ id: string | null; name: string; name_i18n_json: string | null; color: string; h
 namespace: string; 
 /**  JSON のオブジェクト。 */
 metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
+/**  拡張機能専用の値の保存（`host.storage.set`）。Undo に積まない。値は丸ごと置き換わる。 */
+{ kind: "set_plugin_data"; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+plugin_id: string; scope: PluginScope; scope_id: string; key: string; value_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -1029,6 +1043,15 @@ export type PermissionVerdictDto = {
 export type PermissionsChanged = {
 	id: string,
 };
+
+/**  拡張機能専用の保存領域の単位（`plugin_data.scope`）。 */
+export type PluginScope = 
+/**  プロジェクト全体（`scope_id` は空）。 */
+"project" | 
+/**  アセット（`scope_id` はアセット ID）。 */
+"asset" | 
+/**  アイテム（`scope_id` は `<アセット ID>/<アイテムのキー>`）。 */
+"item";
 
 export type ProblemDto = ProblemDto_Serialize | ProblemDto_Deserialize;
 

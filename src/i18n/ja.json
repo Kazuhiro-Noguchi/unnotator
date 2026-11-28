@@ -319,5 +319,6 @@
   "host.permission.fs.import": "ファイルの取り込み",
   "host.permission.python.spawn": "Python の処理の実行",
   "host.permission.network": "ネットワークへの通信",
-  "host.notice.untrusted": "拡張機能の表示"
+  "host.notice.untrusted": "拡張機能の表示",
+  "host.confirm.title": "拡張機能「{name}」からの確認"
 }

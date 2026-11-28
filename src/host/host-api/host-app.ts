@@ -1,6 +1,7 @@
 // Host API の本体（アプリで 1 つ）。権限の門・各部の実装・本体の状態の写しを束ねる。
 // `instance.ts` が、拡張機能ホスト（`createExtensionHost`）の `handle` などに結ぶ。
 import { Registrations } from "../activation";
+import { createApiBroker } from "../api-proxy";
 import type { HostRequest } from "../channel";
 import type { Frame } from "../frames";
 import { createHostApi, type HostApi } from "./api";
@@ -175,7 +176,11 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       state.set("settings", values);
     },
   };
-  (app as { api: HostApi }).api = createHostApi(
+  const apiBroker = createApiBroker({
+    manifests: deps.manifests,
+    background: async (extId) => deps.background?.(extId),
+  });
+  const hostApi = createHostApi(
     {
       ipc: deps.ipc,
       gate,
@@ -194,7 +199,14 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       typeChecks,
       onApplied: (set, name) => changes.noteLabel(set.seq, name),
     },
-    deps.handlers?.(app) ?? [],
+    [apiBroker.handlers, ...(deps.handlers?.(app) ?? [])],
   );
+  (app as { api: HostApi }).api = {
+    handle: (request) => hostApi.handle(request),
+    closeExtension: (extId) => {
+      hostApi.closeExtension(extId);
+      apiBroker.forget(extId);
+    },
+  };
   return app;
 }

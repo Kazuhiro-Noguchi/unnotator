@@ -6,7 +6,11 @@ import { createMirror } from "../src/mirror";
 describe("apiPaths: activate の戻り値から、関数のメンバーの名前を集める", () => {
   it("関数と入れ子の関数を、ドット区切りで返す", () => {
     expect(
-      apiPaths({ answer: () => 1, nested: { name: () => "x", deep: { f() {} } }, n: 3 }).sort(),
+      apiPaths({
+        answer: () => 1,
+        nested: { name: () => "x", deep: { f() {} } },
+        n: 3,
+      }).sort(),
     ).toEqual(["answer", "nested.deep.f", "nested.name"]);
   });
   it("オブジェクトでなければ空", () => {
@@ -17,7 +21,13 @@ describe("apiPaths: activate の戻り値から、関数のメンバーの名前
     const loop: Record<string, unknown> = { f: () => 1 };
     loop.self = loop;
     expect(apiPaths(loop)).toEqual(["f"]);
-    expect(apiPaths(Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`f${i}`, () => 1]))).length).toBeLessThanOrEqual(1000);
+    expect(
+      apiPaths(
+        Object.fromEntries(
+          Array.from({ length: 2000 }, (_, i) => [`f${i}`, () => 1]),
+        ),
+      ).length,
+    ).toBeLessThanOrEqual(1000);
   });
 });
 
@@ -39,7 +49,12 @@ describe("getApi（枠の中）", () => {
   it("名前の表から、入れ子のプロキシを作り、呼び出しは req になる", async () => {
     const { host, request } = setup(["answer", "nested.name"]);
     const extensions = host.extensions as {
-      getApi(id: string): Promise<{ answer(a: string): Promise<number>; nested: { name(): Promise<string> } }>;
+      getApi(
+        id: string,
+      ): Promise<{
+        answer(a: string): Promise<number>;
+        nested: { name(): Promise<string> };
+      }>;
     };
     request.mockResolvedValueOnce(["answer", "nested.name"]);
     const api = await extensions.getApi("a.base");
@@ -63,9 +78,14 @@ describe("getApi（枠の中）", () => {
 describe("公開した API を、本体からの invoke で呼ぶ", () => {
   it("setApi した関数を、member の名前で呼べる", async () => {
     const { registry } = setup([]);
-    registry.setApi({ answer: (a: number) => a * 2, nested: { name: () => "n" } });
+    registry.setApi({
+      answer: (a: number) => a * 2,
+      nested: { name: () => "n" },
+    });
     await expect(registry.invoke("api", "", "answer", [4])).resolves.toBe(8);
-    await expect(registry.invoke("api", "", "nested.name", [])).resolves.toBe("n");
+    await expect(registry.invoke("api", "", "nested.name", [])).resolves.toBe(
+      "n",
+    );
     await expect(registry.invoke("api", "", "missing", [])).rejects.toThrow();
   });
 });

@@ -1,5 +1,6 @@
 // 枠の起動用コード（contracts/host-channel.md）。
 // 最初の `init`（port 付き）だけを受け、以後はその port 以外を無視する。
+import { apiPaths } from "./api-members";
 import { type ErrorReport, installErrorReporting, toReport } from "./errors";
 import { createHost, type InitExtension } from "./host-proxy";
 import { createMirror, type MirrorInit } from "./mirror";
@@ -192,8 +193,15 @@ export function startFrame(deps: FrameDeps): () => void {
         onDidChangeVisibility: (listener: (visible: boolean) => void) =>
           mirror.on("visibility", (v) => listener(v === true)),
       };
-      if (init.role === "background") await mod.activate?.(host);
-      else if (init.role === "editor")
+      if (init.role === "background") {
+        const api = await mod.activate?.(host);
+        // 戻り値の関数を、拡張機能間 API としてホストへ公開する（依存元が `getApi` で呼ぶ）。
+        const paths = apiPaths(api);
+        if (paths.length > 0) {
+          registry.setApi(api);
+          await request("extensions.getApi", { publish: paths });
+        }
+      } else if (init.role === "editor")
         surface = (await mod.openEditor?.(ctx, host)) as typeof surface;
       else if (init.role === "view")
         surface = (await mod.resolveView?.(ctx, host)) as typeof surface;

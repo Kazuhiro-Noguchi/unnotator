@@ -1,5 +1,42 @@
 // 生成物。packages/frame-runtime を scripts/build-frame.mjs でまとめたもの。直接は直さない。
 (function() {
+	// packages/frame-runtime/src/api-members.ts
+	var MAX_MEMBERS = 1e3;
+	var MAX_DEPTH = 4;
+	function apiPaths(api) {
+		const out = [];
+		const seen = /* @__PURE__ */ new Set();
+		const walk = (value, prefix, depth) => {
+			if (out.length >= MAX_MEMBERS) return;
+			if (typeof value !== "object" || value === null) return;
+			if (seen.has(value) || depth > MAX_DEPTH) return;
+			seen.add(value);
+			for (const key of Object.keys(value)) {
+				if (!/^[A-Za-z_$][\w$]*$/.test(key)) continue;
+				const item = value[key];
+				const path = prefix === "" ? key : `${prefix}.${key}`;
+				if (typeof item === "function") {
+					if (out.length < MAX_MEMBERS) out.push(path);
+				} else walk(item, path, depth + 1);
+			}
+		};
+		walk(api, "", 0);
+		return out;
+	}
+	/** `a.b.c` の形の名前で、オブジェクトの中の関数を引く（親の `this` つき）。 */
+	function resolveMember(api, path) {
+		let owner = null;
+		let current = api;
+		for (const part of path.split(".")) {
+			if (typeof current !== "object" || current === null) return null;
+			owner = current;
+			current = current[part];
+		}
+		return typeof current === "function" ? {
+			fn: current,
+			owner
+		} : null;
+	}
 	// packages/frame-runtime/src/errors.ts
 	function toReport(phase, error) {
 		if (error instanceof Error) {
@@ -256,11 +293,21 @@
 			else if (full === "extensions.getApi") target[name] = async (id) => {
 				const members = await deps.request(full, { id });
 				const api = {};
-				for (const path of members) api[path] = (...args) => deps.request(full, {
-					id,
-					call: path,
-					args
-				});
+				for (const path of members) {
+					const parts = path.split(".");
+					const last = parts.pop();
+					let node = api;
+					for (const part of parts) {
+						const next = node[part] ?? {};
+						node[part] = next;
+						node = next;
+					}
+					node[last] = (...args) => deps.request(full, {
+						id,
+						call: path,
+						args
+					});
+				}
 				return api;
 			};
 			else target[name] = (...args) => deps.request(full, args);
@@ -274,19 +321,30 @@
 			level,
 			args: args.map(String)
 		})]));
+		let publishedApi;
 		return {
 			host,
-			registry: { async invoke(kind, localId, member, args) {
-				const impl = handlers.get(`${kind}:${localId}`);
-				if (impl === void 0) throw new Error(`not registered: ${kind}/${localId}`);
-				if (member === void 0) {
-					if (typeof impl !== "function") throw new Error("not callable");
-					return await impl(...args);
+			registry: {
+				setApi(api) {
+					publishedApi = api;
+				},
+				async invoke(kind, localId, member, args) {
+					if (kind === "api") {
+						const target = member === void 0 ? null : resolveMember(publishedApi, member);
+						if (target === null) throw new Error(`no api member: ${String(member)}`);
+						return await target.fn.apply(target.owner, args);
+					}
+					const impl = handlers.get(`${kind}:${localId}`);
+					if (impl === void 0) throw new Error(`not registered: ${kind}/${localId}`);
+					if (member === void 0) {
+						if (typeof impl !== "function") throw new Error("not callable");
+						return await impl(...args);
+					}
+					const fn = impl[member];
+					if (typeof fn !== "function") throw new Error(`no member: ${member}`);
+					return await fn.apply(impl, args);
 				}
-				const fn = impl[member];
-				if (typeof fn !== "function") throw new Error(`no member: ${member}`);
-				return await fn.apply(impl, args);
-			} }
+			}
 		};
 	}
 	// packages/frame-runtime/src/mirror.ts
@@ -491,8 +549,14 @@ body {
 					},
 					onDidChangeVisibility: (listener) => mirror.on("visibility", (v) => listener(v === true))
 				};
-				if (init.role === "background") await mod.activate?.(host);
-				else if (init.role === "editor") surface = await mod.openEditor?.(ctx, host);
+				if (init.role === "background") {
+					const api = await mod.activate?.(host);
+					const paths = apiPaths(api);
+					if (paths.length > 0) {
+						registry.setApi(api);
+						await request("extensions.getApi", { publish: paths });
+					}
+				} else if (init.role === "editor") surface = await mod.openEditor?.(ctx, host);
 				else if (init.role === "view") surface = await mod.resolveView?.(ctx, host);
 				else surface = await mod.renderPreview?.(ctx, host);
 			} catch (error) {

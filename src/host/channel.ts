@@ -94,6 +94,17 @@ function checkValue(root: unknown, startDepth: number): void {
   visit(root, startDepth);
 }
 
+/** 値が検査の上限に収まる、構造化複製できるデータか（`getApi` の引数・戻り値の検査に使う）。 */
+export function isPlainData(value: unknown): boolean {
+  try {
+    checkValue(value, 1);
+    return true;
+  } catch (error) {
+    if (error instanceof Rejection) return false;
+    throw error;
+  }
+}
+
 function isId(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value);
 }

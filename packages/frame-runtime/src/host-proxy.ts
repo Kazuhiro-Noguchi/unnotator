@@ -1,6 +1,7 @@
 // 枠の中の `Host` / `SurfaceHost`。呼び出しは `req` に変える。送り主の ID は載せない（本体が port で決める）。
 // メソッドの名前は、本体と共有の権限表（Host API の名前の一覧）から作る。
 import permissions from "../../../crates/extensions/host-api-permissions.json";
+import { resolveMember } from "./api-members";
 import type { Mirror } from "./mirror";
 
 export interface InitExtension {
@@ -25,6 +26,8 @@ export interface HostProxyDeps {
 /** 本体からの `call`（provider・コマンドなど）の受け口。 */
 export type RegistryKind = string;
 export interface Registry {
+  /** `activate` の戻り値（拡張機能間 API）。`invoke(kind="api")` で呼ばれる。 */
+  setApi(api: unknown): void;
   /** `invoke` の呼び出しを処理する。 */
   invoke(
     kind: RegistryKind,
@@ -171,7 +174,15 @@ export function createHost(deps: HostProxyDeps): {
         const members = (await deps.request(full, { id })) as string[];
         const api: Anything = {};
         for (const path of members) {
-          api[path] = (...args: unknown[]) =>
+          const parts = path.split(".");
+          const last = parts.pop() as string;
+          let node = api;
+          for (const part of parts) {
+            const next = (node[part] as Anything | undefined) ?? {};
+            node[part] = next;
+            node = next;
+          }
+          node[last] = (...args: unknown[]) =>
             deps.request(full, { id, call: path, args });
         }
         return api;
@@ -189,8 +200,19 @@ export function createHost(deps: HostProxyDeps): {
     ]),
   );
 
+  let publishedApi: unknown;
   const registry: Registry = {
+    setApi(api) {
+      publishedApi = api;
+    },
     async invoke(kind, localId, member, args) {
+      if (kind === "api") {
+        const target =
+          member === undefined ? null : resolveMember(publishedApi, member);
+        if (target === null)
+          throw new Error(`no api member: ${String(member)}`);
+        return await target.fn.apply(target.owner, args);
+      }
       const impl = handlers.get(`${kind}:${localId}`);
       if (impl === undefined)
         throw new Error(`not registered: ${kind}/${localId}`);

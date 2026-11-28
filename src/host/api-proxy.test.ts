@@ -18,14 +18,15 @@ function setup(options: {
     manifests: manifests(
       options.deps ?? { "a.rect": ["a.base"], "a.base": [], "a.other": [] },
     ),
-    background: async () =>
-      options.running === false ? undefined : { call },
+    background: async () => (options.running === false ? undefined : { call }),
   });
   const run = (extId: string, args: unknown) =>
-    (broker.handlers["extensions.getApi"] as (c: Ctx, a: unknown) => Promise<unknown>)(
-      { extId } as Ctx,
-      args,
-    );
+    (
+      broker.handlers["extensions.getApi"] as (
+        c: Ctx,
+        a: unknown,
+      ) => Promise<unknown>
+    )({ extId } as Ctx, args);
   return { run, call, broker };
 }
 
@@ -115,11 +116,15 @@ describe("getApi の仲介（research.md R4）", () => {
 
   it("不正な publish（名前の形・数）は拒否する", async () => {
     const t = setup({});
-    await expect(t.run("a.base", { publish: ["bad name"] })).rejects.toMatchObject({
+    await expect(
+      t.run("a.base", { publish: ["bad name"] }),
+    ).rejects.toMatchObject({
       code: "ValidationFailed",
     });
     await expect(
-      t.run("a.base", { publish: Array.from({ length: 2000 }, (_, i) => `f${i}`) }),
+      t.run("a.base", {
+        publish: Array.from({ length: 2000 }, (_, i) => `f${i}`),
+      }),
     ).rejects.toMatchObject({ code: "ValidationFailed" });
     await expect(t.run("a.base", "nope")).rejects.toMatchObject({
       code: "ValidationFailed",

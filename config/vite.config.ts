@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
@@ -36,7 +36,10 @@ export default defineConfig({
           try {
             appendFileSync(file, `${line}\n`);
           } catch (error) {
-            console.error(`Could not append dev console log to ${file}:`, error);
+            console.error(
+              `Could not append dev console log to ${file}:`,
+              error,
+            );
           }
         });
       },

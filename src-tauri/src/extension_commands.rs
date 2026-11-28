@@ -9,9 +9,12 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::Manager;
 use tauri_specta::Event;
+use unnotator_core::command::Command;
+use unnotator_core::event::ChangeSet;
 use unnotator_extensions::ExtensionError;
 use unnotator_extensions::consent::{ConsentStore, PermissionVerdict};
 use unnotator_extensions::devmode::{DevWatcher, load_active_folders};
+use unnotator_extensions::gate::{self, GateError};
 use unnotator_extensions::package::{InstallOutcome, install_package};
 use unnotator_extensions::paths::AppPaths;
 use unnotator_extensions::registry::{
@@ -42,6 +45,139 @@ impl From<ExtensionError> for IpcError {
             message: error.to_string(),
         }
     }
+}
+
+impl From<GateError> for IpcError {
+    fn from(error: GateError) -> Self {
+        let code = match &error {
+            GateError::NeedsConsent { .. } => "needs_consent",
+            _ => "permission_denied",
+        };
+        Self {
+            code: code.to_owned(),
+            message: error.to_string(),
+        }
+    }
+}
+
+// --- 拡張機能向けの IPC（contracts/host-api-gate.md） ---
+//
+// 拡張機能 ID は、本体が枠の経路から決めて引数に付ける（拡張機能の指定ではない）。
+// どの経路も、先に門（`gate`）を通し、通らなければ何も読まず・書かない。
+
+/// Host API のメソッドを、この拡張機能が呼んでよいか。
+pub fn ext_check_method(rt: &ExtensionRuntime, ext_id: &str, method: &str) -> Result<(), IpcError> {
+    let registry = rt.registry();
+    let entry = find_entry(&registry, ext_id)?;
+    let consent = rt.consent.lock().map_err(lock_err)?;
+    gate::check_method(&consent, &entry, method).map_err(IpcError::from)
+}
+
+/// 拡張機能から来たコマンドを検査し、`source` を拡張機能 ID に固定して返す。
+/// `Transaction` は中身を 1 つずつ検査する（入れ子は開かない）。
+pub fn authorize_command(
+    rt: &ExtensionRuntime,
+    ext_id: &str,
+    mut command: Command,
+) -> Result<Command, IpcError> {
+    let registry = rt.registry();
+    let entry = find_entry(&registry, ext_id)?;
+    let consent = rt.consent.lock().map_err(lock_err)?;
+    let check = |command: &Command| {
+        gate::check_command(&consent, &entry, command.name()).map_err(IpcError::from)
+    };
+    match &mut command {
+        Command::Transaction { commands } => {
+            for inner in commands.iter_mut() {
+                if matches!(inner, Command::Transaction { .. }) {
+                    return Err(GateError::NotOpen("transaction".to_owned()).into());
+                }
+                check(inner)?;
+                pin_source(inner, ext_id);
+            }
+        }
+        other => {
+            check(other)?;
+            pin_source(other, ext_id);
+        }
+    }
+    Ok(command)
+}
+
+/// 作成系の `source` を、拡張機能 ID に上書きする（`manual` や他の ID は名乗れない）。
+fn pin_source(command: &mut Command, ext_id: &str) {
+    match command {
+        Command::CreateAnnotation { source, .. }
+        | Command::CreateRelation { source, .. }
+        | Command::CreateGroup { source, .. } => *source = Some(ext_id.to_owned()),
+        _ => {}
+    }
+}
+
+/// 拡張機能のコマンドを適用する。`apply_command` と同じ経路（Undo・変更履歴に乗る）。
+pub fn ext_apply(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    command: Command,
+) -> Result<ChangeSet, IpcError> {
+    let command = authorize_command(rt, ext_id, command)?;
+    crate::project_commands::apply(project, command)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_apply_command(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    command: Command,
+) -> Result<ChangeSet, IpcError> {
+    ext_apply(&rt, &project, &ext_id, command)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_method_allowed(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    ext_id: String,
+    method: String,
+) -> Result<(), IpcError> {
+    ext_check_method(&rt, &ext_id, &method)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_labels_list(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+) -> Result<Vec<unnotator_core::query::labels::LabelRow>, IpcError> {
+    ext_check_method(&rt, &ext_id, "labels.list")?;
+    crate::query_commands::labels(&project)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_schemas_list(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+) -> Result<Vec<unnotator_core::query::schemas::SchemaRow>, IpcError> {
+    ext_check_method(&rt, &ext_id, "labels.attributeSchema")?;
+    crate::query_commands::schemas(&project)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_asset_get(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    asset_id: String,
+) -> Result<Option<unnotator_core::assets::AssetRow>, IpcError> {
+    ext_check_method(&rt, &ext_id, "assets.get")?;
+    crate::asset_commands::get(&project, &asset_id)
 }
 
 /// 拡張機能の状態（登録簿・利用者の状態・同意）。
@@ -991,5 +1127,218 @@ mod tests {
                 .code,
             "package"
         );
+    }
+
+    // --- 拡張機能向けの IPC（T014。権限の門と `source` の固定） ---
+
+    fn create_annotation(asset_id: &str, source: Option<&str>) -> Command {
+        Command::CreateAnnotation {
+            id: None,
+            target: unnotator_core::command::Target {
+                asset_id: asset_id.to_owned(),
+                item: None,
+            },
+            annotation_type: "com.example.text/span".to_owned(),
+            type_version: None,
+            selector_json: "{}".to_owned(),
+            label_id: None,
+            attributes_json: None,
+            summary: None,
+            z_order: None,
+            source: source.map(str::to_owned),
+        }
+    }
+
+    fn create_label(name: &str) -> Command {
+        Command::CreateLabel {
+            id: None,
+            name: name.to_owned(),
+            name_i18n_json: None,
+            color: "#112233".to_owned(),
+            hotkey: None,
+            sort_order: None,
+            hidden: None,
+            applies_to_json: None,
+        }
+    }
+
+    /// 宣言と同意を整えた状態で、拡張機能・開いたプロジェクト・アセットを返す。
+    fn ready(
+        temp: &Temp,
+        declared: &[&str],
+        granted: &[&str],
+    ) -> (ExtensionRuntime, ProjectState, String) {
+        temp.install_text_extension("1.0.0", declared);
+        std::fs::write(temp.0.join("project/a.txt"), b"hello").expect("書ける");
+        let (rt, serve, project) = parts(temp);
+        let granted: Vec<String> = granted.iter().map(|p| (*p).to_owned()).collect();
+        consent(&rt, "com.example.text", &granted).expect("同意できる");
+        open_project(&project, &temp.0.join("project"), true, Hooks::default()).expect("開ける");
+        refresh(&rt, &serve, &project).expect("流し込める");
+        scan(&project, ScanScope::Full, &|_| {}).expect("走査できる");
+        let page = list_assets(&project, &AssetFilter::default(), &Page::first(10)).expect("一覧");
+        (rt, project, page.items[0].id.clone())
+    }
+
+    #[test]
+    fn ext_commands_are_refused_without_declaration_or_consent() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(
+            &temp,
+            &["annotations.write", "labels.write"],
+            &["annotations.write"],
+        );
+        // 同意のある権限は通る
+        ext_apply(
+            &rt,
+            &project,
+            "com.example.text",
+            create_annotation(&asset, None),
+        )
+        .expect("通る");
+        // 宣言していて同意が無い
+        assert_eq!(
+            ext_apply(&rt, &project, "com.example.text", create_label("a"))
+                .unwrap_err()
+                .code,
+            "needs_consent"
+        );
+        // 宣言していない
+        let status = Command::SetAssetStatus {
+            asset_id: asset.clone(),
+            status: unnotator_core::command::Status::Done,
+        };
+        assert_eq!(
+            ext_apply(&rt, &project, "com.example.text", status)
+                .unwrap_err()
+                .code,
+            "permission_denied"
+        );
+        // 知らない拡張機能
+        assert_eq!(
+            ext_apply(&rt, &project, "com.example.ghost", create_label("b"))
+                .unwrap_err()
+                .code,
+            "not_found"
+        );
+        // 拒否されたものは、何も書かない
+        assert_eq!(
+            ext_check_method(&rt, "com.example.text", "labels.list")
+                .unwrap_err()
+                .code,
+            "permission_denied"
+        );
+    }
+
+    #[test]
+    fn ext_commands_never_open_core_only_commands() {
+        let temp = Temp::new();
+        let all = ["annotations.write", "labels.write", "project.status"];
+        let (rt, project, asset) = ready(&temp, &all, &all);
+        for command in [
+            Command::DeleteAsset {
+                asset_id: asset.clone(),
+            },
+            Command::SetAssetNote {
+                asset_id: asset.clone(),
+                note: None,
+            },
+            Command::SyncAssets {
+                added: vec![],
+                updated: vec![],
+                went_missing: vec![],
+                restored: vec![],
+                reclassified: vec![],
+            },
+        ] {
+            assert_eq!(
+                ext_apply(&rt, &project, "com.example.text", command)
+                    .unwrap_err()
+                    .code,
+                "permission_denied"
+            );
+        }
+        // 入れ子の Transaction も開かない
+        let nested = Command::Transaction {
+            commands: vec![Command::Transaction { commands: vec![] }],
+        };
+        assert_eq!(
+            ext_apply(&rt, &project, "com.example.text", nested)
+                .unwrap_err()
+                .code,
+            "permission_denied"
+        );
+        // Transaction の中の 1 つでも通らなければ、全体を書かない
+        let mixed = Command::Transaction {
+            commands: vec![create_label("ok"), Command::DeleteAsset { asset_id: asset }],
+        };
+        assert!(ext_apply(&rt, &project, "com.example.text", mixed).is_err());
+        assert!(
+            crate::query_commands::labels(&project)
+                .expect("一覧")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn ext_commands_pin_the_source_to_the_extension_id() {
+        for requested in [None, Some("manual"), Some("com.example.other")] {
+            let temp = Temp::new();
+            let (rt, _project, asset) =
+                ready(&temp, &["annotations.write"], &["annotations.write"]);
+            let fixed = authorize_command(
+                &rt,
+                "com.example.text",
+                create_annotation(&asset, requested),
+            )
+            .expect("通る");
+            assert_eq!(fixed.source(), Some("com.example.text"), "{requested:?}");
+        }
+        // Transaction の中の作成も固定する
+        let temp = Temp::new();
+        let (rt, _project, asset) = ready(&temp, &["annotations.write"], &["annotations.write"]);
+        let tx = Command::Transaction {
+            commands: vec![
+                create_annotation(&asset, Some("manual")),
+                create_annotation(&asset, None),
+            ],
+        };
+        let Command::Transaction { commands } =
+            authorize_command(&rt, "com.example.text", tx).expect("通る")
+        else {
+            panic!("Transaction のまま");
+        };
+        assert!(
+            commands
+                .iter()
+                .all(|c| c.source() == Some("com.example.text"))
+        );
+    }
+
+    #[test]
+    fn ext_writes_go_through_apply_and_round_trip_with_undo_and_redo() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(&temp, &["annotations.write"], &["annotations.write"]);
+        let page = |project: &ProjectState| {
+            crate::query_commands::page(project, &asset, None, None)
+                .expect("一覧")
+                .rows
+        };
+        // 拡張機能が `manual` を名乗っても、`source` は ID になる
+        ext_apply(
+            &rt,
+            &project,
+            "com.example.text",
+            create_annotation(&asset, Some("manual")),
+        )
+        .expect("作れる");
+        let created = page(&project);
+        assert_eq!(created.len(), 1);
+        assert_eq!(created[0].source, "com.example.text");
+        // apply → undo → redo で一致する
+        crate::project_commands::undo_project(&project).expect("戻せる");
+        assert!(page(&project).is_empty());
+        crate::project_commands::redo_project(&project).expect("やり直せる");
+        assert_eq!(page(&project), created);
     }
 }

@@ -3,7 +3,7 @@ import { format } from "../../i18n";
 import { fromStore, useT } from "../solid";
 import type { NotifyLevel } from "../types";
 import { ROW_HEIGHT } from "./AnnotationList";
-import type { SuggestionsSource } from "./suggestions-view";
+import type { AsyncAction, SuggestionsSource } from "./suggestions-view";
 import { visibleWindow } from "./window";
 
 const OVERSCAN = 5;
@@ -41,8 +41,8 @@ export function Suggestions(props: SuggestionsProps) {
     );
   const shown = () => rows().slice(win().start, win().end);
 
-  /** 採用は 1 度に 1 つだけ進める（二重に送らない）。失敗は通知する。 */
-  const accept = async (run: () => Promise<unknown>) => {
+  // 採用は 1 度に 1 つだけ進める（二重に送らない）。失敗は通知する。
+  const accept = async (run: AsyncAction) => {
     if (busy()) return;
     setBusy(true);
     try {

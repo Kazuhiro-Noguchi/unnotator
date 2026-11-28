@@ -19,3 +19,6 @@ export interface SuggestionsSource {
   reject(ids: string[]): void;
   rejectAll(assetId: string, itemKey: string | null): void;
 }
+
+/** 結果を待つ操作（採用）。 */
+export type AsyncAction = () => Promise<unknown>;

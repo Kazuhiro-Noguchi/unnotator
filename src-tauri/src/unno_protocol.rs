@@ -76,6 +76,15 @@ impl ServeState {
         }
     }
 
+    /// 同意済みの権限（テスト・診断用）。
+    pub fn ext_grants_of(&self, id: &str) -> Vec<String> {
+        self.ext_grants
+            .read()
+            .ok()
+            .and_then(|g| g.get(id).cloned())
+            .unwrap_or_default()
+    }
+
     fn ext_csp_of(&self, id: &str) -> String {
         let granted = self
             .ext_grants

@@ -41,7 +41,8 @@ export type ProblemCode =
   | "keybinding.invalid"
   | "keybinding.conflict"
   | "ribbon.target-missing"
-  | "settings.invalid";
+  | "settings.invalid"
+  | "extension.failure";
 
 export interface ShellProblem {
   code: ProblemCode;

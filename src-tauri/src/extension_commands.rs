@@ -247,7 +247,33 @@ impl ExtensionRuntime {
         let registry = Arc::new(registry);
         serve.update(&registry, &state);
         *self.registry.write().map_err(lock_err)? = Arc::clone(&registry);
+        self.sync_grants(serve);
         Ok(registry)
+    }
+
+    /// 有効な拡張機能ごとの、宣言していて同意済みの権限を、配信の CSP の元に渡す。
+    /// 登録簿の作り直し・同意・取り消しのたびに呼ぶ（未設定の間は「権限なし」で安全側）。
+    pub fn sync_grants(&self, serve: &ServeState) {
+        let registry = self.registry();
+        let Ok(consent) = self.consent.lock() else {
+            return;
+        };
+        let grants = registry
+            .extensions()
+            .iter()
+            .filter(|e| matches!(e.status, ExtensionStatus::Enabled { .. }))
+            .map(|e| {
+                let granted = e
+                    .manifest
+                    .permissions
+                    .iter()
+                    .filter(|p| matches!(consent.check(e, p), PermissionVerdict::Allowed))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                (e.manifest.id.clone(), granted)
+            })
+            .collect();
+        serve.set_ext_grants(grants);
     }
 
     fn with_state<T>(
@@ -551,23 +577,35 @@ pub fn permissions(rt: &ExtensionRuntime, id: &str) -> Result<PermissionStateDto
     })
 }
 
-pub fn consent(rt: &ExtensionRuntime, id: &str, permissions: &[String]) -> Result<(), IpcError> {
+pub fn consent(
+    rt: &ExtensionRuntime,
+    serve: &ServeState,
+    id: &str,
+    permissions: &[String],
+) -> Result<(), IpcError> {
     let registry = rt.registry();
     let entry = find_entry(&registry, id)?;
     rt.consent
         .lock()
         .map_err(lock_err)?
         .grant(&entry, permissions)?;
+    rt.sync_grants(serve);
     Ok(())
 }
 
-pub fn revoke(rt: &ExtensionRuntime, id: &str, permissions: &[String]) -> Result<(), IpcError> {
+pub fn revoke(
+    rt: &ExtensionRuntime,
+    serve: &ServeState,
+    id: &str,
+    permissions: &[String],
+) -> Result<(), IpcError> {
     let registry = rt.registry();
     let entry = find_entry(&registry, id)?;
     rt.consent
         .lock()
         .map_err(lock_err)?
         .revoke(id, &entry.version, permissions)?;
+    rt.sync_grants(serve);
     Ok(())
 }
 
@@ -792,7 +830,8 @@ pub fn extension_consent(
     permissions: Vec<String>,
 ) -> Result<(), IpcError> {
     let rt = app.state::<ExtensionRuntime>();
-    consent(&rt, &id, &permissions)?;
+    let serve = app.state::<ServeState>();
+    consent(&rt, &serve, &id, &permissions)?;
     let _ = PermissionsChanged { id }.emit(&app);
     Ok(())
 }
@@ -805,7 +844,8 @@ pub fn extension_revoke(
     permissions: Vec<String>,
 ) -> Result<(), IpcError> {
     let rt = app.state::<ExtensionRuntime>();
-    revoke(&rt, &id, &permissions)?;
+    let serve = app.state::<ServeState>();
+    revoke(&rt, &serve, &id, &permissions)?;
     let _ = PermissionsChanged { id }.emit(&app);
     Ok(())
 }
@@ -1017,10 +1057,28 @@ mod tests {
     }
 
     #[test]
+    fn consent_and_revoke_update_the_granted_permissions_used_for_the_frame_csp() {
+        let temp = Temp::new();
+        temp.install_text_extension("1.0.0", &["assets.read", "network"]);
+        let (rt, serve, _project) = parts(&temp);
+        assert!(
+            serve.ext_grants_of("com.example.text").is_empty(),
+            "同意前は権限なし"
+        );
+        consent(&rt, &serve, "com.example.text", &["assets.read".to_owned()]).expect("同意できる");
+        assert_eq!(serve.ext_grants_of("com.example.text"), vec!["assets.read"]);
+        revoke(&rt, &serve, "com.example.text", &["assets.read".to_owned()]).expect("取り消せる");
+        assert!(
+            serve.ext_grants_of("com.example.text").is_empty(),
+            "取り消し後は権限なし"
+        );
+    }
+
+    #[test]
     fn consent_is_checked_per_extension_and_survives_a_restart() {
         let temp = Temp::new();
         temp.install_text_extension("1.0.0", &["assets.read", "network"]);
-        let (rt, _serve, _project) = parts(&temp);
+        let (rt, serve, _project) = parts(&temp);
         let state = permissions(&rt, "com.example.text").expect("取れる");
         assert_eq!(state.pending.len(), 2);
         assert!(
@@ -1041,9 +1099,15 @@ mod tests {
                 .verdict,
             "denied"
         );
-        consent(&rt, "com.example.text", &["assets.read".to_owned()]).expect("同意できる");
+        consent(&rt, &serve, "com.example.text", &["assets.read".to_owned()]).expect("同意できる");
         assert!(
-            consent(&rt, "com.example.text", &["labels.write".to_owned()]).is_err(),
+            consent(
+                &rt,
+                &serve,
+                "com.example.text",
+                &["labels.write".to_owned()]
+            )
+            .is_err(),
             "宣言に無い権限"
         );
         drop(rt);
@@ -1070,7 +1134,7 @@ mod tests {
             0,
             "起動時に片付く"
         );
-        consent(&rt, "com.example.text", &["assets.read".to_owned()]).expect("同意");
+        consent(&rt, &serve, "com.example.text", &["assets.read".to_owned()]).expect("同意");
         remove(&rt, &serve, &project, "com.example.text", None).expect("消せる");
         assert!(list(&rt, "en").is_empty());
         temp.install_text_extension("1.0.0", &["assets.read"]);
@@ -1172,7 +1236,7 @@ mod tests {
         std::fs::write(temp.0.join("project/a.txt"), b"hello").expect("書ける");
         let (rt, serve, project) = parts(temp);
         let granted: Vec<String> = granted.iter().map(|p| (*p).to_owned()).collect();
-        consent(&rt, "com.example.text", &granted).expect("同意できる");
+        consent(&rt, &serve, "com.example.text", &granted).expect("同意できる");
         open_project(&project, &temp.0.join("project"), true, Hooks::default()).expect("開ける");
         refresh(&rt, &serve, &project).expect("流し込める");
         scan(&project, ScanScope::Full, &|_| {}).expect("走査できる");

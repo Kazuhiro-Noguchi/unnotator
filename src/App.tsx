@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, onMount } from "solid-js";
+import { extensionHost, startExtensionHost } from "./host/instance";
 import { detectLanguage, format, t } from "./i18n";
 import { commands, events } from "./ipc";
 import { openDirectoryDialog } from "./ipc/dialog";
@@ -88,6 +89,7 @@ const actions = createProjectActions({
     }),
   open: async (folder, create) => {
     const result = await commands.projectOpen(folder, create);
+    void extensionHost.startup().catch(() => {});
     return { kind: result.kind };
   },
   restore: async () => {
@@ -96,6 +98,7 @@ const actions = createProjectActions({
   ask: askCloseDecision,
   close: async (action) => {
     await commands.projectClose(action);
+    await extensionHost.shutdown();
     setProjectName(null);
     await explorer.close();
     projectData.reset();
@@ -236,6 +239,7 @@ const handleWindowClose = createWindowCloseHandler({
   ask: askCloseDecision,
   closeProject: async (action) => {
     await commands.projectClose(action);
+    await extensionHost.shutdown();
   },
   destroyWindow: () => getCurrentWindow().destroy(),
   notify,
@@ -283,6 +287,7 @@ export function App() {
       },
       applySettings,
     });
+    startExtensionHost();
   });
   return (
     <>

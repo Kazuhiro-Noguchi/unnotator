@@ -9,10 +9,13 @@ import { askConsent } from "../shell/overlays/consent";
 import { reportProblem } from "../shell/problems";
 import {
   ctx,
+  keymap,
   notify,
+  ribbon,
   commands as shellCommands,
   statusStore,
 } from "../shell/services";
+import { createContributesSync } from "./contributes";
 import { createHostApp } from "./host-api/host-app";
 import { realHostIpc } from "./host-api/ipc";
 import { createManifestIndex } from "./host-api/manifests";
@@ -130,6 +133,22 @@ export const extensionHost = createExtensionHost({
   },
 });
 
+/** マニフェストの contributes を、シェルの登録簿へ反映する（有効化の前から。FR-011）。 */
+const contributesSync = createContributesSync({
+  targets: {
+    ctx,
+    commands: shellCommands,
+    keymap,
+    ribbon,
+    status: statusStore,
+  },
+  host: {
+    infos: () => extensionHost.infos(),
+    onDidRefresh: (listener) => extensionHost.onDidRefresh(listener),
+    trigger: (event) => extensionHost.trigger(event),
+  },
+});
+
 /** 本体の状態（有効なラベル・開いている対象）を、写しの元に結ぶ。 */
 function bindState(): void {
   const syncLabel = () => {
@@ -169,6 +188,7 @@ function bindState(): void {
 /** 起動時に 1 回。登録簿の変更（導入・削除・有効 / 無効）でも読み直す。 */
 export function startExtensionHost(): void {
   bindState();
+  contributesSync.start();
   void extensionHost.startup().catch(() => {});
   void events.extensionsChanged
     .listen(() => void extensionHost.refresh().catch(() => {}))

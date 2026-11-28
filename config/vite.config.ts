@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
@@ -13,6 +13,17 @@ export default defineConfig({
       configureServer(server) {
         server.ws.on("s02:report", (data: string) => {
           writeFileSync(process.env.S02_OUT ?? "/tmp/s02.txt", data);
+        });
+      },
+    },
+    // 開発時だけ、画面のエラーと console を、ファイルに書く（`src/shell/dev/console-forward.ts` が送る）。
+    {
+      name: "dev-console",
+      configureServer(server) {
+        const file =
+          process.env.UNNO_DEV_CONSOLE ?? "/tmp/unnotator-console.log";
+        server.ws.on("dev:log", (line: string) => {
+          appendFileSync(file, `${line}\n`);
         });
       },
     },

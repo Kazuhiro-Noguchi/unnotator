@@ -50,7 +50,11 @@ pub fn report_ready(app: tauri::AppHandle) {
         }
         app.exit(0);
     } else {
-        tracing::debug!(elapsed_ms = elapsed_ms as u64, "最初の描画が終わった");
+        // 開発時に「画面が出た」ことを、ログから確実に知る合図（scripts/dev/ui.mjs が待つ）。
+        tracing::info!(
+            elapsed_ms = elapsed_ms as u64,
+            "UNNOTATOR_READY 最初の描画が終わった"
+        );
     }
 }
 

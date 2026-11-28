@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { startFrame, type InitMessage } from "../src/bootstrap";
+import { type InitMessage, startFrame } from "../src/bootstrap";
 
 interface Sent {
   t: string;
@@ -32,7 +32,11 @@ function setup(importModule: (url: string) => Promise<unknown>) {
   };
   const deliver = (data: unknown, ports: MessagePort[] = [channel.port2]) => {
     window.dispatchEvent(
-      Object.assign(new Event("message"), { data, ports, source: window.parent }),
+      Object.assign(new Event("message"), {
+        data,
+        ports,
+        source: window.parent,
+      }),
     );
   };
   const settle = () => new Promise((r) => setTimeout(r, 10));
@@ -99,8 +103,14 @@ describe("startFrame: init", () => {
 describe("startFrame: 写し", () => {
   it("host の同期の API は写しから返り、ev で更新される", async () => {
     let host: {
-      selection: { get(): string[]; onDidChange(cb: (v: string[]) => void): { dispose(): void } };
-      i18n: { t(k: string, v?: Record<string, string>): string; locale: string };
+      selection: {
+        get(): string[];
+        onDidChange(cb: (v: string[]) => void): { dispose(): void };
+      };
+      i18n: {
+        t(k: string, v?: Record<string, string>): string;
+        locale: string;
+      };
       assets: { url(id: string): string };
     } | null = null;
     const s = setup(async () => ({
@@ -139,7 +149,12 @@ describe("startFrame: 呼び出し", () => {
     await s.settle();
     const req = s.received.find((m) => m.t === "req");
     expect(req).toMatchObject({ m: "assets.get", a: ["id1"] });
-    s.channel.port1.postMessage({ t: "res", id: req?.id, ok: true, v: { id: "id1" } });
+    s.channel.port1.postMessage({
+      t: "res",
+      id: req?.id,
+      ok: true,
+      v: { id: "id1" },
+    });
     await expect(p).resolves.toEqual({ id: "id1" });
   });
 
@@ -154,7 +169,9 @@ describe("startFrame: 呼び出し", () => {
     s.deliver(s.init);
     await s.settle();
     const p = host?.assets.get("id1");
-    const assertion = expect(p).rejects.toMatchObject({ code: "PermissionDenied" });
+    const assertion = expect(p).rejects.toMatchObject({
+      code: "PermissionDenied",
+    });
     await s.settle();
     const req = s.received.find((m) => m.t === "req");
     s.channel.port1.postMessage({
@@ -170,7 +187,9 @@ describe("startFrame: 呼び出し", () => {
   it("登録したコマンドを、本体からの call で呼べる", async () => {
     const handler = vi.fn(() => 42);
     const s = setup(async () => ({
-      activate: (h: { commands: { register(id: string, f: () => number): void } }) => {
+      activate: (h: {
+        commands: { register(id: string, f: () => number): void };
+      }) => {
         h.commands.register("run", handler);
       },
     }));
@@ -198,8 +217,12 @@ describe("startFrame: 失敗の報告", () => {
     s.deliver(s.init);
     await s.settle();
     const report = s.received.find((m) => m.t === "rep" && m.kind === "error");
-    expect(report).toMatchObject({ v: { phase: "import", message: "load failed" } });
-    expect(s.received.some((m) => m.t === "rep" && m.kind === "ready")).toBe(false);
+    expect(report).toMatchObject({
+      v: { phase: "import", message: "load failed" },
+    });
+    expect(s.received.some((m) => m.t === "rep" && m.kind === "ready")).toBe(
+      false,
+    );
   });
 
   it("activate の例外を報告する", async () => {
@@ -226,7 +249,12 @@ describe("startFrame: 失敗の報告", () => {
     );
     await s.settle();
     expect(
-      s.received.find((m) => m.t === "rep" && m.kind === "error" && (m.v as { phase: string }).phase === "error"),
+      s.received.find(
+        (m) =>
+          m.t === "rep" &&
+          m.kind === "error" &&
+          (m.v as { phase: string }).phase === "error",
+      ),
     ).toMatchObject({ v: { message: "boom" } });
   });
 
@@ -236,11 +264,17 @@ describe("startFrame: 失敗の報告", () => {
     s.deliver(s.init);
     await s.settle();
     window.dispatchEvent(
-      Object.assign(new Event("unhandledrejection"), { reason: new Error("nope") }),
+      Object.assign(new Event("unhandledrejection"), {
+        reason: new Error("nope"),
+      }),
     );
     await s.settle();
     expect(
-      s.received.find((m) => m.t === "rep" && (m.v as { phase?: string })?.phase === "unhandledrejection"),
+      s.received.find(
+        (m) =>
+          m.t === "rep" &&
+          (m.v as { phase?: string })?.phase === "unhandledrejection",
+      ),
     ).toMatchObject({ v: { message: "nope" } });
   });
 });

@@ -41,6 +41,10 @@ export const steps = [
     name: "拡張 API のパッケージ",
     run: sh("node", ["scripts/schema-check/plugin-api-pack.mjs"]),
   },
+  {
+    name: "枠の起動用コードの生成物",
+    run: sh("node", ["scripts/build-frame.mjs", "--check"]),
+  },
 ];
 
 /** 前提が欠けていれば、足りないものを名指しした文のリストを返す。 */

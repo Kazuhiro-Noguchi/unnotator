@@ -941,7 +941,7 @@ mod tests {
             std::fs::create_dir_all(dir.join("dist")).expect("作れる");
             let manifest = serde_json::json!({
                 "id": "com.example.text", "version": version,
-                "engines": { "unnotator": "^1.0.0" }, "main": "dist/index.js",
+                "engines": { "unnotator": "^0.0.1" }, "main": "dist/index.js",
                 "permissions": permissions,
                 "contributes": { "mediaTypes": [
                     { "id": "text", "title": "t", "extensions": [".txt"], "mimeTypes": ["text/plain"] }
@@ -1093,7 +1093,7 @@ mod tests {
         std::fs::create_dir_all(dev.join("dist")).expect("作れる");
         std::fs::write(
             dev.join("unnotator-plugin.json"),
-            r#"{"id":"com.example.dev","version":"0.1.0","engines":{"unnotator":"^1.0.0"},"main":"dist/index.js"}"#,
+            r#"{"id":"com.example.dev","version":"0.1.0","engines":{"unnotator":"^0.0.1"},"main":"dist/index.js"}"#,
         )
         .expect("書ける");
         assert_eq!(

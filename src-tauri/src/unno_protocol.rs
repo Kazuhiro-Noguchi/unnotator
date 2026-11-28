@@ -344,7 +344,7 @@ mod tests {
     fn registry_with_text_extension(temp: &Temp, disabled: bool) -> (Registry, ExtensionsState) {
         let manifest = serde_json::json!({
             "id": "com.example.text", "version": "1.0.0",
-            "engines": { "unnotator": "^1.0.0" }, "main": "dist/index.js",
+            "engines": { "unnotator": "^0.0.1" }, "main": "dist/index.js",
             "contributes": { "mediaTypes": [
                 { "id": "text", "title": "text", "extensions": [".txt"], "mimeTypes": ["text/plain"] }
             ] }
@@ -359,7 +359,7 @@ mod tests {
         let registry = Registry::build(RegistryInput {
             installed: &[raw],
             state: &state,
-            app_api_version: "1.0.0",
+            app_api_version: unnotator_extensions::EXTENSION_API_VERSION,
         });
         (registry, state)
     }

@@ -3,8 +3,8 @@ import {
   CHANNEL_LIMITS,
   createRateLimiter,
   HostChannel,
-  type PortLike,
   inspectEnvelope,
+  type PortLike,
 } from "./channel";
 
 const methods = new Set(["annotations.create", "selection.get"]);
@@ -12,12 +12,19 @@ const inspect = (data: unknown) => inspectEnvelope(data, { methods });
 
 describe("inspectEnvelope: 形", () => {
   it("正しい req を通す", () => {
-    const r = inspect({ t: "req", id: 1, m: "annotations.create", a: { x: 1 } });
+    const r = inspect({
+      t: "req",
+      id: 1,
+      m: "annotations.create",
+      a: { x: 1 },
+    });
     expect(r.ok).toBe(true);
   });
   it("res・rep を通す", () => {
     expect(inspect({ t: "res", id: 1, ok: true, v: 1 }).ok).toBe(true);
-    expect(inspect({ t: "res", id: 1, ok: false, code: "Denied", msg: "x" }).ok).toBe(true);
+    expect(
+      inspect({ t: "res", id: 1, ok: false, code: "Denied", msg: "x" }).ok,
+    ).toBe(true);
     expect(inspect({ t: "rep", kind: "ready", v: null }).ok).toBe(true);
   });
   it.each([
@@ -44,7 +51,9 @@ describe("inspectEnvelope: 未知の m", () => {
     expect(r).toMatchObject({ ok: false, reason: "unknownMethod" });
   });
   it("プロトタイプのキーも拒否する", () => {
-    expect(inspect({ t: "req", id: 1, m: "constructor", a: {} }).ok).toBe(false);
+    expect(inspect({ t: "req", id: 1, m: "constructor", a: {} }).ok).toBe(
+      false,
+    );
     expect(inspect({ t: "req", id: 1, m: "__proto__", a: {} }).ok).toBe(false);
   });
 });
@@ -52,7 +61,9 @@ describe("inspectEnvelope: 未知の m", () => {
 describe("inspectEnvelope: 大きさ・深さ・長さ", () => {
   it("1 MiB を超える文字列を拒む", () => {
     const big = "a".repeat(CHANNEL_LIMITS.maxBytes + 1);
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: big })).toMatchObject({
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: big }),
+    ).toMatchObject({
       ok: false,
       reason: "tooLarge",
     });
@@ -64,7 +75,9 @@ describe("inspectEnvelope: 大きさ・深さ・長さ", () => {
   it("深さ 32 を超える入れ子を拒む", () => {
     let v: unknown = 1;
     for (let i = 0; i < CHANNEL_LIMITS.maxDepth + 2; i++) v = { v };
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: v })).toMatchObject({
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: v }),
+    ).toMatchObject({
       ok: false,
       reason: "tooDeep",
     });
@@ -72,7 +85,9 @@ describe("inspectEnvelope: 大きさ・深さ・長さ", () => {
   it("深さ 32 ちょうどまでは通す", () => {
     let v: unknown = 1;
     for (let i = 0; i < CHANNEL_LIMITS.maxDepth - 2; i++) v = { v };
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: v }).ok).toBe(true);
+    expect(inspect({ t: "req", id: 1, m: "selection.get", a: v }).ok).toBe(
+      true,
+    );
   });
   it("配列の長さ 10,000 を超えるものを拒む", () => {
     const a = new Array(CHANNEL_LIMITS.maxArrayLength + 1).fill(0);
@@ -92,14 +107,20 @@ describe("inspectEnvelope: 危険な値", () => {
     });
   });
   it("関数を含む値を拒む", () => {
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: { f: () => 1 } })).toMatchObject({
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: { f: () => 1 } }),
+    ).toMatchObject({
       ok: false,
       reason: "badValue",
     });
   });
   it("symbol・bigint を拒む", () => {
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: Symbol("x") }).ok).toBe(false);
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: 1n }).ok).toBe(false);
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: Symbol("x") }).ok,
+    ).toBe(false);
+    expect(inspect({ t: "req", id: 1, m: "selection.get", a: 1n }).ok).toBe(
+      false,
+    );
   });
   it("DOM の要素のような非プレーンなオブジェクトを拒む", () => {
     class FakeElement {
@@ -111,10 +132,14 @@ describe("inspectEnvelope: 危険な値", () => {
   });
   it("ArrayBuffer は通し、大きさに数えない", () => {
     const buf = new ArrayBuffer(CHANNEL_LIMITS.maxBytes * 2);
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: { buf } }).ok).toBe(true);
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: { buf } }).ok,
+    ).toBe(true);
   });
   it("NaN・Infinity は拒む", () => {
-    expect(inspect({ t: "req", id: 1, m: "selection.get", a: Number.NaN }).ok).toBe(false);
+    expect(
+      inspect({ t: "req", id: 1, m: "selection.get", a: Number.NaN }).ok,
+    ).toBe(false);
   });
 });
 
@@ -140,7 +165,8 @@ describe("createRateLimiter", () => {
   it("毎秒 500 件を超えると拒む", () => {
     let now = 0;
     const limit = createRateLimiter(() => now);
-    for (let i = 0; i < CHANNEL_LIMITS.maxPerSecond; i++) expect(limit()).toBe(true);
+    for (let i = 0; i < CHANNEL_LIMITS.maxPerSecond; i++)
+      expect(limit()).toBe(true);
     expect(limit()).toBe(false);
     now = 1001;
     expect(limit()).toBe(true);
@@ -170,7 +196,11 @@ describe("HostChannel", () => {
     port.emit({ t: "req", id: 7, m: "selection.get", a: 1, ext: "evil" });
     await Promise.resolve();
     await Promise.resolve();
-    expect(handle).toHaveBeenCalledWith({ extId: "a.b", m: "selection.get", a: 1 });
+    expect(handle).toHaveBeenCalledWith({
+      extId: "a.b",
+      m: "selection.get",
+      a: 1,
+    });
     expect(sent).toContainEqual({ t: "res", id: 7, ok: true, v: "done" });
   });
   it("ハンドラの失敗を res の失敗にする", async () => {
@@ -193,7 +223,12 @@ describe("HostChannel", () => {
     const { port } = fakePort();
     const handle = vi.fn();
     const onReject = vi.fn();
-    const ch = new HostChannel(port, { extId: "a.b", methods, handle, onReject });
+    const ch = new HostChannel(port, {
+      extId: "a.b",
+      methods,
+      handle,
+      onReject,
+    });
     port.emit({ t: "req", id: 1, m: "nope", a: null });
     expect(handle).not.toHaveBeenCalled();
     expect(onReject).toHaveBeenCalledWith("unknownMethod");
@@ -203,7 +238,11 @@ describe("HostChannel", () => {
     vi.useFakeTimers();
     try {
       const { port, sent } = fakePort();
-      const ch = new HostChannel(port, { extId: "a.b", methods, handle: vi.fn() });
+      const ch = new HostChannel(port, {
+        extId: "a.b",
+        methods,
+        handle: vi.fn(),
+      });
       const p = ch.call("provider.run", { x: 1 });
       const assertion = expect(p).rejects.toMatchObject({ code: "Timeout" });
       expect(sent[0]).toMatchObject({ t: "call", m: "provider.run" });
@@ -216,7 +255,11 @@ describe("HostChannel", () => {
   });
   it("call に res が来ると解決する", async () => {
     const { port, sent } = fakePort();
-    const ch = new HostChannel(port, { extId: "a.b", methods, handle: vi.fn() });
+    const ch = new HostChannel(port, {
+      extId: "a.b",
+      methods,
+      handle: vi.fn(),
+    });
     const p = ch.call("provider.run", null);
     const id = (sent[0] as { id: number }).id;
     port.emit({ t: "res", id, ok: true, v: 5 });
@@ -231,7 +274,11 @@ describe("HostChannel", () => {
   });
   it("close すると保留中の呼び出しが失敗し、port が閉じる", async () => {
     const { port } = fakePort();
-    const ch = new HostChannel(port, { extId: "a.b", methods, handle: vi.fn() });
+    const ch = new HostChannel(port, {
+      extId: "a.b",
+      methods,
+      handle: vi.fn(),
+    });
     const p = ch.call("provider.run", null);
     const assertion = expect(p).rejects.toMatchObject({ code: "Closed" });
     ch.close();
@@ -243,7 +290,13 @@ describe("HostChannel", () => {
     const { port } = fakePort();
     const handle = vi.fn(async () => null);
     const onReject = vi.fn();
-    new HostChannel(port, { extId: "a.b", methods, handle, onReject, now: () => 0 });
+    new HostChannel(port, {
+      extId: "a.b",
+      methods,
+      handle,
+      onReject,
+      now: () => 0,
+    });
     for (let i = 0; i < CHANNEL_LIMITS.maxPerSecond + 5; i++) {
       port.emit({ t: "req", id: i, m: "selection.get", a: null });
     }

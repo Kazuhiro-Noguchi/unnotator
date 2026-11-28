@@ -69,7 +69,7 @@ function FolderDialog() {
   );
 }
 
-function CloseDialog() {
+export function CloseDialog() {
   const t = useT();
   return (
     <Show when={closeRequest()}>
@@ -79,6 +79,13 @@ function CloseDialog() {
           onClose={() => request().resolve("cancel")}
         >
           <p>{t("close.message")}</p>
+          <Show when={request().suggestions > 0}>
+            <p class="close-suggestions">
+              {format(t("close.suggestions"), {
+                count: String(request().suggestions),
+              })}
+            </p>
+          </Show>
           <div class="dialog-actions">
             <button
               type="button"

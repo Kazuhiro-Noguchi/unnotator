@@ -6,6 +6,7 @@ import {
   drafts,
   projectData,
   selection,
+  suggestionsPort,
   supportedTypes,
 } from "./instance";
 import { Properties } from "./Properties";
@@ -21,6 +22,14 @@ export function PropertiesHost(props: { fallback: JSX.Element }) {
         drafts={drafts}
         selection={selection}
         supported={supportedTypes}
+        {...(suggestionsPort.source === null
+          ? {}
+          : {
+              suggestions: {
+                source: suggestionsPort.source,
+                nameOf: suggestionsPort.nameOf,
+              },
+            })}
         notify={(level, text) => notify(level, text)}
       />
     </Show>

@@ -329,5 +329,15 @@
   "metrics.col.average": "Average (ms)",
   "metrics.col.max": "Max (ms)",
   "metrics.col.slow": "Slow calls",
-  "metrics.col.failures": "Failures"
+  "metrics.col.failures": "Failures",
+  "suggestions.title": "Suggestions",
+  "suggestions.count": "{count}",
+  "suggestions.badge": "Suggested",
+  "suggestions.accept": "Accept",
+  "suggestions.reject": "Reject",
+  "suggestions.acceptAll": "Accept all",
+  "suggestions.rejectAll": "Reject all",
+  "suggestions.from": "From {name}",
+  "suggestions.acceptFailed": "Could not accept the suggestions: {reason}",
+  "close.suggestions": "{count} suggestions have not been accepted. They are not saved and will be discarded."
 }

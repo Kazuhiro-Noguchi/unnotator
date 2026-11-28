@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, onMount } from "solid-js";
-import { extensionHost, startExtensionHost } from "./host/instance";
+import { extensionHost, hostApp, startExtensionHost } from "./host/instance";
 import { detectLanguage, format, t } from "./i18n";
 import { commands, events } from "./ipc";
 import { openDirectoryDialog } from "./ipc/dialog";
@@ -95,9 +95,10 @@ const actions = createProjectActions({
   restore: async () => {
     await commands.recoveryRestore();
   },
-  ask: askCloseDecision,
+  ask: () => askCloseDecision(hostApp.suggestions.count()),
   close: async (action) => {
     await commands.projectClose(action);
+    hostApp.suggestions.clearAll();
     await extensionHost.shutdown();
     setProjectName(null);
     await explorer.close();
@@ -119,7 +120,8 @@ const actions = createProjectActions({
     saveUiSetting("ui.recentProjects", list);
   },
   isOpen: () => ctx.get("projectOpen") === true,
-  isDirty: () => ctx.get("projectDirty") === true,
+  isDirty: () =>
+    ctx.get("projectDirty") === true || hostApp.suggestions.count() > 0,
   onOpened: async (folder) => {
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
@@ -235,10 +237,12 @@ async function applySettings(): Promise<void> {
 // ウィンドウを閉じるとき。未保存なら確認し、正常に閉じて作業用データ（自動復元の元）を消す。
 const handleWindowClose = createWindowCloseHandler({
   isOpen: () => ctx.get("projectOpen") === true,
-  isDirty: () => ctx.get("projectDirty") === true,
-  ask: askCloseDecision,
+  isDirty: () =>
+    ctx.get("projectDirty") === true || hostApp.suggestions.count() > 0,
+  ask: () => askCloseDecision(hostApp.suggestions.count()),
   closeProject: async (action) => {
     await commands.projectClose(action);
+    hostApp.suggestions.clearAll();
     await extensionHost.shutdown();
   },
   destroyWindow: () => getCurrentWindow().destroy(),

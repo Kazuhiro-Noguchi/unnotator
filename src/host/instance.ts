@@ -9,7 +9,11 @@ import { showExtensionView } from "../shell/layout/surfaces-instance";
 import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
 import { reportExtensionProblem, reportProblem } from "../shell/problems";
-import { projectData, selection } from "../shell/properties/instance";
+import {
+  projectData,
+  selection,
+  suggestionsPort,
+} from "../shell/properties/instance";
 import { loadAllPages } from "../shell/properties/paging";
 import {
   ctx,
@@ -151,6 +155,9 @@ export const hostApp = createHostApp({
     return JSON.parse(setting.value_json) as unknown;
   },
 });
+
+suggestionsPort.source = hostApp.suggestions;
+suggestionsPort.nameOf = displayName;
 
 export const extensionHost = createExtensionHost({
   list,

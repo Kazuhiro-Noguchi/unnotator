@@ -329,5 +329,15 @@
   "metrics.col.average": "平均（ms）",
   "metrics.col.max": "最大（ms）",
   "metrics.col.slow": "遅い呼び出し",
-  "metrics.col.failures": "失敗"
+  "metrics.col.failures": "失敗",
+  "suggestions.title": "候補",
+  "suggestions.count": "{count} 件",
+  "suggestions.badge": "候補",
+  "suggestions.accept": "採用",
+  "suggestions.reject": "却下",
+  "suggestions.acceptAll": "すべて採用",
+  "suggestions.rejectAll": "すべて却下",
+  "suggestions.from": "提案: {name}",
+  "suggestions.acceptFailed": "候補を採用できませんでした: {reason}",
+  "close.suggestions": "採用していない候補が {count} 件あります。候補は保存されず、破棄されます。"
 }

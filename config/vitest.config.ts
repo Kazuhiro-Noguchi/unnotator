@@ -11,6 +11,10 @@ export default defineConfig({
     // vite-plugin-solid は既定を jsdom にする。使うのは happy-dom で、既定は Node のまま
     environment: "node",
     css: { include: [/\.css\?raw$/] },
-    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "scripts/**/*.test.mjs",
+      "packages/frame-runtime/tests/**/*.test.ts",
+    ],
   },
 });

@@ -65,6 +65,8 @@ export interface FrameManagerOptions {
     kind: "error" | "log" | "ready",
     value: unknown,
   ) => void;
+  /** 枠からのメッセージを検査で拒んだとき（枠ごとの拒否の記録に使う）。 */
+  onReject?: (frame: Frame, reason: RejectReason) => void;
   /** 枠ができた・取り除かれたとき（写しの購読などを結ぶ）。例外は枠の操作に影響させない。 */
   onCreate?: (frame: Frame) => void;
   onRemove?: (frame: Frame) => void;
@@ -146,8 +148,9 @@ export function createFrameManager(options: FrameManagerOptions): FrameManager {
           if (Date.now() - started > SLOW_MS) stats.slowCalls += 1;
         }
       },
-      onReject: (_reason: RejectReason) => {
+      onReject: (reason: RejectReason) => {
         stats.failures += 1;
+        options.onReject?.(frame, reason);
       },
       onReport: (kind, value) => {
         if (kind === "error") stats.failures += 1;

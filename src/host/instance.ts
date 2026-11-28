@@ -6,7 +6,7 @@ import { activeLabel } from "../shell/labels/instance";
 import { showExtensionView } from "../shell/layout/surfaces-instance";
 import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
-import { reportProblem } from "../shell/problems";
+import { reportExtensionProblem, reportProblem } from "../shell/problems";
 import {
   ctx,
   keymap,
@@ -123,12 +123,9 @@ export const extensionHost = createExtensionHost({
   onFrameCreate: (frame) => hostApp.onFrameCreate(frame),
   onFrameRemove: (frame) => hostApp.onFrameRemove(frame),
   onLog: (id, value) => hostApp.onLog(id, value),
+  // 記録（ログ・失敗・拒否・警告）は `record` が問題ビューへ入れる。ここは通知だけ。
+  record: reportExtensionProblem(reportProblem),
   report: (level, text, extensionId) => {
-    reportProblem({
-      code: "extension.failure",
-      source: extensionId,
-      message: text,
-    });
     notify(level, `${extensionId}: ${text}`, { source: extensionId });
   },
 });

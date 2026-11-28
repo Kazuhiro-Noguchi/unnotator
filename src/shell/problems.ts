@@ -1,5 +1,10 @@
 // シェルの問題の集まり。011 の「問題」ビューが読む（contracts/shell-api.md）。
-import type { ProblemInput, ShellProblem } from "./types";
+import type {
+  ProblemCode,
+  ProblemInput,
+  ProblemSink,
+  ShellProblem,
+} from "./types";
 
 const LIMIT = 500;
 
@@ -45,3 +50,35 @@ export function createProblems(now: () => number = Date.now) {
 export const problemStore = createProblems();
 export const reportProblem = problemStore.report;
 export const problems = problemStore.list;
+
+export type ExtensionRecordKind =
+  | "error"
+  | "rejected"
+  | "warn"
+  | "log"
+  | "disabled"
+  | "unresponsive";
+
+const EXTENSION_CODES: Record<ExtensionRecordKind, ProblemCode> = {
+  error: "extension.failure",
+  rejected: "extension.rejected",
+  warn: "extension.warning",
+  log: "extension.log",
+  disabled: "extension.disabled",
+  unresponsive: "extension.unresponsive",
+};
+
+/** 拡張機能ごとのログ・失敗・拒否・警告を、問題ビューへ記録する関数を作る（FR-022）。`source` は拡張機能 ID。 */
+export function reportExtensionProblem(sink: ProblemSink) {
+  return (record: {
+    extId: string;
+    kind: ExtensionRecordKind;
+    message: string;
+  }): void => {
+    sink({
+      code: EXTENSION_CODES[record.kind],
+      source: record.extId,
+      message: record.message,
+    });
+  };
+}

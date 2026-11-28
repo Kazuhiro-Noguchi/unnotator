@@ -42,7 +42,12 @@ export type ProblemCode =
   | "keybinding.conflict"
   | "ribbon.target-missing"
   | "settings.invalid"
-  | "extension.failure";
+  | "extension.failure"
+  | "extension.rejected"
+  | "extension.warning"
+  | "extension.log"
+  | "extension.disabled"
+  | "extension.unresponsive";
 
 export interface ShellProblem {
   code: ProblemCode;

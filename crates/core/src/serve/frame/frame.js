@@ -514,7 +514,7 @@ body {
 						surfaceAbort.abort();
 						await surface?.dispose?.();
 						surface = null;
-					} else if (m === "deactivate") v = await mod.deactivate?.();
+					} else if (m === "ping") {} else if (m === "deactivate") v = await mod.deactivate?.();
 					else throw new Error(`unknown call: ${m}`);
 					post({
 						t: "res",

@@ -231,3 +231,60 @@ describe("createExtensionHost: 画面の枠（US2）", () => {
     expect(t.container.querySelectorAll("iframe")).toHaveLength(0);
   }, 10000);
 });
+
+describe("失敗の隔離（US5）", () => {
+  it("枠の error が続くと、その拡張機能だけ止まり、通知と記録が出る。もう 1 つは動き続ける", async () => {
+    const record = vi.fn();
+    const ports = new Map<string, MessagePort>();
+    const report = vi.fn();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const host = createExtensionHost({
+      list: async () => [
+        info("a.bad", { activationEvents: ["onStartup"] }),
+        info("a.good", { activationEvents: ["onStartup"] }),
+      ],
+      doc: document,
+      container,
+      base: "unno://localhost",
+      locale: () => "ja",
+      handle: async () => null,
+      report,
+      record,
+      isolation: { threshold: 2, windowMs: 10_000 },
+      pingIntervalMs: 0,
+      stopTimeoutMs: 20,
+      deliverInit: (_el, init, port) => {
+        const id = (init as { ext: { id: string } }).ext.id;
+        ports.set(id, port);
+        port.postMessage({ t: "rep", kind: "ready", v: null });
+      },
+    });
+    const p = host.startup();
+    await tick();
+    for (const el of container.querySelectorAll("iframe"))
+      el.dispatchEvent(new Event("load"));
+    await p;
+    const bad = ports.get("a.bad");
+    for (let i = 0; i < 3; i++)
+      bad?.postMessage({
+        t: "rep",
+        kind: "error",
+        v: { phase: "error", message: "late" },
+      });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(host.manager.state("a.bad").status).toBe("disabled");
+    expect(host.manager.state("a.good").status).toBe("active");
+    expect(report).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("a.bad"),
+      "a.bad",
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ extId: "a.bad", kind: "disabled" }),
+    );
+    // 登録簿の読み直しでも、止めたものは止めたまま
+    await host.refresh();
+    expect(host.manager.state("a.bad").status).toBe("disabled");
+  });
+});

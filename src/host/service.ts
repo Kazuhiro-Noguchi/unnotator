@@ -1,5 +1,6 @@
 // 拡張機能ホストの全体（US1）: 登録簿の一覧を `ActivationManager` に反映し、
 // 裏の枠の生成・`activate` の完了待ち・終了処理を結ぶ。
+import { format, t } from "../i18n";
 import { ActivationManager, type ExtensionDescriptor } from "./activation";
 import type { HostRequest } from "./channel";
 import {
@@ -8,6 +9,13 @@ import {
   type FrameManager,
   type FrameManagerOptions,
 } from "./frames";
+import {
+  createIsolation,
+  type FailureKind,
+  type Isolation,
+  type IsolationDeps,
+  type IsolationRecord,
+} from "./isolation";
 import { versionSatisfies } from "./semver";
 
 /** 005 の `extension_list` + `extension_get` を合わせたもの。 */
@@ -44,6 +52,12 @@ export interface ExtensionHostDeps {
   onFrameRemove?: FrameManagerOptions["onRemove"];
   /** 枠の `host.log` の報告（拡張機能 ID つき）。 */
   onLog?(extensionId: string, value: unknown): void;
+  /** 拡張機能ごとのログ・失敗・拒否・警告の記録（問題ビュー。FR-022）。 */
+  record?(record: IsolationRecord): void;
+  /** 失敗の閾値・期間・ping（US5）。 */
+  isolation?: Pick<IsolationDeps, "threshold" | "windowMs" | "pingTimeoutMs">;
+  /** 応答の監視の間隔。0 で監視しない。既定は 10 秒。 */
+  pingIntervalMs?: number;
 }
 
 const DEFAULT_MIRROR: Record<string, unknown> = {
@@ -57,6 +71,8 @@ const DEFAULT_MIRROR: Record<string, unknown> = {
 export interface ExtensionHost {
   readonly manager: ActivationManager;
   readonly frames: FrameManager;
+  /** 失敗の隔離（失敗数・自動停止・ping）。 */
+  readonly isolation: Isolation;
   /** 登録簿の一覧を読み直す。無効・削除になったものは止める。 */
   refresh(): Promise<void>;
   /** 最後に読んだ一覧（画面の宣言の元）。 */
@@ -119,6 +135,32 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
   const startTimeoutMs = deps.startTimeoutMs ?? 30_000;
   const stopTimeoutMs = deps.stopTimeoutMs ?? 5000;
 
+  const isolation = createIsolation({
+    ...deps.isolation,
+    disable: (id) => manager.disable(id),
+    removeFrames: (id) => frames.removeAll(id),
+    record: (record) => {
+      try {
+        deps.record?.(record);
+      } catch {
+        // 記録の失敗で、隔離を止めない。
+      }
+    },
+    notify: (id, notice) =>
+      deps.report(
+        "error",
+        format(
+          t(
+            notice === "disabled"
+              ? "host.failure.disabled"
+              : "host.failure.timeout",
+          ),
+          { name: id },
+        ),
+        id,
+      ),
+  });
+
   const onReport = (
     frame: Frame,
     kind: "error" | "log" | "ready",
@@ -127,6 +169,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     const waiter = waiters.get(frame.extensionId);
     if (kind === "log") {
       deps.onLog?.(frame.extensionId, value);
+      isolation.fail(frame.extensionId, "log" satisfies FailureKind, value);
     } else if (kind === "ready") {
       waiter?.resolve();
     } else if (kind === "error") {
@@ -134,6 +177,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
         typeof value === "object" && value !== null && "message" in value
           ? String((value as { message: unknown }).message)
           : String(value);
+      isolation.fail(frame.extensionId, "error", value);
       if (waiter !== undefined) waiter.reject(new Error(message));
       else deps.report("error", message, frame.extensionId);
     }
@@ -144,6 +188,8 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     base: deps.base,
     handle: deps.handle,
     onReport,
+    onReject: (frame, reason) =>
+      isolation.fail(frame.extensionId, "rejected", { reason }),
     ...(deps.onFrameCreate === undefined
       ? {}
       : { onCreate: deps.onFrameCreate }),
@@ -163,11 +209,12 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
       waiters.set(id, { resolve, reject });
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new Error(`${id} did not become ready`)),
-        startTimeoutMs,
-      );
+      timer = setTimeout(() => {
+        timedOut = true;
+        reject(new Error(`${id} did not become ready`));
+      }, startTimeoutMs);
     });
     let mirror = DEFAULT_MIRROR;
     try {
@@ -193,11 +240,10 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
       await Promise.race([ready, timeout]);
     } catch (error) {
       frames.removeAll(id);
-      deps.report(
-        "error",
-        error instanceof Error ? error.message : String(error),
-        id,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      // 枠の `rep error` で来た失敗は、報告の時点で記録済み。時間切れだけをここで記録する。
+      if (timedOut) deps.record?.({ extId: id, kind: "error", message });
+      deps.report("error", message, id);
       throw error;
     } finally {
       if (timer !== undefined) clearTimeout(timer);
@@ -261,7 +307,13 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     for (const info of list) {
       const parsed = parse(info);
       if (parsed === null) continue;
-      descriptors.push(parsed.descriptor);
+      // 利用者が有効にし直す（登録簿の状態が一度外れる）まで、自動で止めたものは止めたままにする。
+      if (info.status !== "enabled") isolation.reset(info.id);
+      descriptors.push(
+        isolation.isStopped(info.id)
+          ? { ...parsed.descriptor, enabled: false }
+          : parsed.descriptor,
+      );
       mains.set(info.id, parsed.main);
     }
     const stillEnabled = new Set(
@@ -279,9 +331,28 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     );
   }
 
+  // 応答の監視: 有効な拡張機能の裏の枠へ、一定の間隔で ping を送る。
+  let pingTimer: ReturnType<typeof setInterval> | undefined;
+  function startMonitor(): void {
+    const interval = deps.pingIntervalMs ?? 10_000;
+    if (interval <= 0 || pingTimer !== undefined) return;
+    pingTimer = setInterval(() => {
+      for (const id of frames.backgroundIds()) {
+        if (manager.state(id).status !== "active") continue;
+        const frame = frames.background(id);
+        if (frame !== undefined) void isolation.probe(id, frame.channel);
+      }
+    }, interval);
+  }
+  function stopMonitor(): void {
+    if (pingTimer !== undefined) clearInterval(pingTimer);
+    pingTimer = undefined;
+  }
+
   return {
     manager,
     frames,
+    isolation,
     refresh,
     infos: () => lastList,
     onDidRefresh(listener) {
@@ -290,11 +361,16 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     },
     async startup() {
       await refresh();
+      startMonitor();
       await manager.trigger("onStartup");
     },
     trigger: (event) => manager.trigger(event),
-    shutdown: (options) =>
-      manager.deactivateAll({ timeoutMs: options?.timeoutMs ?? stopTimeoutMs }),
+    shutdown: (options) => {
+      stopMonitor();
+      return manager.deactivateAll({
+        timeoutMs: options?.timeoutMs ?? stopTimeoutMs,
+      });
+    },
   };
 }
 

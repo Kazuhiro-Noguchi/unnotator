@@ -163,6 +163,8 @@ export function startFrame(deps: FrameDeps): () => void {
           surfaceAbort.abort();
           await surface?.dispose?.();
           surface = null;
+        } else if (m === "ping") {
+          // 生存の確認（本体が応答のない枠を取り除く）。拡張機能の処理は呼ばない。
         } else if (m === "deactivate") {
           v = await mod.deactivate?.();
         } else {

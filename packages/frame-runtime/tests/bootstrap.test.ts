@@ -405,3 +405,15 @@ describe("startFrame: 画面の枠（エディター・ビュー・プレビュ�
     expect(seen?.aborted).toBe(true);
   });
 });
+
+describe("startFrame: ping", () => {
+  it("本体の ping に、拡張機能の処理を待たずに答える", async () => {
+    const s = setup(async () => ({ activate: vi.fn() }));
+    cleanups.push(s.close);
+    s.deliver(s.init);
+    await s.settle();
+    s.channel.port1.postMessage({ t: "call", id: 77, m: "ping", a: null });
+    await s.settle();
+    expect(s.received).toContainEqual({ t: "res", id: 77, ok: true, v: null });
+  });
+});

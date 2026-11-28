@@ -76,3 +76,23 @@ describe("シェルの問題", () => {
     expect(store.list()).toEqual([]);
   });
 });
+
+describe("拡張機能ごとの記録（FR-022）", () => {
+  it("ログ・失敗・拒否・警告が、拡張機能 ID を source にして問題ビューへ入る", async () => {
+    const { reportExtensionProblem } = await import("./problems");
+    const store = createProblems(() => 1);
+    const record = reportExtensionProblem(store.report);
+    record({ extId: "a", kind: "error", message: "boom" });
+    record({ extId: "a", kind: "rejected", message: "rateLimited" });
+    record({ extId: "b", kind: "warn", message: "careful" });
+    record({ extId: "b", kind: "log", message: "hello" });
+    record({ extId: "b", kind: "disabled", message: "off" });
+    expect(store.list().map((p) => [p.code, p.source, p.message])).toEqual([
+      ["extension.failure", "a", "boom"],
+      ["extension.rejected", "a", "rateLimited"],
+      ["extension.warning", "b", "careful"],
+      ["extension.log", "b", "hello"],
+      ["extension.disabled", "b", "off"],
+    ]);
+  });
+});

@@ -7,6 +7,7 @@
 pub mod consent;
 pub mod devmode;
 pub mod error;
+pub mod gate;
 pub mod limits;
 pub mod manifest;
 pub mod names;

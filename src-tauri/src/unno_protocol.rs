@@ -588,6 +588,49 @@ mod tests {
     }
 
     #[test]
+    fn a_dev_extension_gets_the_same_frame_csp_as_an_installed_one() {
+        // 開発者モードで緩めてよいのは読み込み元のフォルダだけ。枠の CSP は変えない（FR-035）。
+        let csp_for = |origin: Origin| {
+            let temp = Temp::new();
+            std::fs::write(temp.0.join("ext/views/a.html"), b"<p>hi</p>").expect("書ける");
+            let project = project_state(&temp);
+            let serve = serve_state(&temp);
+            let manifest = serde_json::json!({
+                "id": "com.example.text", "version": "1.0.0",
+                "engines": { "unnotator": "^0.0.1" }, "main": "dist/index.js"
+            });
+            let raw = RawExtension::new(
+                temp.0.join("ext"),
+                origin,
+                Manifest::from_value(manifest).expect("読める"),
+            );
+            let mut state = ExtensionsState::default();
+            state.set_dev_mode(true);
+            let registry = Registry::build(RegistryInput {
+                installed: &[raw],
+                state: &state,
+                app_api_version: unnotator_extensions::EXTENSION_API_VERSION,
+            });
+            serve.update(&registry, &state);
+            handle(&project, &serve, &get("/ext/com.example.text/views/a.html"))
+                .header("content-security-policy")
+                .expect("ある")
+                .to_owned()
+        };
+        let installed = csp_for(Origin::Installed);
+        let dev = csp_for(Origin::Dev);
+        assert_eq!(installed, dev);
+        for always in [
+            "connect-src 'none'",
+            "frame-src 'none'",
+            "base-uri 'none'",
+            "form-action 'none'",
+        ] {
+            assert!(dev.contains(always), "{always}");
+        }
+    }
+
+    #[test]
     fn the_reserved_host_files_are_served_from_the_embedded_copy() {
         let temp = Temp::new();
         // 拡張機能が同名のファイルを持っていても、起動用が返る

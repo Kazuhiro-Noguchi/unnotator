@@ -151,6 +151,21 @@ export function createHost(deps: HostProxyDeps): {
       });
     } else if (full in sync) {
       target[name] = sync[full];
+    } else if (full === "assets.readText") {
+      // 文字への変換は枠の中で行う。ホストには `assets.read`（バイト列）だけを送る。
+      target[name] = async (id: unknown, encoding?: unknown) => {
+        const label = typeof encoding === "string" ? encoding : "utf-8";
+        let converter: TextDecoder;
+        try {
+          converter = new TextDecoder(label);
+        } catch {
+          throw Object.assign(new Error(`unknown encoding: ${label}`), {
+            code: "ValidationFailed",
+          });
+        }
+        const bytes = (await deps.request("assets.read", [id])) as ArrayBuffer;
+        return converter.decode(bytes);
+      };
     } else if (full === "extensions.getApi") {
       target[name] = async (id: string) => {
         const members = (await deps.request(full, { id })) as string[];

@@ -242,6 +242,17 @@
 				enumerable: true
 			});
 			else if (full in sync) target[name] = sync[full];
+			else if (full === "assets.readText") target[name] = async (id, encoding) => {
+				const label = typeof encoding === "string" ? encoding : "utf-8";
+				let converter;
+				try {
+					converter = new TextDecoder(label);
+				} catch {
+					throw Object.assign(/* @__PURE__ */ new Error(`unknown encoding: ${label}`), { code: "ValidationFailed" });
+				}
+				const bytes = await deps.request("assets.read", [id]);
+				return converter.decode(bytes);
+			};
 			else if (full === "extensions.getApi") target[name] = async (id) => {
 				const members = await deps.request(full, { id });
 				const api = {};

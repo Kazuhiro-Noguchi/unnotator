@@ -171,17 +171,6 @@ export const readHandlers: Handlers = {
       bytes.byteOffset + bytes.byteLength,
     );
   },
-  "assets.readText": async (ctx, a) => {
-    const [id, encoding] = positional(a);
-    const label = optStr(encoding, "encoding") ?? "utf-8";
-    let decoder: TextDecoder;
-    try {
-      decoder = new TextDecoder(label);
-    } catch {
-      throw invalid(`unknown encoding: ${label}`);
-    }
-    return decoder.decode(await readAsset(ctx, str(id, "id"), 0, undefined));
-  },
   "annotations.query": async (ctx, a) => {
     const [q] = positional(a);
     const rows = await ctx.ipc.annotationsQuery(ctx.extId, annotationFilter(q));

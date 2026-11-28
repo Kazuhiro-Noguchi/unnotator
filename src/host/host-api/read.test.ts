@@ -144,7 +144,7 @@ describe("assets", () => {
     });
   });
 
-  it("read / readText: 範囲を分けて読み、つなげて返す", async () => {
+  it("read: 範囲を分けて読み、つなげて返す（readText は枠の中で処理する）", async () => {
     const bytes = new TextEncoder().encode("こんにちは");
     const assetRead = vi.fn(
       async (
@@ -163,7 +163,6 @@ describe("assets", () => {
       { offset: 3, length: 3 },
     ])) as ArrayBuffer;
     expect(new Uint8Array(part)).toEqual(bytes.slice(3, 6));
-    await expect(call("assets.readText", ["a1"])).resolves.toBe("こんにちは");
   });
 
   it("read: 読み取りの合計に上限がある（巨大な読み出しは ValidationFailed）", async () => {

@@ -320,5 +320,14 @@
   "host.permission.python.spawn": "Run Python tasks",
   "host.permission.network": "Network access",
   "host.notice.untrusted": "Extension notice",
-  "host.confirm.title": "Confirmation from the extension \"{name}\""
+  "host.confirm.title": "Confirmation from the extension \"{name}\"",
+  "view.metrics.title": "Extension metrics",
+  "metrics.empty": "No measurements yet.",
+  "metrics.col.extension": "Extension",
+  "metrics.col.activation": "Activation (ms)",
+  "metrics.col.calls": "Calls",
+  "metrics.col.average": "Average (ms)",
+  "metrics.col.max": "Max (ms)",
+  "metrics.col.slow": "Slow calls",
+  "metrics.col.failures": "Failures"
 }

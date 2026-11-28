@@ -16,6 +16,7 @@ import {
   type IsolationDeps,
   type IsolationRecord,
 } from "./isolation";
+import { createMetrics, type Metrics } from "./metrics";
 import { versionSatisfies } from "./semver";
 
 /** 005 の `extension_list` + `extension_get` を合わせたもの。 */
@@ -73,6 +74,8 @@ export interface ExtensionHost {
   readonly frames: FrameManager;
   /** 失敗の隔離（失敗数・自動停止・ping）。 */
   readonly isolation: Isolation;
+  /** 拡張機能ごとの計測（開発者モードで見る。FR-023）。 */
+  readonly metrics: Metrics;
   /** 登録簿の一覧を読み直す。無効・削除になったものは止める。 */
   refresh(): Promise<void>;
   /** 最後に読んだ一覧（画面の宣言の元）。 */
@@ -135,6 +138,15 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
   const startTimeoutMs = deps.startTimeoutMs ?? 30_000;
   const stopTimeoutMs = deps.stopTimeoutMs ?? 5000;
 
+  const metrics = createMetrics({
+    onSlow: (id, method, ms) =>
+      deps.record?.({
+        extId: id,
+        kind: "warn",
+        message: `${method} took ${Math.round(ms)} ms`,
+      }),
+  });
+
   const isolation = createIsolation({
     ...deps.isolation,
     disable: (id) => manager.disable(id),
@@ -186,7 +198,27 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
   const frames = createFrameManager({
     doc: deps.doc,
     base: deps.base,
-    handle: deps.handle,
+    handle: async (request) => {
+      const started = performance.now();
+      try {
+        const value = await deps.handle(request);
+        metrics.recordCall(
+          request.extId,
+          request.m,
+          performance.now() - started,
+          true,
+        );
+        return value;
+      } catch (error) {
+        metrics.recordCall(
+          request.extId,
+          request.m,
+          performance.now() - started,
+          false,
+        );
+        throw error;
+      }
+    },
     onReport,
     onReject: (frame, reason) =>
       isolation.fail(frame.extensionId, "rejected", { reason }),
@@ -216,6 +248,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
         reject(new Error(`${id} did not become ready`));
       }, startTimeoutMs);
     });
+    const activationStarted = performance.now();
     let mirror = DEFAULT_MIRROR;
     try {
       mirror = (await deps.mirrorInit?.(id)) ?? DEFAULT_MIRROR;
@@ -238,6 +271,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     });
     try {
       await Promise.race([ready, timeout]);
+      metrics.recordActivation(id, performance.now() - activationStarted);
     } catch (error) {
       frames.removeAll(id);
       const message = error instanceof Error ? error.message : String(error);
@@ -353,6 +387,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     manager,
     frames,
     isolation,
+    metrics,
     refresh,
     infos: () => lastList,
     onDidRefresh(listener) {

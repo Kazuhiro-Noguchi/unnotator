@@ -1,8 +1,10 @@
 // アプリで使う拡張機能ホスト（1 つだけ）。実際の IPC・通知・問題ビューにつなぐ。
+import { createComponent } from "solid-js";
 import { detectLanguage } from "../i18n";
 import { commands, events } from "../ipc";
 import { explorer } from "../shell/explorer/instance";
 import { activeLabel } from "../shell/labels/instance";
+import { MetricsView } from "../shell/layout/MetricsView";
 import { showExtensionView } from "../shell/layout/surfaces-instance";
 import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
@@ -16,6 +18,7 @@ import {
   ribbon,
   commands as shellCommands,
   statusStore,
+  views,
 } from "../shell/services";
 import { createContributesSync } from "./contributes";
 import { createHostApp } from "./host-api/host-app";
@@ -220,11 +223,35 @@ function bindState(): void {
 }
 
 /** 起動時に 1 回。登録簿の変更（導入・削除・有効 / 無効）でも読み直す。 */
+/** 開発者モードのときだけ、拡張機能の計測を「問題」の隣のパネルに出す（FR-023）。 */
+async function refreshDevMode(): Promise<void> {
+  try {
+    const devMode = await commands.devmodeGet();
+    ctx.set("devMode", devMode.enabled);
+  } catch {
+    ctx.set("devMode", false);
+  }
+}
+
 export function startExtensionHost(): void {
   bindState();
+  views.register({
+    id: "extension-metrics",
+    title: { key: "view.metrics.title" },
+    icon: "$(output)",
+    location: "panel",
+    when: "devMode",
+    source: "core",
+    render: () =>
+      createComponent(MetricsView, { metrics: extensionHost.metrics }),
+  });
+  void refreshDevMode();
   contributesSync.start();
   void extensionHost.startup().catch(() => {});
   void events.extensionsChanged
-    .listen(() => void extensionHost.refresh().catch(() => {}))
+    .listen(() => {
+      void refreshDevMode();
+      void extensionHost.refresh().catch(() => {});
+    })
     .catch(() => {});
 }

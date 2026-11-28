@@ -320,5 +320,14 @@
   "host.permission.python.spawn": "Python の処理の実行",
   "host.permission.network": "ネットワークへの通信",
   "host.notice.untrusted": "拡張機能の表示",
-  "host.confirm.title": "拡張機能「{name}」からの確認"
+  "host.confirm.title": "拡張機能「{name}」からの確認",
+  "view.metrics.title": "拡張機能の計測",
+  "metrics.empty": "計測はまだありません。",
+  "metrics.col.extension": "拡張機能",
+  "metrics.col.activation": "有効化（ms）",
+  "metrics.col.calls": "呼び出し",
+  "metrics.col.average": "平均（ms）",
+  "metrics.col.max": "最大（ms）",
+  "metrics.col.slow": "遅い呼び出し",
+  "metrics.col.failures": "失敗"
 }

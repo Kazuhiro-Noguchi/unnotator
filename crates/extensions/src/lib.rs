@@ -23,12 +23,23 @@ pub use error::ExtensionError;
 /// マニフェスト v1 の JSON Schema（契約の正本をそのまま埋め込む）。
 pub const MANIFEST_SCHEMA: &str = include_str!("../schema/unnotator-plugin.schema.json");
 
-/// アプリの拡張 API の版。`packages/plugin-api` の版の major と一致させる（テストで確かめる）。
-pub const EXTENSION_API_VERSION: &str = "1.0.0";
+/// アプリの拡張 API の版。`packages/plugin-api` の `API_VERSION` と一致させる（テストで確かめる）。
+pub const EXTENSION_API_VERSION: &str = "0.0.1";
 
 #[cfg(test)]
 mod tests {
-    use super::MANIFEST_SCHEMA;
+    use super::{EXTENSION_API_VERSION, MANIFEST_SCHEMA};
+
+    #[test]
+    fn api_version_matches_the_plugin_api_package() {
+        let dts = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/plugin-api/index.d.ts"
+        ))
+        .expect("plugin-api の型定義を読める");
+        let expected = format!("API_VERSION: '{EXTENSION_API_VERSION}'");
+        assert!(dts.contains(&expected), "{expected} が index.d.ts に無い");
+    }
 
     #[test]
     fn manifest_schema_is_json_with_draft_2020_12() {

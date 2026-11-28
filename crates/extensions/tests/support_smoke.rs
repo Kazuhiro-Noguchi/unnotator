@@ -19,7 +19,7 @@ fn the_manifest_builder_makes_the_required_fields() {
         .media_type("text", &[".txt"], &["text/plain"])
         .build();
     assert_eq!(m["id"], "com.example.text");
-    assert_eq!(m["engines"]["unnotator"], "^1.0.0");
+    assert_eq!(m["engines"]["unnotator"], "^0.0.1");
     assert_eq!(m["extensionDependencies"]["com.example.base"], "^1.0.0");
     assert_eq!(m["contributes"]["mediaTypes"][0]["id"], "text");
 }

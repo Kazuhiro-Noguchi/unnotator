@@ -2,7 +2,7 @@
   "id": "NotReverseDomain",
   "version": "0.1.0",
   "engines": {
-    "unnotator": "^1.0.0"
+    "unnotator": "^0.0.1"
   },
   "main": "dist/index.js"
 }

@@ -61,11 +61,11 @@ fn every_invalid_example_is_refused_with_a_pointer_and_a_reason() {
 #[test]
 fn a_missing_field_points_at_the_object_and_a_bad_value_points_at_the_field() {
     let missing = parse_manifest(
-        br#"{ "version": "1.0.0", "engines": {"unnotator":"^1.0.0"}, "main": "dist/index.js" }"#,
+        br#"{ "version": "1.0.0", "engines": {"unnotator": "^0.0.1"}, "main": "dist/index.js" }"#,
     )
     .unwrap_err();
     assert_eq!(missing[0].pointer, "");
-    let bad = parse_manifest(br#"{ "id": "Bad_ID", "version": "1.0.0", "engines": {"unnotator":"^1.0.0"}, "main": "dist/index.js" }"#).unwrap_err();
+    let bad = parse_manifest(br#"{ "id": "Bad_ID", "version": "1.0.0", "engines": {"unnotator": "^0.0.1"}, "main": "dist/index.js" }"#).unwrap_err();
     assert_eq!(bad[0].pointer, "/id");
 }
 
@@ -101,7 +101,7 @@ fn a_bad_selector_schema_is_reported_at_its_place() {
 
 #[test]
 fn a_failure_still_reports_the_extension_id_when_it_can_be_read() {
-    let problems = parse_manifest(br#"{ "id": "com.example.x", "version": "nope", "engines": {"unnotator":"^1.0.0"}, "main": "dist/index.js" }"#).unwrap_err();
+    let problems = parse_manifest(br#"{ "id": "com.example.x", "version": "nope", "engines": {"unnotator": "^0.0.1"}, "main": "dist/index.js" }"#).unwrap_err();
     assert_eq!(problems[0].extension_id, "com.example.x");
 }
 

@@ -73,7 +73,7 @@ pub fn manifest(id: &str, version: &str) -> ManifestBuilder {
         value: json!({
             "id": id,
             "version": version,
-            "engines": { "unnotator": "^1.0.0" },
+            "engines": { "unnotator": "^0.0.1" },
             "main": "dist/index.js",
             "contributes": {}
         }),

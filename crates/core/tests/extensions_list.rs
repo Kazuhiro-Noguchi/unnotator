@@ -145,6 +145,28 @@ fn a_missing_extension_never_removes_assets_or_annotations() {
     assert_eq!(support::count(&read_conn(dir.path()), "assets"), 1);
 }
 
+/// 0.x の範囲は semver の規則どおり（`^0.0.1` は `0.0.1` ちょうどだけ。`^0.X.0` は `0.X.y`）。
+#[test]
+fn caret_ranges_on_zero_versions_follow_semver() {
+    let cases: &[(&str, &str, bool)] = &[
+        ("^0.0.1", "0.0.1", true),
+        ("^0.0.1", "0.0.2", false),
+        ("^0.0.1", "0.1.0", false),
+        ("^0.0.1", "1.0.0", false),
+        ("^0.1.0", "0.1.0", true),
+        ("^0.1.0", "0.1.7", true),
+        ("^0.1.0", "0.2.0", false),
+        ("^0.1.0", "0.0.9", false),
+    ];
+    for (range, version, expected) in cases {
+        assert_eq!(
+            version_satisfies(range, version),
+            Some(*expected),
+            "{range} vs {version}"
+        );
+    }
+}
+
 #[test]
 fn version_ranges_are_interpreted_as_documented() {
     let cases: &[(&str, &str, bool)] = &[

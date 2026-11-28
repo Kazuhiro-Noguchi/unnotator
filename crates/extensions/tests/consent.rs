@@ -28,7 +28,7 @@ fn entry(version: &str, permissions: &[&str]) -> ExtensionEntry {
     let registry = Registry::build(RegistryInput {
         installed: &[raw],
         state: &ExtensionsState::default(),
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     });
     registry.entry("com.example.text").unwrap().clone()
 }

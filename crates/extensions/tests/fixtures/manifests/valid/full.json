@@ -6,7 +6,7 @@
   "publisher": "example",
   "license": "MIT",
   "repository": "https://example.com/repo",
-  "engines": { "unnotator": "^1.0.0" },
+  "engines": { "unnotator": "^0.0.1" },
   "main": "dist/index.js",
   "activationEvents": [
     "onStartup",

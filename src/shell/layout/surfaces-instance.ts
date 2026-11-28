@@ -1,12 +1,32 @@
 // アプリで使う、拡張機能の画面の差し込み（エディター領域の `resolveSurface` と、ビューの登録）。
 import { createSignal } from "solid-js";
+import { createProjectPreferences } from "../../host/editor-preferences";
 import { extensionHost } from "../../host/instance";
 import { createPlacementRuntime } from "../../host/placement-instance";
-import { layout, views } from "../services";
+import { commands } from "../../ipc";
+import { layout, notify, views } from "../services";
 import { createStandaloneScreen } from "./standalone";
 import { createResolveSurface, syncExtensionViews } from "./surfaces";
 
-export const placementRuntime = createPlacementRuntime(extensionHost);
+const KEY = "core.editors.default";
+
+/** 既定のエディターは、プロジェクト設定 `core.editors.default` に保存する。 */
+export const editorPreferences = createProjectPreferences(
+  {
+    read: async () => {
+      const setting = await commands.settingsGet(KEY);
+      return JSON.parse(setting.value_json) as Record<string, string>;
+    },
+    write: async (map) => {
+      await commands.settingsSet("project", KEY, JSON.stringify(map));
+    },
+  },
+  (error) => notify("error", `${KEY}: ${String(error)}`),
+);
+
+export const placementRuntime = createPlacementRuntime(extensionHost, {
+  preferences: editorPreferences,
+});
 
 const [version, setVersion] = createSignal(0);
 const bump = () => setVersion((v) => v + 1);

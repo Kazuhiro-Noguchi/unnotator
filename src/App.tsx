@@ -26,6 +26,7 @@ import {
 } from "./shell/layout/project-context";
 import { Shell } from "./shell/layout/Shell";
 import { normalizeLayout } from "./shell/layout/state";
+import { editorPreferences } from "./shell/layout/surfaces-instance";
 import { provideModeCommands } from "./shell/mode/instance";
 import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
@@ -90,6 +91,7 @@ const actions = createProjectActions({
   open: async (folder, create) => {
     const result = await commands.projectOpen(folder, create);
     void extensionHost.startup().catch(() => {});
+    void editorPreferences.load();
     return { kind: result.kind };
   },
   restore: async () => {
@@ -100,6 +102,7 @@ const actions = createProjectActions({
     await commands.projectClose(action);
     hostApp.suggestions.clearAll();
     await extensionHost.shutdown();
+    editorPreferences.clear();
     setProjectName(null);
     await explorer.close();
     projectData.reset();

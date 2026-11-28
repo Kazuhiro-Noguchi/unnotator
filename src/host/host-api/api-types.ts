@@ -1,5 +1,6 @@
 // Host API の各部（read・write・events・misc）が共有する型。
 import type { Registrations } from "../activation";
+import type { SuggestionStore } from "../suggestions";
 import type { ChangeSetDto, HostIpc } from "./ipc";
 import type { ManifestIndex } from "./manifests";
 import type { PermissionGate } from "./permissions";
@@ -63,6 +64,8 @@ export interface HostApiDeps {
   typeChecks?: TypeChecks;
   /** 選択（FR-024）。無ければ何もしない。 */
   selection?: { set(ids: string[]): Promise<void> };
+  /** 候補（FR-025〜027）。無ければ `annotations.suggest` は使えない。 */
+  suggestions?: SuggestionStore;
   /** 書き込みが済んだとき（通知にコマンドの表示名を結ぶ）。 */
   onApplied?(set: ChangeSetDto, name: string): void;
 }

@@ -93,6 +93,11 @@ export interface WriteApi {
   handlers: Handlers;
   /** 枠・拡張機能が無くなったとき、開いている transaction を捨てる。 */
   abortTransactions(extId: string): void;
+  /** 作成の入力を検査してコマンドを作る（書き込まない）。 */
+  buildCreate(
+    ctx: Ctx,
+    raw: unknown,
+  ): Promise<{ command: Command; annotation: Record<string, unknown> }>;
 }
 
 export function createWriteHandlers(): WriteApi {
@@ -164,55 +169,56 @@ export function createWriteHandlers(): WriteApi {
     return null;
   }
 
-  const handlers: Handlers = {
-    "annotations.create": async (ctx, a) => {
-      const [raw] = positional(a);
-      const n = obj(raw, "annotation");
-      const t = target(n.target);
-      const type = qualified(n.type, "type");
-      if (n.selector === undefined) throw invalid("selector is required");
-      const selector = n.selector;
-      const selectorJson = JSON.stringify(selector);
-      if (selectorJson === undefined) throw invalid("selector must be JSON");
-      const label = labelId(n.labelId);
-      const attributes =
-        n.attributes === undefined
-          ? {}
-          : jsonObject(n.attributes, "attributes");
-      const z = zOrder(n.zOrder);
-      const local = type.startsWith(`${ctx.extId}/`)
-        ? type.slice(ctx.extId.length + 1)
-        : undefined;
-      const version =
-        local === undefined
-          ? undefined
-          : ctx.deps.manifests.get(ctx.extId)?.annotationTypeVersions[local];
-      // 書き込みの前に、定義側の枠へ問い合わせる（失敗したら書かない）。
-      const summary =
-        (
-          await ctx.deps.typeChecks?.check({
-            type,
-            selector,
-            assetId: t.assetId,
-          })
-        )?.summary ?? "";
-      const id = uuidv7();
-      const command = {
-        kind: "create_annotation",
-        id,
-        target: coreTarget(ctx, t),
-        type,
-        ...(version === undefined ? {} : { type_version: version }),
-        selector_json: selectorJson,
-        ...(summary === "" ? {} : { summary }),
-        label_id: label ?? null,
-        attributes_json: JSON.stringify(attributes),
-        ...(z === undefined ? {} : { z_order: z }),
-        source: ctx.extId,
-      } as Command;
-      await write(ctx, command, "create_annotation");
-      const now = Date.now();
-      return {
+  /** `annotations.create` の入力を検査して、書き込むコマンドと返す値を作る（`annotations.suggest` と共有）。 */
+  async function buildCreate(
+    ctx: Ctx,
+    raw: unknown,
+  ): Promise<{ command: Command; annotation: Record<string, unknown> }> {
+    const n = obj(raw, "annotation");
+    const t = target(n.target);
+    const type = qualified(n.type, "type");
+    if (n.selector === undefined) throw invalid("selector is required");
+    const selector = n.selector;
+    const selectorJson = JSON.stringify(selector);
+    if (selectorJson === undefined) throw invalid("selector must be JSON");
+    const label = labelId(n.labelId);
+    const attributes =
+      n.attributes === undefined ? {} : jsonObject(n.attributes, "attributes");
+    const z = zOrder(n.zOrder);
+    const local = type.startsWith(`${ctx.extId}/`)
+      ? type.slice(ctx.extId.length + 1)
+      : undefined;
+    const version =
+      local === undefined
+        ? undefined
+        : ctx.deps.manifests.get(ctx.extId)?.annotationTypeVersions[local];
+    // 書き込みの前に、定義側の枠へ問い合わせる（失敗したら書かない）。
+    const summary =
+      (
+        await ctx.deps.typeChecks?.check({
+          type,
+          selector,
+          assetId: t.assetId,
+        })
+      )?.summary ?? "";
+    const id = uuidv7();
+    const command = {
+      kind: "create_annotation",
+      id,
+      target: coreTarget(ctx, t),
+      type,
+      ...(version === undefined ? {} : { type_version: version }),
+      selector_json: selectorJson,
+      ...(summary === "" ? {} : { summary }),
+      label_id: label ?? null,
+      attributes_json: JSON.stringify(attributes),
+      ...(z === undefined ? {} : { z_order: z }),
+      source: ctx.extId,
+    } as Command;
+    const now = Date.now();
+    return {
+      command,
+      annotation: {
         id,
         target:
           t.itemKey === undefined
@@ -228,7 +234,16 @@ export function createWriteHandlers(): WriteApi {
         source: ctx.extId,
         createdAt: now,
         updatedAt: now,
-      };
+      },
+    };
+  }
+
+  const handlers: Handlers = {
+    "annotations.create": async (ctx, a) => {
+      const [raw] = positional(a);
+      const { command, annotation } = await buildCreate(ctx, raw);
+      await write(ctx, command, "create_annotation");
+      return annotation;
     },
     "annotations.update": async (ctx, a) => {
       const [idArg, patchArg] = positional(a);
@@ -540,6 +555,7 @@ export function createWriteHandlers(): WriteApi {
   return {
     handlers,
     abortTransactions: (extId) => void open.delete(extId),
+    buildCreate,
   };
 }
 

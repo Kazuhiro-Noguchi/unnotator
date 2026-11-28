@@ -686,3 +686,27 @@ fn subscribers_hear_about_undo_and_redo() {
         vec![Origin::Apply, Origin::Undo, Origin::Redo]
     );
 }
+
+/// 候補の一括採用（009 の US6）: 複数の `CreateAnnotation` の Transaction は、1 回の Undo で戻り、Redo で元に戻る。
+#[test]
+fn accepting_suggestions_in_one_transaction_round_trips() {
+    let (dir, mut store) = new_project(&["a1"]);
+    let before = snapshot(&read_conn(dir.path()));
+    store
+        .apply_command(Command::Transaction {
+            commands: vec![
+                annotation(1, "a1"),
+                annotation(2, "a1"),
+                annotation(3, "a1"),
+            ],
+        })
+        .unwrap();
+    let applied = snapshot(&read_conn(dir.path()));
+    assert_eq!(support::count(&read_conn(dir.path()), "annotations"), 3);
+    assert_eq!(store.undo_state().undo_depth, 1);
+
+    store.undo().unwrap().unwrap();
+    assert_eq!(snapshot(&read_conn(dir.path())), before);
+    store.redo().unwrap().unwrap();
+    assert_eq!(snapshot(&read_conn(dir.path())), applied);
+}

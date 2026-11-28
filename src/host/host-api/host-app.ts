@@ -9,6 +9,7 @@ import {
   type HostSelection,
   type SelectionPort,
 } from "../selection";
+import { createSuggestionStore, type SuggestionStore } from "../suggestions";
 import { createHostApi, type HostApi } from "./api";
 import type { Handlers, ShellPort } from "./api-types";
 import { type ChangeBridge, createChangeBridge } from "./events";
@@ -55,6 +56,8 @@ export interface HostApp {
   /** 変更の通知（シェルの購読者と枠の両方へ）。 */
   readonly changes: ChangeBridge;
   readonly gate: PermissionGate;
+  /** 候補（仮の状態。FR-025〜027）。 */
+  readonly suggestions: SuggestionStore;
   /** 選択（持ち主はシェル）。`selection` を渡さなければ `undefined`。 */
   readonly selection: HostSelection | undefined;
   readonly api: HostApi;
@@ -107,6 +110,12 @@ export function createHostApp(deps: HostAppDeps): HostApp {
   });
 
   const changes = createChangeBridge({ allowed });
+  const suggestions = createSuggestionStore({
+    apply: async (source, command) => {
+      const set = await deps.ipc.applyCommand(source, command);
+      changes.noteLabel(set.seq, "accept_suggestions");
+    },
+  });
   const selection =
     deps.selection === undefined
       ? undefined
@@ -135,6 +144,7 @@ export function createHostApp(deps: HostAppDeps): HostApp {
     state,
     changes,
     gate,
+    suggestions,
     selection,
     deps,
     // 下で作る。
@@ -218,6 +228,7 @@ export function createHostApp(deps: HostAppDeps): HostApp {
         return frame.call(m, a);
       },
       typeChecks,
+      suggestions,
       ...(selection === undefined ? {} : { selection }),
       onApplied: (set, name) => changes.noteLabel(set.seq, name),
     },

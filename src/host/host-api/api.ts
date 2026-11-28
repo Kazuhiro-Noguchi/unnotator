@@ -6,6 +6,7 @@ import { createMiscHandlers } from "./misc";
 import { HostApiError } from "./permissions";
 import { readHandlers } from "./read";
 import { selectionHandlers } from "./selection-api";
+import { createSuggestHandlers } from "./suggest";
 import { createWriteHandlers } from "./write";
 
 export type { HostApiDeps } from "./api-types";
@@ -49,6 +50,7 @@ export function createHostApi(
     write.handlers,
     createMiscHandlers(),
     selectionHandlers,
+    createSuggestHandlers(write.buildCreate),
     ...extra,
   );
   return {

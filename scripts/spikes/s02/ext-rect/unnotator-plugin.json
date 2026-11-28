@@ -1,7 +1,9 @@
 {
   "id": "dev.spike.rect",
   "version": "0.0.1",
-  "engines": { "unnotator": "^1.0.0" },
+  "engines": { "unnotator": "^0.0.1" },
   "main": "dist/index.js",
-  "extensionDependencies": { "dev.spike.base": "^0.0.1" }
+  "activationEvents": ["onCommand:dev.spike.rect.run"],
+  "extensionDependencies": { "dev.spike.base": "^0.0.1" },
+  "permissions": ["annotations.read", "annotations.write"]
 }

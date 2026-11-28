@@ -1,6 +1,12 @@
 {
   "id": "dev.spike.base",
   "version": "0.0.1",
-  "engines": { "unnotator": "^1.0.0" },
-  "main": "dist/index.js"
+  "engines": { "unnotator": "^0.0.1" },
+  "main": "dist/index.js",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
+    "editors": [{ "id": "editor", "title": "Base editor", "mediaTypes": ["text"], "entry": "dist/surface.js" }],
+    "views": [{ "id": "info", "title": "Base info", "location": "panel", "entry": "dist/surface.js" }]
+  }
 }

@@ -5,7 +5,6 @@ import { commands, events } from "../ipc";
 import { explorer } from "../shell/explorer/instance";
 import { activeLabel } from "../shell/labels/instance";
 import { MetricsView } from "../shell/layout/MetricsView";
-import { showExtensionView } from "../shell/layout/surfaces-instance";
 import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
 import { reportExtensionProblem, reportProblem } from "../shell/problems";
@@ -132,7 +131,11 @@ export const hostApp = createHostApp({
     confirm: (prompt) =>
       askConfirm({ ...prompt, name: displayName(prompt.extId) }),
     setStatusBarItem: (item, key) => statusStore.setItem(item, key),
-    showView: (id) => void showExtensionView(id),
+    // 画面の差し込み（surfaces-instance）は、このファイルを読み込む。起動時の循環を避けるため、呼ばれたときに読み込む。
+    showView: (id) =>
+      void import("../shell/layout/surfaces-instance").then((m) =>
+        m.showExtensionView(id),
+      ),
     setContext: (extId, key, value) => ctx.setNamespaced(extId, key, value),
     provideCommand: (id, run) => shellCommands.provide(id, run),
     executeCommand: async (id, args) => {

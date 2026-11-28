@@ -7,6 +7,7 @@
 pub mod blob;
 pub mod budget;
 pub mod confine;
+pub mod ext_csp;
 pub mod mime;
 pub mod range;
 pub mod url;

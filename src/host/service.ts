@@ -144,8 +144,12 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     base: deps.base,
     handle: deps.handle,
     onReport,
-    ...(deps.onFrameCreate === undefined ? {} : { onCreate: deps.onFrameCreate }),
-    ...(deps.onFrameRemove === undefined ? {} : { onRemove: deps.onFrameRemove }),
+    ...(deps.onFrameCreate === undefined
+      ? {}
+      : { onCreate: deps.onFrameCreate }),
+    ...(deps.onFrameRemove === undefined
+      ? {}
+      : { onRemove: deps.onFrameRemove }),
     ...(deps.deliverInit === undefined
       ? {}
       : { deliverInit: deps.deliverInit }),

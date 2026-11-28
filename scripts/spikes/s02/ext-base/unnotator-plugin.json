@@ -6,7 +6,21 @@
   "activationEvents": ["onStartup"],
   "contributes": {
     "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
-    "editors": [{ "id": "editor", "title": "Base editor", "mediaTypes": ["text"], "entry": "dist/surface.js" }],
-    "views": [{ "id": "info", "title": "Base info", "location": "panel", "entry": "dist/surface.js" }]
+    "editors": [
+      {
+        "id": "editor",
+        "title": "Base editor",
+        "mediaTypes": ["text"],
+        "entry": "dist/surface.js"
+      }
+    ],
+    "views": [
+      {
+        "id": "info",
+        "title": "Base info",
+        "location": "panel",
+        "entry": "dist/surface.js"
+      }
+    ]
   }
 }

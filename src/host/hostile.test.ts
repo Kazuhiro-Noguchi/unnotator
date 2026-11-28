@@ -126,14 +126,12 @@ describe("敵対的な枠: メッセージ", () => {
     const t = setup();
     closers.push(() => t.manager.removeAll("dev.spike.bad"));
     expect(() =>
-      t.ports
-        .get("dev.spike.bad")
-        ?.postMessage({
-          t: "req",
-          id: 1,
-          m: "selection.get",
-          a: { f: () => 1 },
-        }),
+      t.ports.get("dev.spike.bad")?.postMessage({
+        t: "req",
+        id: 1,
+        m: "selection.get",
+        a: { f: () => 1 },
+      }),
     ).toThrow();
   });
 

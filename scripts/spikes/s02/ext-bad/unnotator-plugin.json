@@ -6,6 +6,13 @@
   "activationEvents": ["onStartup"],
   "contributes": {
     "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
-    "views": [{ "id": "attack", "title": "Attack", "location": "panel", "entry": "dist/surface.js" }]
+    "views": [
+      {
+        "id": "attack",
+        "title": "Attack",
+        "location": "panel",
+        "entry": "dist/surface.js"
+      }
+    ]
   }
 }

@@ -50,12 +50,14 @@ interface ShapeApi {
   nested: { name(): string };
 }
 export async function useApi(host: Host): Promise<number> {
-  const api: Remote<ShapeApi> = await host.extensions.getApi<ShapeApi>("com.example.shape");
+  const api: Remote<ShapeApi> =
+    await host.extensions.getApi<ShapeApi>("com.example.shape");
   const name: string = await api.nested.name();
   void name;
   return await api.area("a");
 }
 
+// biome-ignore format: 次の行の @ts-expect-error を 1 行に保つ
 // @ts-expect-error Remote のメソッドは Promise を返すので、number に直接は代入できない
 export const wrongRemote = async (api: Remote<ShapeApi>): Promise<number> => { const n: number = api.area("a"); return n; };
 

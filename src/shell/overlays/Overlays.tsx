@@ -1,6 +1,7 @@
 import { createSignal, lazy, Show, Suspense } from "solid-js";
 import { format } from "../../i18n";
 import { commands } from "../../ipc";
+import { StandaloneHost } from "../layout/StandaloneHost";
 import { useT } from "../solid";
 import {
   aboutOpen,
@@ -148,6 +149,7 @@ export function Overlays() {
       <FolderDialog />
       <CloseDialog />
       <ConsentDialog />
+      <StandaloneHost />
     </>
   );
 }

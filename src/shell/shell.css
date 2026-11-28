@@ -155,6 +155,12 @@
   display: none;
 }
 
+/* 単独で動く画面（ダイアログの中）。高さは画面の高さに合わせる。 */
+.surface-screen {
+  width: 100%;
+  height: min(60vh, 560px);
+}
+
 .surface-notice {
   display: flex;
   flex-direction: column;

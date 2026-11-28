@@ -49,9 +49,7 @@ describe("getApi（枠の中）", () => {
   it("名前の表から、入れ子のプロキシを作り、呼び出しは req になる", async () => {
     const { host, request } = setup(["answer", "nested.name"]);
     const extensions = host.extensions as {
-      getApi(
-        id: string,
-      ): Promise<{
+      getApi(id: string): Promise<{
         answer(a: string): Promise<number>;
         nested: { name(): Promise<string> };
       }>;

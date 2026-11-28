@@ -173,3 +173,20 @@ describe("createFrameManager", () => {
 // 型の確認: PortLike を満たす。
 const _check: PortLike | null = null;
 void _check;
+
+describe("createFrameManager: 枠ごとの受け口", () => {
+  it("取り除かれると onRemoved が 1 回だけ呼ばれる", () => {
+    const { manager, host, baseInit } = setup();
+    const onRemoved = vi.fn();
+    const frame = manager.create({
+      extensionId: "com.example.a",
+      role: "editor",
+      container: host,
+      init: baseInit,
+      onRemoved,
+    });
+    manager.remove(frame);
+    manager.removeAll("com.example.a");
+    expect(onRemoved).toHaveBeenCalledTimes(1);
+  });
+});

@@ -181,3 +181,53 @@ describe("createExtensionHost", () => {
     await expect(t.host.startup()).resolves.toBeUndefined();
   });
 });
+
+describe("createExtensionHost: 画面の枠（US2）", () => {
+  it("読み直した一覧を infos() で返し、onDidRefresh で知らせる", async () => {
+    const t = setup([info("a.one", { activationEvents: [] })]);
+    const seen: string[][] = [];
+    t.host.onDidRefresh((list) => seen.push(list.map((i) => i.id)));
+    expect(t.host.infos()).toEqual([]);
+    await t.host.refresh();
+    expect(t.host.infos().map((i) => i.id)).toEqual(["a.one"]);
+    expect(seen).toEqual([["a.one"]]);
+  });
+
+  it("拡張機能を止めるとき、画面の枠に先に dispose を送ってから deactivate する", async () => {
+    const t = setup([info("a.start", { activationEvents: ["onStartup"] })]);
+    const p = t.host.startup();
+    await tick();
+    t.loadFrames();
+    await p;
+    t.host.frames.create({
+      extensionId: "a.start",
+      role: "editor",
+      container: t.container,
+      init: {
+        ext: { id: "a.start", version: "1.0.0", path: "" },
+        url: "unno://localhost/ext/a.start/e.js",
+        locale: "ja",
+        messages: {},
+        theme: {},
+        mirror: {},
+        ctx: {},
+      },
+    });
+    t.loadFrames();
+    t.setList([
+      info("a.start", { activationEvents: ["onStartup"] }, "disabled"),
+    ]);
+    await t.host.refresh();
+    const calls = t.sent
+      .map((s) => s.message as { t: string; m?: string })
+      .filter((m) => m.t === "call")
+      .map((m) => m.m);
+    // 本体の枠は、止めた直後に取り除かれる。`dispose` は取り除く前に送られている。
+    expect(calls).toContain("dispose");
+    expect(calls.indexOf("dispose")).toBeLessThanOrEqual(
+      calls.includes("deactivate") ? calls.indexOf("deactivate") : 0,
+    );
+    await new Promise((r) => setTimeout(r, 80));
+    expect(t.container.querySelectorAll("iframe")).toHaveLength(0);
+  }, 10000);
+});

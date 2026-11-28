@@ -129,6 +129,64 @@
   text-align: center;
 }
 
+/* 拡張機能の画面の枠（009）。枠の中身はこの入れ物の外へ出られない:
+   はみ出しを切り（overflow・contain: paint）、重なりの順位を持ち込ませない（isolation。z-index は付けない）。 */
+.surface-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.surface-frame > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.surface-frame[data-state="failed"] > iframe,
+.surface-frame[data-state="removed"] > iframe {
+  display: none;
+}
+
+.surface-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: var(--color-fg-muted);
+  text-align: center;
+}
+
+.surface-area {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.surface-area > .surface-frame {
+  flex: 1 1 0;
+  height: auto;
+}
+
+/* エディターの切り替え（候補が 2 つ以上あるときだけ出る）。枠の上の細い帯に置き、枠に重ねない。 */
+.surface-switcher {
+  order: -1;
+  align-self: flex-end;
+  margin: 4px 8px;
+  max-width: 50%;
+}
+
 /* 枠つきボタン（outlined）。枠は背景との対比 3:1 以上（WCAG 1.4.11）。主な操作は .primary（塗りつぶし）。 */
 .button {
   border: 1px solid var(--color-outline);

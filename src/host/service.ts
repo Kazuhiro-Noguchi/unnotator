@@ -37,13 +37,32 @@ export interface ExtensionHostDeps {
   /** `deactivate` の完了を待つ時間。既定は 5 秒。 */
   stopTimeoutMs?: number;
   deliverInit?: FrameManagerOptions["deliverInit"];
+  /** 裏の枠の最初の写し（`init.mirror`）。失敗したら既定の値で始める。 */
+  mirrorInit?(extensionId: string): Promise<Record<string, unknown>>;
+  /** 枠ができた・取り除かれたとき（写しの購読を結ぶ）。 */
+  onFrameCreate?: FrameManagerOptions["onCreate"];
+  onFrameRemove?: FrameManagerOptions["onRemove"];
+  /** 枠の `host.log` の報告（拡張機能 ID つき）。 */
+  onLog?(extensionId: string, value: unknown): void;
 }
+
+const DEFAULT_MIRROR: Record<string, unknown> = {
+  selection: [],
+  "labels.active": null,
+  settings: {},
+  "assets.current": null,
+  "tools.active": null,
+};
 
 export interface ExtensionHost {
   readonly manager: ActivationManager;
   readonly frames: FrameManager;
   /** 登録簿の一覧を読み直す。無効・削除になったものは止める。 */
   refresh(): Promise<void>;
+  /** 最後に読んだ一覧（画面の宣言の元）。 */
+  infos(): readonly ExtensionInfo[];
+  /** `refresh` で一覧を読み直すたびに呼ばれる。解除する関数を返す。 */
+  onDidRefresh(listener: (infos: readonly ExtensionInfo[]) => void): () => void;
   /** 起動時: 一覧を読み、`onStartup` の拡張機能を有効にする。 */
   startup(): Promise<void>;
   trigger(event: string): Promise<void>;
@@ -95,6 +114,8 @@ interface Waiter {
 export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
   const mains = new Map<string, string | undefined>();
   const waiters = new Map<string, Waiter>();
+  let lastList: readonly ExtensionInfo[] = [];
+  const refreshListeners = new Set<(infos: readonly ExtensionInfo[]) => void>();
   const startTimeoutMs = deps.startTimeoutMs ?? 30_000;
   const stopTimeoutMs = deps.stopTimeoutMs ?? 5000;
 
@@ -104,7 +125,9 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     value: unknown,
   ) => {
     const waiter = waiters.get(frame.extensionId);
-    if (kind === "ready") {
+    if (kind === "log") {
+      deps.onLog?.(frame.extensionId, value);
+    } else if (kind === "ready") {
       waiter?.resolve();
     } else if (kind === "error") {
       const message =
@@ -121,6 +144,8 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     base: deps.base,
     handle: deps.handle,
     onReport,
+    ...(deps.onFrameCreate === undefined ? {} : { onCreate: deps.onFrameCreate }),
+    ...(deps.onFrameRemove === undefined ? {} : { onRemove: deps.onFrameRemove }),
     ...(deps.deliverInit === undefined
       ? {}
       : { deliverInit: deps.deliverInit }),
@@ -140,6 +165,12 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
         startTimeoutMs,
       );
     });
+    let mirror = DEFAULT_MIRROR;
+    try {
+      mirror = (await deps.mirrorInit?.(id)) ?? DEFAULT_MIRROR;
+    } catch {
+      // 写しの元が読めなくても、枠は始める（差分で追いつく）。
+    }
     frames.create({
       extensionId: id,
       role: "background",
@@ -150,13 +181,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
         locale: deps.locale(),
         messages: {},
         theme: {},
-        mirror: {
-          selection: [],
-          "labels.active": null,
-          settings: {},
-          "assets.current": null,
-          "tools.active": null,
-        },
+        mirror: { ...DEFAULT_MIRROR, ...mirror },
         ctx: {},
       },
     });
@@ -176,9 +201,31 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     }
   }
 
+  async function disposeSurfaces(id: string): Promise<void> {
+    const surfaces = frames.framesOf(id).filter((f) => f.role !== "background");
+    if (surfaces.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const limit = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, stopTimeoutMs);
+    });
+    try {
+      await Promise.race([
+        Promise.allSettled(
+          surfaces.map((f) => f.channel.call("dispose", null)),
+        ),
+        limit,
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   async function stop(id: string): Promise<void> {
     const frame = frames.background(id);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // 画面の枠（エディター・ビュー）には、先に `dispose` を送る（書きかけの内容を Host API で残せるように）。
+    if (frames.framesOf(id).some((f) => f.role !== "background"))
+      await disposeSurfaces(id);
     try {
       if (frame !== undefined) {
         await Promise.race([
@@ -204,6 +251,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
 
   async function refresh(): Promise<void> {
     const list = await deps.list();
+    lastList = list;
     const descriptors: ExtensionDescriptor[] = [];
     mains.clear();
     for (const info of list) {
@@ -217,6 +265,7 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     );
     const running = frames.backgroundIds();
     manager.setExtensions(descriptors);
+    for (const listener of [...refreshListeners]) listener(list);
     await Promise.all(
       running
         .filter((id) => !stillEnabled.has(id))
@@ -230,6 +279,11 @@ export function createExtensionHost(deps: ExtensionHostDeps): ExtensionHost {
     manager,
     frames,
     refresh,
+    infos: () => lastList,
+    onDidRefresh(listener) {
+      refreshListeners.add(listener);
+      return () => refreshListeners.delete(listener);
+    },
     async startup() {
       await refresh();
       await manager.trigger("onStartup");

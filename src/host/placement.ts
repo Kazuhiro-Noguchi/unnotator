@@ -1,6 +1,7 @@
 // 画面（エディター・プレビュー・ビュー）の選択と配置の判断（FR-006・FR-007）。
 // マニフェストの宣言を集め、アセットの媒体種別に合う画面を 1 つ選ぶ。枠を作るのは `placement-frame.ts`。
 // 媒体の中身は見ない。媒体種別の ID（完全な名前）で突き合わせるだけ。
+import type { AssetRow } from "../ipc";
 import type { ExtensionInfo } from "./service";
 
 export type EditorPriority = "default" | "option";
@@ -26,7 +27,7 @@ export interface PreviewerEntry extends SurfaceBase {
 }
 
 export interface ViewEntry extends SurfaceBase {
-  title: string;
+  title: { ja: string; en: string };
   location: ViewLocation;
   icon: string | null;
   when: string | null;
@@ -123,7 +124,10 @@ export function collectSurfaces(infos: readonly ExtensionInfo[]): Surfaces {
         continue;
       surfaces.views.push({
         ...b,
-        title: str(d.title) ?? b.localId,
+        title: (() => {
+          const title = str(d.title) ?? b.localId;
+          return { ja: title, en: title };
+        })(),
         location,
         icon: str(d.icon),
         when: str(d.when),
@@ -218,5 +222,21 @@ export function createPlacement(deps: PlacementDeps): PlacementService {
         if (id.startsWith(`${extensionId}/`)) failed.delete(id);
       }
     },
+  };
+}
+
+/** `plugin-api` の `Asset`（コアが持つ部分。メタ情報・属性は Host API の `assets.get` で引く）。 */
+export function toAsset(row: AssetRow): Record<string, unknown> {
+  return {
+    id: row.id,
+    rootKey: row.root_key,
+    relPath: row.rel_path,
+    mediaType: row.media_type ?? null,
+    fileSize: row.file_size ?? 0,
+    mtimeMs: row.mtime_ms ?? 0,
+    status: row.status,
+    missing: row.missing,
+    metadata: {},
+    attributes: {},
   };
 }

@@ -1,7 +1,9 @@
 import { format, t } from "../../i18n";
 import { commands, events } from "../../ipc";
 import { openExternal } from "../../preview/external";
+import "../../host/item-source-instance";
 import { EditorArea } from "../layout/EditorArea";
+import { resolveSurface } from "../layout/surfaces-instance";
 import { notify } from "../services";
 import { explorer } from "./instance";
 
@@ -36,7 +38,7 @@ async function relink(assetId: string): Promise<void> {
   });
 }
 
-/** アプリのエディター領域。エディター（009）が無いあいだは、汎用プレビューを出す。 */
+/** アプリのエディター領域。拡張機能のエディターがあれば枠で出し、無ければ汎用プレビューを出す。 */
 export function EditorSurface() {
   return (
     <EditorArea
@@ -57,6 +59,7 @@ export function EditorSurface() {
         )
       }
       onRelink={(id) => void relink(id).catch(() => {})}
+      resolveSurface={resolveSurface}
     />
   );
 }

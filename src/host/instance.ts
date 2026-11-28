@@ -127,6 +127,9 @@ function bindState(): void {
   void events.settingsChangedEvent
     .listen(() => void hostApp.refreshSettings())
     .catch(() => {});
+  void events.projectChanged
+    .listen((event) => hostApp.changes.publish(event.payload))
+    .catch(() => {});
   void events.permissionsChanged
     .listen((event) => hostApp.gate.forget(event.payload.id))
     .catch(() => {});

@@ -4,6 +4,7 @@ import type { HostRequest } from "../channel";
 import type { Frame } from "../frames";
 import { createHostApi, type HostApi } from "./api";
 import type { Handlers } from "./api-types";
+import { type ChangeBridge, createChangeBridge } from "./events";
 import type { HostIpc } from "./ipc";
 import type { ManifestIndex } from "./manifests";
 import { createMirrorFeed } from "./mirror-feed";
@@ -30,6 +31,8 @@ export interface HostAppDeps {
 
 export interface HostApp {
   readonly state: HostState;
+  /** 変更の通知（シェルの購読者と枠の両方へ）。 */
+  readonly changes: ChangeBridge;
   readonly gate: PermissionGate;
   readonly api: HostApi;
   readonly deps: HostAppDeps;
@@ -54,26 +57,30 @@ export function createHostApp(deps: HostAppDeps): HostApp {
     consent: (extId, permissions) => deps.ipc.consent(extId, permissions),
     ask: (prompt) => deps.ask({ ...prompt, name: deps.nameOf(prompt.extId) }),
   });
+  const allowed = async (extId: string, permission: string) => {
+    try {
+      return (
+        (await deps.ipc.checkPermission(extId, permission)).verdict ===
+        "allowed"
+      );
+    } catch {
+      return false;
+    }
+  };
   const feed = createMirrorFeed({
     state,
-    allowed: async (extId, permission) => {
-      try {
-        return (
-          (await deps.ipc.checkPermission(extId, permission)).verdict ===
-          "allowed"
-        );
-      } catch {
-        return false;
-      }
-    },
+    allowed,
     declaredSettings: (extId) => deps.manifests.get(extId)?.settingKeys ?? [],
   });
+
+  const changes = createChangeBridge({ allowed });
 
   // 枠ごとの購読の解除。同じ枠から 2 度は結ばない。
   const detaches = new Map<Frame, () => void>();
 
   const app: HostApp = {
     state,
+    changes,
     gate,
     deps,
     // 下で作る。
@@ -84,7 +91,12 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       if (detaches.has(frame)) return;
       const emit = (key: string, value: unknown) =>
         frame.channel.emit(key, value);
-      detaches.set(frame, feed.attach(frame.extensionId, emit));
+      const offMirror = feed.attach(frame.extensionId, emit);
+      const offChanges = changes.attach(frame.extensionId, emit);
+      detaches.set(frame, () => {
+        offMirror();
+        offChanges();
+      });
       // `init` に入れた値との行き違い（作る前の変化）を補う。
       void feed.snapshot(frame.extensionId).then((all) => {
         if (!detaches.has(frame)) return;

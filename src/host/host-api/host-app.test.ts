@@ -88,6 +88,33 @@ describe("Host API の本体（host-app）", () => {
     expect(frame.channel.emit).toHaveBeenCalledWith("selection", ["x"]);
   });
 
+  it("変更の通知: シェルと、作った枠の両方へ届き、枠を取り除くと枠へは届かない（FR-018）", async () => {
+    const t = setup();
+    const frame = t.frame();
+    const shell = vi.fn();
+    t.app.changes.subscribe(shell);
+    t.app.onFrameCreate(frame);
+    await tick();
+    const emit = frame.channel.emit as ReturnType<typeof vi.fn>;
+    emit.mockClear();
+    const change = {
+      seq: 1,
+      origin: "apply",
+      changes: [{ entity: "annotation", id: "n1", kind: "created" }],
+      asset_ids: ["a1"],
+    };
+    t.app.changes.publish(change);
+    await tick();
+    expect(shell).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith("annotations.change", expect.anything());
+    t.app.onFrameRemove(frame);
+    emit.mockClear();
+    t.app.changes.publish({ ...change, seq: 2 });
+    await tick();
+    expect(shell).toHaveBeenCalledTimes(2);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it("refreshSettings: 宣言されたキーを読み直して、写しの設定を更新する", async () => {
     const t = setup();
     const frame = t.frame();

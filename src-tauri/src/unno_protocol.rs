@@ -199,6 +199,8 @@ fn respond(
                     .unwrap_or_else(|| FALLBACK_CONTENT_TYPE.to_owned());
                 (path, content_type, true, Vec::new())
             }
+            // T011 で、埋め込んだ起動用のファイルを返す
+            Target::ExtHost { .. } => return Err(ServeError::NotFound),
             Target::Blob(name) => {
                 let path = serve.blobs.resolve(name)?;
                 (path, serve.content_type_of(name), true, Vec::new())

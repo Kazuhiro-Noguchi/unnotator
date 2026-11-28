@@ -4,6 +4,7 @@
 //  3. 各クレートの Cargo.toml が外部の依存の版を直接書いていない（版はルートの [workspace.dependencies] だけ）。
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ALLOWED_EDGES = new Set([
@@ -143,10 +144,13 @@ export function checkFrameRuntimeSource(file, source) {
   const importPattern = /from\s+["']([^"']+)["']/g;
   for (const match of source.matchAll(importPattern)) {
     const spec = match[1] ?? "";
-    if (
-      /(^|\/)src\//.test(spec.replace(/^(\.\.?\/)+/, "")) &&
-      spec.startsWith("..")
-    ) {
+    if (!spec.startsWith(".")) continue;
+    const resolved = posix.normalize(posix.join(posix.dirname(file), spec));
+    const inside = resolved.startsWith("packages/frame-runtime/");
+    const toCrates = resolved.startsWith(
+      "crates/extensions/host-api-permissions",
+    );
+    if (!inside && !toCrates) {
       problems.push(
         `${file}: 枠の起動用コードは本体の TS を import できない（${spec}）`,
       );

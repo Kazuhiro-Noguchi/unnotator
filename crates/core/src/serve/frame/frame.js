@@ -276,6 +276,49 @@
 			}
 		};
 	}
+	// packages/frame-runtime/src/styles.ts
+	/** 枠の基本のスタイル。本体の色の変数（`--color-*`）が使える。 */
+	var BASE_CSS = `
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--color-bg, #fff);
+  color: var(--color-fg, #000);
+  font: 14px/1.5 system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+`;
+	var NAME = /^--[A-Za-z0-9_-]+$/;
+	function isSafeValue(value) {
+		for (const ch of value) {
+			const code = ch.charCodeAt(0);
+			if (code < 32 || code === 127 || ";{}<>\\".includes(ch)) return false;
+		}
+		return true;
+	}
+	function applyBaseStyles(doc) {
+		const adopt = doc;
+		const Sheet = (doc.defaultView ?? globalThis).CSSStyleSheet;
+		if (Array.isArray(adopt.adoptedStyleSheets) && typeof Sheet === "function") {
+			const sheet = new Sheet();
+			sheet.replaceSync(BASE_CSS);
+			adopt.adoptedStyleSheets = [sheet];
+			return;
+		}
+		const body = doc.body;
+		if (body !== void 0 && body !== null) {
+			body.style.margin = "0";
+			body.style.background = "var(--color-bg)";
+			body.style.color = "var(--color-fg)";
+		}
+	}
+	/** テーマの色の変数をルートに設定する（`style` 属性を書かず、CSSOM で）。 */
+	function applyTheme(doc, variables) {
+		const style = doc.documentElement.style;
+		for (const [name, value] of Object.entries(variables)) {
+			if (!NAME.test(name) || typeof value !== "string" || !isSafeValue(value)) continue;
+			style.setProperty(name, value);
+		}
+	}
 	// packages/frame-runtime/src/bootstrap.ts
 	function isInit(data) {
 		if (typeof data !== "object" || data === null) return false;
@@ -304,7 +347,8 @@
 				v: r
 			});
 			removeErrors = installErrorReporting(deps.win, reportError);
-			for (const [name, value] of Object.entries(init.theme)) deps.doc.documentElement.style.setProperty(name, value);
+			applyBaseStyles(deps.doc);
+			applyTheme(deps.doc, init.theme);
 			const mirror = createMirror(init.mirror);
 			let nextId = 1;
 			const pending = /* @__PURE__ */ new Map();
@@ -335,11 +379,19 @@
 				})
 			});
 			let mod = {};
+			const surfaceAbort = new AbortController();
+			let surface = null;
+			const controllers = /* @__PURE__ */ new Map();
 			port.onmessage = (event) => {
 				const data = event.data;
 				if (typeof data !== "object" || data === null) return;
-				if (data.t === "ev" && typeof data.k === "string") mirror.apply(data.k, data.v);
-				else if (data.t === "res" && typeof data.id === "number") {
+				if (data.t === "ev" && typeof data.k === "string") {
+					if (data.k === "theme") {
+						if (typeof data.v === "object" && data.v !== null) applyTheme(deps.doc, data.v);
+						return;
+					}
+					mirror.apply(data.k, data.v);
+				} else if (data.t === "res" && typeof data.id === "number") {
 					const p = pending.get(data.id);
 					if (p === void 0) return;
 					pending.delete(data.id);
@@ -352,7 +404,25 @@
 					let v;
 					if (m === "invoke") {
 						const arg = a;
-						v = await registry.invoke(arg.kind, arg.localId, arg.member, arg.args ?? []);
+						const args = [...arg.args ?? []];
+						const token = arg.withSignal;
+						if (typeof token === "string") {
+							const controller = new AbortController();
+							controllers.set(token, controller);
+							args.push(controller.signal);
+						}
+						try {
+							v = await registry.invoke(arg.kind, arg.localId, arg.member, args);
+						} finally {
+							if (typeof token === "string") controllers.delete(token);
+						}
+					} else if (m === "abort") {
+						const token = a?.token;
+						if (typeof token === "string") controllers.get(token)?.abort();
+					} else if (m === "dispose") {
+						surfaceAbort.abort();
+						await surface?.dispose?.();
+						surface = null;
 					} else if (m === "deactivate") v = await mod.deactivate?.();
 					else throw new Error(`unknown call: ${m}`);
 					post({
@@ -381,12 +451,17 @@
 			try {
 				const ctx = {
 					...init.ctx,
-					container: deps.doc.body
+					container: deps.doc.body,
+					signal: surfaceAbort.signal,
+					setTitle: (title) => {
+						deps.doc.title = String(title);
+					},
+					onDidChangeVisibility: (listener) => mirror.on("visibility", (v) => listener(v === true))
 				};
 				if (init.role === "background") await mod.activate?.(host);
-				else if (init.role === "editor") await mod.openEditor?.(ctx, host);
-				else if (init.role === "view") await mod.resolveView?.(ctx, host);
-				else await mod.renderPreview?.(ctx, host);
+				else if (init.role === "editor") surface = await mod.openEditor?.(ctx, host);
+				else if (init.role === "view") surface = await mod.resolveView?.(ctx, host);
+				else surface = await mod.renderPreview?.(ctx, host);
 			} catch (error) {
 				reportError(toReport(init.role === "background" ? "activate" : "surface", error));
 				return;

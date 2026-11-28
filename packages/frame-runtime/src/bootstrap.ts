@@ -3,6 +3,7 @@
 import { type ErrorReport, installErrorReporting, toReport } from "./errors";
 import { createHost, type InitExtension } from "./host-proxy";
 import { createMirror, type MirrorInit } from "./mirror";
+import { applyBaseStyles, applyTheme } from "./styles";
 
 export interface InitMessage {
   t: "init";
@@ -72,9 +73,8 @@ export function startFrame(deps: FrameDeps): () => void {
       reportError,
     );
 
-    for (const [name, value] of Object.entries(init.theme)) {
-      deps.doc.documentElement.style.setProperty(name, value);
-    }
+    applyBaseStyles(deps.doc);
+    applyTheme(deps.doc, init.theme);
 
     const mirror = createMirror(init.mirror);
     let nextId = 1;
@@ -100,10 +100,20 @@ export function startFrame(deps: FrameDeps): () => void {
     });
 
     let mod: Module = {};
+    // 画面の枠: 開いた画面のインスタンスと、閉じるときに中断する signal。
+    const surfaceAbort = new AbortController();
+    let surface: { dispose?: () => unknown } | null = null;
+    // 本体から呼ばれた関数の signal（`withSignal` の token ごと）。
+    const controllers = new Map<string, AbortController>();
     port.onmessage = (event) => {
       const data = event.data as Record<string, unknown> | null;
       if (typeof data !== "object" || data === null) return;
       if (data.t === "ev" && typeof data.k === "string") {
+        if (data.k === "theme") {
+          if (typeof data.v === "object" && data.v !== null)
+            applyTheme(deps.doc, data.v as Record<string, string>);
+          return;
+        }
         mirror.apply(data.k, data.v);
       } else if (data.t === "res" && typeof data.id === "number") {
         const p = pending.get(data.id);
@@ -131,13 +141,27 @@ export function startFrame(deps: FrameDeps): () => void {
             localId: string;
             member?: string;
             args?: unknown[];
+            withSignal?: string;
           };
-          v = await registry.invoke(
-            arg.kind,
-            arg.localId,
-            arg.member,
-            arg.args ?? [],
-          );
+          const args = [...(arg.args ?? [])];
+          const token = arg.withSignal;
+          if (typeof token === "string") {
+            const controller = new AbortController();
+            controllers.set(token, controller);
+            args.push(controller.signal);
+          }
+          try {
+            v = await registry.invoke(arg.kind, arg.localId, arg.member, args);
+          } finally {
+            if (typeof token === "string") controllers.delete(token);
+          }
+        } else if (m === "abort") {
+          const token = (a as { token?: unknown } | null)?.token;
+          if (typeof token === "string") controllers.get(token)?.abort();
+        } else if (m === "dispose") {
+          surfaceAbort.abort();
+          await surface?.dispose?.();
+          surface = null;
         } else if (m === "deactivate") {
           v = await mod.deactivate?.();
         } else {
@@ -158,11 +182,22 @@ export function startFrame(deps: FrameDeps): () => void {
     }
 
     try {
-      const ctx = { ...init.ctx, container: deps.doc.body };
+      const ctx = {
+        ...init.ctx,
+        container: deps.doc.body,
+        signal: surfaceAbort.signal,
+        setTitle: (title: string) => {
+          deps.doc.title = String(title);
+        },
+        onDidChangeVisibility: (listener: (visible: boolean) => void) =>
+          mirror.on("visibility", (v) => listener(v === true)),
+      };
       if (init.role === "background") await mod.activate?.(host);
-      else if (init.role === "editor") await mod.openEditor?.(ctx, host);
-      else if (init.role === "view") await mod.resolveView?.(ctx, host);
-      else await mod.renderPreview?.(ctx, host);
+      else if (init.role === "editor")
+        surface = (await mod.openEditor?.(ctx, host)) as typeof surface;
+      else if (init.role === "view")
+        surface = (await mod.resolveView?.(ctx, host)) as typeof surface;
+      else surface = (await mod.renderPreview?.(ctx, host)) as typeof surface;
     } catch (error) {
       reportError(
         toReport(init.role === "background" ? "activate" : "surface", error),

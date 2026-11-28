@@ -31,7 +31,7 @@ pub fn ext_csp(id: &str, granted: &[String]) -> String {
         format!("data: {own}")
     };
     format!(
-        "default-src 'none'; script-src {own}; style-src unno: http://unno.localhost; \
+        "default-src 'none'; script-src {own}; style-src {own}; \
          img-src {loadable}; media-src {loadable}; font-src {loadable}; \
          connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     )
@@ -127,12 +127,18 @@ mod tests {
     }
 
     #[test]
-    fn style_src_allows_the_unno_scheme_only() {
-        let csp = ext_csp("com.example.text", &[]);
-        assert_eq!(
-            directive(&csp, "style-src"),
-            Some("unno: http://unno.localhost")
-        );
+    fn style_src_is_only_the_extensions_own_path_and_never_inline() {
+        // `<link rel=stylesheet>` で自分の CSS だけ読める。`<style>`（unsafe-inline）と、他の拡張機能の CSS は読めない。
+        for granted in [grants(&[]), grants(&["assets.read"])] {
+            let csp = ext_csp("com.example.text", &granted);
+            assert_eq!(
+                directive(&csp, "style-src"),
+                Some(
+                    "unno://localhost/ext/com.example.text/ http://unno.localhost/ext/com.example.text/"
+                )
+            );
+            assert!(!csp.contains("'unsafe-inline'"));
+        }
     }
 
     #[test]

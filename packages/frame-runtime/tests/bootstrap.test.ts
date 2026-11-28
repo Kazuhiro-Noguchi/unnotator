@@ -278,3 +278,130 @@ describe("startFrame: 失敗の報告", () => {
     ).toMatchObject({ v: { message: "nope" } });
   });
 });
+
+describe("startFrame: 画面の枠（エディター・ビュー・プレビュー）", () => {
+  it("openEditor に、container・asset・signal・setTitle つきの ctx を渡し、ready を報告する", async () => {
+    const openEditor = vi.fn(async () => ({
+      dispose: vi.fn(),
+      reveal: vi.fn(),
+    }));
+    const s = setup(async () => ({ openEditor }));
+    cleanups.push(s.close);
+    s.deliver({
+      ...s.init,
+      role: "editor",
+      ctx: { asset: { id: "a1" }, itemKey: "page:1" },
+    });
+    await s.settle();
+    const ctx = openEditor.mock.calls[0]?.[0] as unknown as {
+      container: HTMLElement;
+      asset: { id: string };
+      itemKey: string;
+      signal: AbortSignal;
+      setTitle(title: string): void;
+    };
+    expect(ctx.asset).toEqual({ id: "a1" });
+    expect(ctx.itemKey).toBe("page:1");
+    expect(ctx.container).toBeInstanceOf(HTMLElement);
+    expect(ctx.signal.aborted).toBe(false);
+    ctx.setTitle("Doc");
+    expect(document.title).toBe("Doc");
+    expect(s.received).toContainEqual({ t: "rep", kind: "ready", v: null });
+  });
+
+  it("本体からの dispose で、signal を中断し、インスタンスの dispose を呼ぶ", async () => {
+    const dispose = vi.fn();
+    let signal: AbortSignal | undefined;
+    const s = setup(async () => ({
+      openEditor: async (ctx: { signal: AbortSignal }) => {
+        signal = ctx.signal;
+        return { dispose, reveal: vi.fn() };
+      },
+    }));
+    cleanups.push(s.close);
+    s.deliver({ ...s.init, role: "editor" });
+    await s.settle();
+    s.channel.port1.postMessage({ t: "call", id: 9, m: "dispose", a: null });
+    await s.settle();
+    expect(signal?.aborted).toBe(true);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(s.received).toContainEqual({ t: "res", id: 9, ok: true, v: null });
+  });
+
+  it("resolveView の ctx で、表示状態の変化を ev で受けられる", async () => {
+    const seen: boolean[] = [];
+    const s = setup(async () => ({
+      resolveView: async (ctx: {
+        onDidChangeVisibility(cb: (v: boolean) => void): unknown;
+      }) => {
+        ctx.onDidChangeVisibility((v) => seen.push(v));
+        return { dispose: vi.fn() };
+      },
+    }));
+    cleanups.push(s.close);
+    s.deliver({ ...s.init, role: "view" });
+    await s.settle();
+    s.channel.port1.postMessage({ t: "ev", k: "visibility", v: false });
+    await s.settle();
+    expect(seen).toEqual([false]);
+  });
+
+  it("テーマの更新（ev theme）を、枠の中の色の変数に反映する", async () => {
+    const s = setup(async () => ({
+      renderPreview: async () => ({ dispose() {} }),
+    }));
+    cleanups.push(s.close);
+    s.deliver({ ...s.init, role: "preview" });
+    await s.settle();
+    s.channel.port1.postMessage({
+      t: "ev",
+      k: "theme",
+      v: { "--color-bg": "#222" },
+    });
+    await s.settle();
+    expect(document.documentElement.style.getPropertyValue("--color-bg")).toBe(
+      "#222",
+    );
+  });
+
+  it("invoke に withSignal があれば、最後の引数に signal を足し、abort の call で中断する", async () => {
+    let seen: AbortSignal | undefined;
+    const s = setup(async () => ({
+      activate: (h: {
+        items: { register(id: string, impl: object): void };
+      }) => {
+        h.items.register("pages", {
+          list: (_a: unknown, _r: unknown, signal: AbortSignal) => {
+            seen = signal;
+            return new Promise(() => {});
+          },
+        });
+      },
+    }));
+    cleanups.push(s.close);
+    s.deliver(s.init);
+    await s.settle();
+    s.channel.port1.postMessage({
+      t: "call",
+      id: 3,
+      m: "invoke",
+      a: {
+        kind: "items",
+        localId: "pages",
+        member: "list",
+        args: [{ id: "a" }, { offset: 0, limit: 1 }],
+        withSignal: "tok",
+      },
+    });
+    await s.settle();
+    expect(seen?.aborted).toBe(false);
+    s.channel.port1.postMessage({
+      t: "call",
+      id: 4,
+      m: "abort",
+      a: { token: "tok" },
+    });
+    await s.settle();
+    expect(seen?.aborted).toBe(true);
+  });
+});

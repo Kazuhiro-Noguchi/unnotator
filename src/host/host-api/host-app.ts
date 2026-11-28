@@ -92,6 +92,8 @@ export function createHostApp(deps: HostAppDeps): HostApp {
       deps.ipc.checkPermission(extId, permission),
     consent: (extId, permissions) => deps.ipc.consent(extId, permissions),
     ask: (prompt) => deps.ask({ ...prompt, name: deps.nameOf(prompt.extId) }),
+    // 許可で見えるようになる値（選択済みのアセットなど）を、開いている枠へ送り直す。
+    onGranted: (extId) => resyncMirror(extId),
   });
   const allowed = async (extId: string, permission: string) => {
     try {
@@ -139,6 +141,15 @@ export function createHostApp(deps: HostAppDeps): HostApp {
 
   // 枠ごとの購読の解除。同じ枠から 2 度は結ばない。
   const detaches = new Map<Frame, () => void>();
+
+  /** 拡張機能の枠すべてへ、今の写しの全体を送り直す。 */
+  async function resyncMirror(extId: string): Promise<void> {
+    const all = await feed.snapshot(extId);
+    for (const frame of detaches.keys()) {
+      if (frame.extensionId !== extId) continue;
+      for (const key of MIRROR_KEYS) frame.channel.emit(key, all[key]);
+    }
+  }
 
   const app: HostApp = {
     state,

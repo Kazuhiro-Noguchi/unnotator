@@ -56,6 +56,30 @@ describe("Host API の本体（host-app）", () => {
     ).rejects.toMatchObject({ code: "PermissionDenied" });
   });
 
+  it("権限を許可した直後に、その拡張機能の枠へ写しを送り直す（選択済みのアセットが見える）", async () => {
+    let assetsRead: "allowed" | "needs_consent" = "needs_consent";
+    const t = setup((p) => (p === "assets.read" ? assetsRead : "allowed"));
+    t.ipc.consent = vi.fn(async () => {
+      assetsRead = "allowed";
+    });
+    t.app.state.set("assets.current", { id: "asset-1", path: "a.txt" });
+    const frame = t.frame();
+    t.app.onFrameCreate(frame);
+    await tick();
+    const emit = frame.channel.emit as ReturnType<typeof vi.fn>;
+    expect(emit).not.toHaveBeenCalledWith(
+      "assets.current",
+      expect.objectContaining({ id: "asset-1" }),
+    );
+    emit.mockClear();
+    await t.app.gate.requirePermission("com.example.a", "assets.read");
+    await tick();
+    expect(emit).toHaveBeenCalledWith(
+      "assets.current",
+      expect.objectContaining({ id: "asset-1" }),
+    );
+  });
+
   it("mirrorInit: 権限と宣言に従った最初の写し。設定は宣言したキーの現在の値", async () => {
     const t = setup();
     await t.app.refreshSettings();

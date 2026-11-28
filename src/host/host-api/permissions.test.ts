@@ -100,6 +100,29 @@ describe("権限の確認", () => {
     expect(deps.ask).toHaveBeenCalledTimes(1);
   });
 
+  it("未同意: 許可して同意を保存したあとに onGranted が呼ばれる。許可済み・拒否では呼ばれない", async () => {
+    const onGranted = vi.fn();
+    const t = setup({ "assets.read": "needs_consent" });
+    const gate = createPermissionGate({ ...t.deps, onGranted });
+    await gate.requirePermission(ID, "assets.read");
+    expect(onGranted).toHaveBeenCalledTimes(1);
+    expect(onGranted).toHaveBeenCalledWith(ID, "assets.read");
+    expect(t.deps.consent).toHaveBeenCalledTimes(1);
+    await gate.requirePermission(ID, "assets.read");
+    expect(onGranted).toHaveBeenCalledTimes(1);
+
+    const refused = vi.fn();
+    const r = setup({ "assets.read": "needs_consent" }, false);
+    const refusedGate = createPermissionGate({
+      ...r.deps,
+      onGranted: refused,
+    });
+    await expect(
+      refusedGate.requirePermission(ID, "assets.read"),
+    ).rejects.toBeInstanceOf(HostApiError);
+    expect(refused).not.toHaveBeenCalled();
+  });
+
   it("未同意: 拒否すると PermissionDenied で、同意は保存されない。同じ権限は続けて聞かない", async () => {
     const { gate, deps } = setup({ "assets.read": "needs_consent" }, false);
     await expect(gate.authorize(ID, "assets.get")).rejects.toMatchObject({

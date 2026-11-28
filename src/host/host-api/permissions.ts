@@ -52,6 +52,8 @@ export interface PermissionDeps {
   consent(extId: string, permissions: string[]): Promise<void>;
   /** ホストが描くダイアログ。許可なら true。 */
   ask(prompt: ConsentPrompt): Promise<boolean>;
+  /** 同意を保存した直後に呼ぶ。許可で見えるようになる値（写しなど）を、枠へ送り直すために使う。 */
+  onGranted?(extId: string, permission: string): void | Promise<void>;
 }
 
 export interface PermissionGate {
@@ -102,6 +104,11 @@ export function createPermissionGate(deps: PermissionDeps): PermissionGate {
         throw denied(`permission refused: ${permission}`);
       }
       await deps.consent(extId, [permission]);
+      try {
+        await deps.onGranted?.(extId, permission);
+      } catch {
+        // 送り直しの失敗で、許可した呼び出し自体は失敗させない。
+      }
     })();
     asking.set(key, run);
     try {

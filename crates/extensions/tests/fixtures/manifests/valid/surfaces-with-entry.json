@@ -1,0 +1,28 @@
+{
+  "id": "com.example.surfaces",
+  "version": "0.1.0",
+  "engines": { "unnotator": "^0.0.1" },
+  "main": "dist/index.js",
+  "contributes": {
+    "mediaTypes": [{ "id": "text", "title": "Text", "extensions": [".txt"] }],
+    "editors": [
+      {
+        "id": "editor",
+        "title": "Editor",
+        "mediaTypes": ["text"],
+        "entry": "dist/editor.js"
+      }
+    ],
+    "previewers": [
+      { "id": "preview", "mediaTypes": ["text"], "entry": "dist/preview.js" }
+    ],
+    "views": [
+      {
+        "id": "list",
+        "title": "List",
+        "location": "panel",
+        "entry": "dist/list.js"
+      }
+    ]
+  }
+}

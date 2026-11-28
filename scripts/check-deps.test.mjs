@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkDirectVersions,
+  checkFrameRuntimeSource,
   checkMetadata,
   checkPreviewSource,
   checkProjectDataSource,
@@ -205,6 +206,24 @@ describe("checkProjectDataSource（008: 画面は ipc を直接 import せず、
       checkProjectDataSource("src/shell/labels/X.test.tsx", value),
     ).toEqual([]);
     expect(checkProjectDataSource("src/shell/explorer/X.ts", value)).toEqual(
+      [],
+    );
+  });
+});
+
+describe("checkFrameRuntimeSource", () => {
+  it("本体の TS を import すると報告する", () => {
+    const file = "packages/frame-runtime/src/a.ts";
+    expect(
+      checkFrameRuntimeSource(
+        file,
+        'import { x } from "../../../src/host/channel";',
+      ),
+    ).toHaveLength(1);
+  });
+  it("枠の中だけの import は通す", () => {
+    const file = "packages/frame-runtime/src/a.ts";
+    expect(checkFrameRuntimeSource(file, 'import { x } from "./b";')).toEqual(
       [],
     );
   });

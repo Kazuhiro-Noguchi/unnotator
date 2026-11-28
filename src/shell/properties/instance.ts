@@ -7,11 +7,20 @@ import type { Disposable, NotifyLevel } from "../types";
 import { provideEditHandlers } from "./commands";
 import { createDraftStore } from "./draft";
 import { createSelection } from "./selection";
+import type { SuggestionsSource } from "./suggestions-view";
 
 export const drafts = createDraftStore();
 export const selection = createSelection();
 export const current = explorer.current;
 export { projectData };
+
+/**
+ * 候補の保管（ホスト側）との受け口。シェルがホストを読み込むと循環するので、ホストの起動時（`host/instance.ts`）が差し込む。
+ */
+export const suggestionsPort: {
+  source: SuggestionsSource | null;
+  nameOf: (extId: string) => string;
+} = { source: null, nameOf: (id) => id };
 
 /**
  * 対応している（担当の拡張機能がある）アノテーションの種別。拡張機能の実行は 009 で結ぶので、それまでは空。

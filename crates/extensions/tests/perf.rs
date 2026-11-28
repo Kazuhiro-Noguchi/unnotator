@@ -40,7 +40,7 @@ fn resolve_a_thousand_extensions_with_dependencies() {
     let registry = Registry::build(RegistryInput {
         installed: &raws,
         state: &ExtensionsState::default(),
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     });
     let took = started.elapsed().as_millis();
     let enabled = registry
@@ -77,7 +77,7 @@ fn scan_and_build_a_hundred_installed_extensions() {
     let registry = Registry::build(RegistryInput {
         installed: &scanned.found,
         state: &ExtensionsState::default(),
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     });
     let total = started.elapsed().as_millis();
     println!(
@@ -113,7 +113,7 @@ fn install_a_hundred_packages_and_build_the_registry() {
     let registry = Registry::build(RegistryInput {
         installed: &scanned.found,
         state: &ExtensionsState::default(),
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     });
     let took = started.elapsed().as_millis();
     println!(

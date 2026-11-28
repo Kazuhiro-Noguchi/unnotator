@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, onMount } from "solid-js";
+import { extensionHost, hostApp, startExtensionHost } from "./host/instance";
 import { detectLanguage, format, t } from "./i18n";
 import { commands, events } from "./ipc";
 import { openDirectoryDialog } from "./ipc/dialog";
@@ -25,6 +26,7 @@ import {
 } from "./shell/layout/project-context";
 import { Shell } from "./shell/layout/Shell";
 import { normalizeLayout } from "./shell/layout/state";
+import { editorPreferences } from "./shell/layout/surfaces-instance";
 import { provideModeCommands } from "./shell/mode/instance";
 import { NotificationCenter } from "./shell/notify/NotificationCenter";
 import { Toasts } from "./shell/notify/Toasts";
@@ -88,14 +90,19 @@ const actions = createProjectActions({
     }),
   open: async (folder, create) => {
     const result = await commands.projectOpen(folder, create);
+    void extensionHost.startup().catch(() => {});
+    void editorPreferences.load();
     return { kind: result.kind };
   },
   restore: async () => {
     await commands.recoveryRestore();
   },
-  ask: askCloseDecision,
+  ask: () => askCloseDecision(hostApp.suggestions.count()),
   close: async (action) => {
     await commands.projectClose(action);
+    hostApp.suggestions.clearAll();
+    await extensionHost.shutdown();
+    editorPreferences.clear();
     setProjectName(null);
     await explorer.close();
     projectData.reset();
@@ -116,7 +123,8 @@ const actions = createProjectActions({
     saveUiSetting("ui.recentProjects", list);
   },
   isOpen: () => ctx.get("projectOpen") === true,
-  isDirty: () => ctx.get("projectDirty") === true,
+  isDirty: () =>
+    ctx.get("projectDirty") === true || hostApp.suggestions.count() > 0,
   onOpened: async (folder) => {
     setProjectName(projectName(folder));
     await projectContext.setOpen(true);
@@ -165,20 +173,12 @@ if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
         enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
         measureExplorer: () =>
           import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
-        spikeS02: () =>
-          import("./shell/dev/spike-s02").then((m) => m.runSpikeS02()),
         measureProperties: () =>
           import("./shell/dev/measure-properties").then((m) =>
             m.measureProperties(),
           ),
       }),
     ),
-  );
-}
-if (import.meta.env.DEV && import.meta.env.VITE_S02_AUTORUN) {
-  setTimeout(
-    () => void import("./shell/dev/spike-s02").then((m) => m.runSpikeS02()),
-    3000,
   );
 }
 registerCoreViews(views, {
@@ -232,10 +232,13 @@ async function applySettings(): Promise<void> {
 // ウィンドウを閉じるとき。未保存なら確認し、正常に閉じて作業用データ（自動復元の元）を消す。
 const handleWindowClose = createWindowCloseHandler({
   isOpen: () => ctx.get("projectOpen") === true,
-  isDirty: () => ctx.get("projectDirty") === true,
-  ask: askCloseDecision,
+  isDirty: () =>
+    ctx.get("projectDirty") === true || hostApp.suggestions.count() > 0,
+  ask: () => askCloseDecision(hostApp.suggestions.count()),
   closeProject: async (action) => {
     await commands.projectClose(action);
+    hostApp.suggestions.clearAll();
+    await extensionHost.shutdown();
   },
   destroyWindow: () => getCurrentWindow().destroy(),
   notify,
@@ -283,6 +286,7 @@ export function App() {
       },
       applySettings,
     });
+    startExtensionHost();
   });
   return (
     <>

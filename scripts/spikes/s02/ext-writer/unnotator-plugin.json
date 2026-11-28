@@ -1,0 +1,35 @@
+{
+  "id": "dev.spike.writer",
+  "version": "0.0.1",
+  "engines": { "unnotator": "^0.0.1" },
+  "main": "dist/index.js",
+  "activationEvents": ["onStartup"],
+  "extensionDependencies": { "dev.spike.base": "^0.0.1" },
+  "permissions": ["assets.read", "annotations.read", "annotations.write"],
+  "contributes": {
+    "annotationTypes": [
+      {
+        "id": "rect",
+        "version": 1,
+        "title": "Rect",
+        "mediaTypes": ["dev.spike.base/text"],
+        "selectorSchema": {
+          "type": "object",
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "w": { "type": "number" },
+            "h": { "type": "number" }
+          }
+        }
+      }
+    ],
+    "commands": [
+      { "id": "create", "title": "Writer: create an annotation" },
+      { "id": "suggest", "title": "Writer: suggest annotations" },
+      { "id": "query", "title": "Writer: count annotations" },
+      { "id": "store", "title": "Writer: storage round trip" }
+    ]
+  }
+}

@@ -1,4 +1,6 @@
-import { writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
@@ -7,12 +9,23 @@ export default defineConfig({
   root: "src",
   plugins: [
     solid(),
-    // S-02 検証用（一時）。WebView から HMR の WebSocket で結果を受け取り、ファイルに書く。
+    // 開発時だけ、画面のエラーと console を、ファイルに書く（`src/shell/dev/console-forward.ts` が送る）。
     {
-      name: "s02-report",
+      name: "dev-console",
       configureServer(server) {
-        server.ws.on("s02:report", (data: string) => {
-          writeFileSync(process.env.S02_OUT ?? "/tmp/s02.txt", data);
+        const file =
+          process.env.UNNO_DEV_CONSOLE ??
+          join(tmpdir(), "unnotator-console.log");
+        mkdirSync(dirname(file), { recursive: true });
+        server.ws.on("dev:log", (line: string) => {
+          try {
+            appendFileSync(file, `${line}\n`);
+          } catch (error) {
+            console.error(
+              `Could not append dev console log to ${file}:`,
+              error,
+            );
+          }
         });
       },
     },

@@ -1,5 +1,5 @@
 /**
- * @unnotator/plugin-api v1.0.0
+ * @unnotator/plugin-api v0.0.1
  *
  * 拡張機能（TS/JS モジュール）とコアのシェルの間の契約。
  * 拡張機能は ES Module として読み込まれ、`activate(host)` が呼ばれる。
@@ -8,13 +8,15 @@
  *  - コアは媒体を知らない。座標・時刻・文字位置などは selector（JSON）の中にだけ現れ、
  *    その形式はアノテーション種別を定義した拡張機能が決める。
  *  - 描画や座標系の API は媒体の拡張機能が `activate()` の戻り値として公開し、
- *    他の拡張機能は `host.extensions.getApi()` で受け取る。
+ *    他の拡張機能は `host.extensions.getApi()` で受け取る（`Remote<T>`。メソッドは Promise を返す）。
+ *  - 画面（editors / previewers / views）はマニフェストの `entry` で宣言し、`SurfaceModule` を
+ *    実装した別のモジュールとして、画面ごとの枠で読み込まれる（`activate` では登録しない）。
  *  - 書き込みはすべて host の API を通る（Rust コアのコマンドになり Undo・変更履歴に乗る）。
  *  - ID はローカル名で登録し、コアが '<拡張機能 id>/<名前>' に名前空間化する。
  *    他拡張機能・コアの要素を参照するときは完全 ID を使う。
  */
 
-export declare const API_VERSION: '1.0.0';
+export declare const API_VERSION: '0.0.1';
 
 // ---------------------------------------------------------------------------
 // エントリポイント
@@ -30,6 +32,19 @@ export type DeactivateFunction = () => void | Promise<void>;
 export interface ExtensionModule {
   activate: ActivateFunction;
   deactivate?: DeactivateFunction;
+}
+
+/**
+ * 画面用モジュール（マニフェストの `contributes.editors/views/previewers[].entry`）。
+ * 画面の枠が読み込み、該当する関数を呼ぶ。`ExtensionModule` とは別のモジュール。
+ */
+export interface SurfaceModule {
+  /** editors の entry */
+  openEditor?(ctx: EditorContext, host: SurfaceHost): Promise<EditorInstance>;
+  /** views の entry */
+  resolveView?(ctx: ViewContext, host: SurfaceHost): Promise<Disposable>;
+  /** previewers の entry */
+  renderPreview?(ctx: PreviewContext, host: SurfaceHost): Promise<Disposable>;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,7 +266,7 @@ export interface SuggestionResult {
 // ---------------------------------------------------------------------------
 
 export interface EditorContext {
-  /** 描画先。Shadow DOM のルート直下の要素 */
+  /** 描画先。その画面の枠（iframe）の中の要素 */
   container: HTMLElement;
   asset: Asset;
   itemKey?: string;
@@ -271,18 +286,10 @@ export interface EditorInstance {
   dispose(): void;
 }
 
-export interface EditorProvider {
-  open(ctx: EditorContext): Promise<EditorInstance>;
-}
-
 export interface PreviewContext {
   container: HTMLElement;
   asset: Asset;
   signal: AbortSignal;
-}
-
-export interface PreviewProvider {
-  render(ctx: PreviewContext): Promise<Disposable>;
 }
 
 export interface ItemProvider {
@@ -311,10 +318,6 @@ export interface ViewContext {
   signal: AbortSignal;
   /** ビューの表示状態の変化 */
   onDidChangeVisibility: Event<boolean>;
-}
-
-export interface ViewProvider {
-  resolve(ctx: ViewContext): Promise<Disposable>;
 }
 
 export interface ExportContext {
@@ -378,11 +381,8 @@ export interface Host {
   /** この拡張機能の ID とバージョン */
   readonly extension: { id: string; version: string; path: string };
 
-  editors: { register(localId: string, provider: EditorProvider): Disposable };
-  previewers: { register(localId: string, provider: PreviewProvider): Disposable };
   items: { register(localId: string, provider: ItemProvider): Disposable };
   annotationTypes: { register<S extends JsonValue>(localId: string, impl: AnnotationTypeImpl<S>): Disposable };
-  views: { register(localId: string, provider: ViewProvider): Disposable };
   exporters: { register(localId: string, impl: ExporterImpl): Disposable };
   importers: { register(localId: string, impl: ImporterImpl): Disposable };
 
@@ -462,8 +462,11 @@ export interface Host {
   };
 
   extensions: {
-    /** extensionDependencies に書いた拡張機能の公開 API を得る */
-    getApi<T = unknown>(extensionId: string): Promise<T>;
+    /**
+     * extensionDependencies に書いた拡張機能の公開 API を得る。
+     * 公開 API の引数と戻り値は構造化複製できる値に限る（関数・DOM は渡せない。ArrayBuffer などは渡せる）。
+     */
+    getApi<T = unknown>(extensionId: string): Promise<Remote<T>>;
   };
 
   /** python.spawn */
@@ -515,6 +518,29 @@ export interface Host {
 
   log: Logger;
 }
+
+/** 画面の枠から見た Host。登録系（register）・python・projectFiles は含まない。 */
+export interface SurfaceHost {
+  assets: Host['assets'];
+  annotations: Host['annotations'];
+  relations: Host['relations'];
+  groups: Host['groups'];
+  labels: Host['labels'];
+  selection: Host['selection'];
+  extensions: Host['extensions'];
+  storage: Host['storage'];
+  settings: Host['settings'];
+  ui: Host['ui'];
+  i18n: Host['i18n'];
+  log: Host['log'];
+  commands: Pick<Host['commands'], 'execute'>;
+  tools: Pick<Host['tools'], 'active' | 'onDidChange'>;
+}
+
+/** 境界（iframe）を越えて呼ぶ API の型。メソッドは Promise を返す。 */
+export type Remote<T> = {
+  [K in keyof T]: T[K] extends (...a: infer A) => infer R ? (...a: A) => Promise<Awaited<R>> : Remote<T[K]>;
+};
 
 // ---------------------------------------------------------------------------
 // エラー

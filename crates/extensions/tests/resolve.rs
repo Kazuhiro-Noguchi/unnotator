@@ -32,7 +32,7 @@ fn build_with(extensions: &[RawExtension], state: &ExtensionsState) -> Registry 
     Registry::build(RegistryInput {
         installed: extensions,
         state,
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     })
 }
 
@@ -196,7 +196,7 @@ fn an_engine_range_the_app_does_not_satisfy_disables_it() {
         .find(|p| p.extension_id == "com.example.future")
         .unwrap();
     assert_eq!(p.detail.as_ref().unwrap()["required"], "^2.0.0");
-    assert_eq!(p.detail.as_ref().unwrap()["app"], "1.0.0");
+    assert_eq!(p.detail.as_ref().unwrap()["app"], "0.0.1");
     assert!(matches!(
         status(&registry, "com.example.user"),
         ExtensionStatus::Invalid

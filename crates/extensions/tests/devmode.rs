@@ -35,7 +35,7 @@ fn registry(raws: &[RawExtension], state: &ExtensionsState) -> Registry {
     Registry::build(RegistryInput {
         installed: raws,
         state,
-        app_api_version: "1.0.0",
+        app_api_version: "0.0.1",
     })
 }
 

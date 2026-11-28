@@ -20,7 +20,9 @@ import {
   createRelation,
   moveMember,
 } from "./relations";
+import { Suggestions } from "./Suggestions";
 import type { Selection } from "./selection";
+import type { SuggestionsSource } from "./suggestions-view";
 
 const STATUSES: Status[] = ["todo", "in_progress", "done", "review"];
 
@@ -42,6 +44,8 @@ export interface PropertiesProps {
   drafts: DraftStore;
   selection: Selection;
   supported(): ReadonlySet<string>;
+  /** 候補（`annotations.suggest`）。無ければ出さない。 */
+  suggestions?: { source: SuggestionsSource; nameOf(extId: string): string };
   notify: (level: NotifyLevel, text: string) => void;
 }
 
@@ -375,6 +379,17 @@ export function Properties(props: PropertiesProps) {
                   />
                 </Show>
               </section>
+              <Show when={props.suggestions}>
+                {(suggestions) => (
+                  <Suggestions
+                    source={suggestions().source}
+                    assetId={d().asset.id}
+                    itemKey={d().item?.item_key ?? null}
+                    nameOf={suggestions().nameOf}
+                    notify={props.notify}
+                  />
+                )}
+              </Show>
               <Links
                 relations={d().relations}
                 groups={d().groups}

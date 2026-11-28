@@ -1,6 +1,7 @@
 import { createSignal, lazy, Show, Suspense } from "solid-js";
 import { format } from "../../i18n";
 import { commands } from "../../ipc";
+import { StandaloneHost } from "../layout/StandaloneHost";
 import { useT } from "../solid";
 import {
   aboutOpen,
@@ -16,6 +17,8 @@ import {
   setSettingsOpen,
   settingsOpen,
 } from "../ui-state";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { ConsentDialog } from "./ConsentDialog";
 import { Dialog } from "./Dialog";
 
 const Palette = lazy(() => import("./Palette"));
@@ -66,7 +69,7 @@ function FolderDialog() {
   );
 }
 
-function CloseDialog() {
+export function CloseDialog() {
   const t = useT();
   return (
     <Show when={closeRequest()}>
@@ -76,6 +79,13 @@ function CloseDialog() {
           onClose={() => request().resolve("cancel")}
         >
           <p>{t("close.message")}</p>
+          <Show when={request().suggestions > 0}>
+            <p class="close-suggestions">
+              {format(t("close.suggestions"), {
+                count: String(request().suggestions),
+              })}
+            </p>
+          </Show>
           <div class="dialog-actions">
             <button
               type="button"
@@ -146,6 +156,9 @@ export function Overlays() {
       </Show>
       <FolderDialog />
       <CloseDialog />
+      <ConsentDialog />
+      <ConfirmDialog />
+      <StandaloneHost />
     </>
   );
 }

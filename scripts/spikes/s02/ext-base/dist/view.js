@@ -4,7 +4,7 @@ window.parent.postMessage({ spike: "s02", out }, "*");
 window.addEventListener("message", (e) => { if (e.data && e.data.ping) window.parent.postMessage({ spike: "s02", pong: e.data.ping }, "*"); });
 // Windows（WebView2）の確認: 枠の中に __TAURI_INTERNALS__ があるとき、Rust のコマンドが実際に届くか。
 // invoke の応答は枠の中の関数には戻らないことがある（タイムアウト）ので、応答ではなく、副作用
-// （本体が listen している s02-iframe-probe イベントの受信）で判定する。本体側は spike-s02.ts。
+// （本体が listen している s02-iframe-probe イベントの受信）で判定する。S-02 の検証コード（本体側）は、T070 で削除した。
 (async () => {
   let result = "no-internals";
   try {

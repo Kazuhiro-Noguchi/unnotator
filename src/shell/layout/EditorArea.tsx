@@ -3,11 +3,13 @@
 // specs/007-tree-preview/contracts/explorer-api.md の 4・research.md R8。
 import {
   createEffect,
+  createMemo,
   createSignal,
   type JSX,
   on,
   onCleanup,
   Show,
+  untrack,
 } from "solid-js";
 import type { AssetRow } from "../../ipc";
 import { Preview } from "../../preview/Preview";
@@ -31,6 +33,14 @@ export function EditorArea(props: EditorAreaProps) {
   const t = useT();
   const target = fromStore(() => props.current.get(), props.current.subscribe);
   const [asset, setAsset] = createSignal<AssetRow | null>(null);
+  // 表示を作り直す単位。アセットの ID・媒体種別・リンク切れが変わったときだけ変わる
+  // （同じアセットの再取得では、エディターを作り直さない）。
+  const surfaceKey = createMemo(() => {
+    const a = asset();
+    return a === null
+      ? null
+      : `${a.id}\u0000${a.media_type ?? ""}\u0000${a.missing}`;
+  });
   // 取得のたびに進める。古い取得の結果で、新しい表示を上書きしない。
   let ticket = 0;
 
@@ -67,18 +77,33 @@ export function EditorArea(props: EditorAreaProps) {
       aria-label={t("region.editor")}
     >
       <Show
-        when={asset()}
+        when={surfaceKey()}
+        keyed
         fallback={<EmptyState message={t("empty.editor")} />}
       >
-        {(row) =>
-          props.resolveSurface?.(row(), target()?.itemKey ?? null) ?? (
-            <Preview
-              asset={row()}
-              onOpenExternal={() => props.onOpenExternal(row().id)}
-              onRelink={() => props.onRelink(row().id)}
-            />
-          )
-        }
+        {(_key) => {
+          const row = untrack(asset);
+          if (row === null) return null;
+          // 差し込み口は、読む信号（拡張機能の読み込み・画面の宣言の変化）が変わったときも選び直す。
+          const surface = createMemo(
+            () =>
+              props.resolveSurface?.(
+                row,
+                untrack(() => target()?.itemKey ?? null),
+              ) ?? null,
+          );
+          return (
+            <>
+              {surface() ?? (
+                <Preview
+                  asset={asset() ?? row}
+                  onOpenExternal={() => props.onOpenExternal(row.id)}
+                  onRelink={() => props.onRelink(row.id)}
+                />
+              )}
+            </>
+          );
+        }}
       </Show>
     </main>
   );

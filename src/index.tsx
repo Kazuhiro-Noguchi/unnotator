@@ -1,3 +1,4 @@
+import "./shell/dev/console-forward-boot";
 import { render } from "solid-js/web";
 import { App } from "./App";
 import "./themes/index.css";

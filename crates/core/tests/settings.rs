@@ -45,6 +45,8 @@ fn the_core_key_table_has_the_documented_names_types_and_defaults() {
             "assets.watch",
             // 分類ラベルを複数付けられるか（008）。
             "core.classification.multiple",
+            // 媒体種別ごとの既定のエディター（009）。
+            "core.editors.default",
             // 画面の設定（006）。
             "ui.theme",
             "ui.language",

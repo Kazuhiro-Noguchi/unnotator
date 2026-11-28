@@ -26,6 +26,22 @@ export const commands = {
 	extensionConsent: (id: string, permissions: string[], options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_consent", { id, permissions }, options),
 	extensionRevoke: (id: string, permissions: string[], options?: InvokeOptions) => __TAURI_INVOKE<null>("extension_revoke", { id, permissions }, options),
 	extensionCheckPermission: (id: string, permission: string, options?: InvokeOptions) => __TAURI_INVOKE<PermissionVerdictDto>("extension_check_permission", { id, permission }, options),
+	extApplyCommand: (extId: string, command: Command_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeSet>("ext_apply_command", { extId, command }, options),
+	extMethodAllowed: (extId: string, method: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_method_allowed", { extId, method }, options),
+	extLabelsList: (extId: string, options?: InvokeOptions) => __TAURI_INVOKE<LabelRow_Serialize[]>("ext_labels_list", { extId }, options),
+	extSchemasList: (extId: string, options?: InvokeOptions) => __TAURI_INVOKE<SchemaRow[]>("ext_schemas_list", { extId }, options),
+	extAssetGet: (extId: string, assetId: string, options?: InvokeOptions) => __TAURI_INVOKE<ExtAsset_Serialize | null>("ext_asset_get", { extId, assetId }, options),
+	extItemGet: (extId: string, assetId: string, itemKey: string, options?: InvokeOptions) => __TAURI_INVOKE<ExtItem | null>("ext_item_get", { extId, assetId, itemKey }, options),
+	extAnnotationsQuery: (extId: string, filter: ExtAnnotationFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExtAnnotation_Serialize[]>("ext_annotations_query", { extId, filter }, options),
+	extRelationsQuery: (extId: string, filter: ExtRelationFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExtRelation_Serialize[]>("ext_relations_query", { extId, filter }, options),
+	extGroupsQuery: (extId: string, filter: ExtGroupFilter_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExtGroup_Serialize[]>("ext_groups_query", { extId, filter }, options),
+	extAssetRead: (extId: string, assetId: string, offset: number | null, length: number | null, options?: InvokeOptions) => __TAURI_INVOKE<number[]>("ext_asset_read", { extId, assetId, offset, length }, options),
+	extStorageGet: (extId: string, scope: PluginScope, scopeId: string, key: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("ext_storage_get", { extId, scope, scopeId, key }, options),
+	extStorageSet: (extId: string, scope: PluginScope, scopeId: string, key: string, valueJson: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_storage_set", { extId, scope, scopeId, key, valueJson }, options),
+	extProjectFileRead: (extId: string, relPath: string, options?: InvokeOptions) => __TAURI_INVOKE<number[] | null>("ext_project_file_read", { extId, relPath }, options),
+	extProjectFileWrite: (extId: string, relPath: string, data: number[], options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_project_file_write", { extId, relPath, data }, options),
+	/**  `host.log`。拡張機能 ID つきで `tracing` に記録する。長さは呼び出し側（本体）が制限済みだが、ここでも切る。 */
+	extLog: (extId: string, level: string, message: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("ext_log", { extId, level, message }, options),
 	devmodeGet: (options?: InvokeOptions) => __TAURI_INVOKE<DevModeDto>("devmode_get", undefined, options),
 	devmodeSet: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_set", { enabled }, options),
 	devmodeAddFolder: (path: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("devmode_add_folder", { path }, options),
@@ -335,6 +351,16 @@ id?: string | null; name: string; name_i18n_json?: string | null; color: string;
 { kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
 /**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
 { kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
+/**  拡張機能のメタ情報（`assets.setMetadata`）。`namespace`（拡張機能 ID）の中身を丸ごと置き換える。 */
+{ kind: "set_asset_metadata"; asset_id: string; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+namespace: string; 
+/**  JSON のオブジェクト。 */
+metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
+/**  拡張機能専用の値の保存（`host.storage.set`）。Undo に積まない。値は丸ごと置き換わる。 */
+{ kind: "set_plugin_data"; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+plugin_id: string; scope: PluginScope; scope_id: string; key: string; value_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added?: NewAsset_Deserialize[]; updated?: AssetUpdate[]; went_missing?: AssetMiss[]; restored?: AssetUpdate[]; reclassified?: AssetReclass_Deserialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -359,6 +385,16 @@ id: string | null; name: string; name_i18n_json: string | null; color: string; h
 { kind: "set_asset_attributes"; asset_id: string; attributes_json: string } | 
 /**  アイテム単位の属性値。行が無ければ、同じ Undo 単位で作る。 */
 { kind: "set_item_attributes"; item: ItemRef; attributes_json: string } | 
+/**  拡張機能のメタ情報（`assets.setMetadata`）。`namespace`（拡張機能 ID）の中身を丸ごと置き換える。 */
+{ kind: "set_asset_metadata"; asset_id: string; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+namespace: string; 
+/**  JSON のオブジェクト。 */
+metadata_json: string } | { kind: "set_item_metadata"; item: ItemRef; namespace: string; metadata_json: string } | 
+/**  拡張機能専用の値の保存（`host.storage.set`）。Undo に積まない。値は丸ごと置き換わる。 */
+{ kind: "set_plugin_data"; 
+/**  拡張機能 ID。拡張機能からの呼び出しでは、呼び出し側が ID に固定する。 */
+plugin_id: string; scope: PluginScope; scope_id: string; key: string; value_json: string } | 
 /**  走査・見張りの結果の反映。利用者の編集ではないので、Undo に積まない（`undoable()` が false）。 */
 { kind: "sync_assets"; added: NewAsset_Serialize[]; updated: AssetUpdate[]; went_missing: AssetMiss[]; restored: AssetUpdate[]; reclassified: AssetReclass_Serialize[] } | 
 /**  利用者が選んだ再接続。リンク切れのアセットのパスを、新しい場所へ付け替える（ID・アノテーションは変わらない）。 */
@@ -407,6 +443,203 @@ export type ExpandedAsset_Deserialize = {
 export type ExpandedAsset_Serialize = {
 	asset_id: string,
 	item_total: number | null,
+};
+
+/**  アノテーションの 1 行（`selector_json` を含む）。 */
+export type ExtAnnotation = ExtAnnotation_Serialize | ExtAnnotation_Deserialize;
+
+export type ExtAnnotationFilter = ExtAnnotationFilter_Serialize | ExtAnnotationFilter_Deserialize;
+
+export type ExtAnnotationFilter_Deserialize = {
+	asset_id?: string | null,
+	/**  `asset_id` と一緒に指定する。無ければアセット全体（アイテムのものを含む）。 */
+	item_key?: string | null,
+	types?: string[],
+	label_ids?: string[],
+	ids?: string[],
+	limit?: number | null,
+	offset?: number | null,
+};
+
+export type ExtAnnotationFilter_Serialize = {
+	asset_id: string | null,
+	/**  `asset_id` と一緒に指定する。無ければアセット全体（アイテムのものを含む）。 */
+	item_key: string | null,
+	types: string[],
+	label_ids: string[],
+	ids: string[],
+	limit: number | null,
+	offset: number | null,
+};
+
+/**  アノテーションの 1 行（`selector_json` を含む）。 */
+export type ExtAnnotation_Deserialize = {
+	id: string,
+	asset_id: string,
+	item_key?: string | null,
+	type: string,
+	type_version: number,
+	selector_json: string,
+	label_id?: string | null,
+	attributes_json: string,
+	summary: string,
+	z_order: number,
+	source: string,
+	created_at: number | null,
+	updated_at: number | null,
+};
+
+/**  アノテーションの 1 行（`selector_json` を含む）。 */
+export type ExtAnnotation_Serialize = {
+	id: string,
+	asset_id: string,
+	item_key: string | null,
+	type: string,
+	type_version: number,
+	selector_json: string,
+	label_id: string | null,
+	attributes_json: string,
+	summary: string,
+	z_order: number,
+	source: string,
+	created_at: number | null,
+	updated_at: number | null,
+};
+
+/**  `assets` の 1 行（拡張機能の `Asset`）。`metadata_json` は拡張機能 ID ごとの名前空間を持つ。 */
+export type ExtAsset = ExtAsset_Serialize | ExtAsset_Deserialize;
+
+/**  `assets` の 1 行（拡張機能の `Asset`）。`metadata_json` は拡張機能 ID ごとの名前空間を持つ。 */
+export type ExtAsset_Deserialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type?: string | null,
+	/**  2^53 未満なので、TS の `number` で欠けない。 */
+	file_size: number | null,
+	mtime_ms: number | null,
+	status: Status,
+	missing: boolean,
+	metadata_json: string,
+	attributes_json: string,
+};
+
+/**  `assets` の 1 行（拡張機能の `Asset`）。`metadata_json` は拡張機能 ID ごとの名前空間を持つ。 */
+export type ExtAsset_Serialize = {
+	id: string,
+	root_key: string,
+	rel_path: string,
+	media_type: string | null,
+	/**  2^53 未満なので、TS の `number` で欠けない。 */
+	file_size: number | null,
+	mtime_ms: number | null,
+	status: Status,
+	missing: boolean,
+	metadata_json: string,
+	attributes_json: string,
+};
+
+export type ExtGroup = ExtGroup_Serialize | ExtGroup_Deserialize;
+
+export type ExtGroupFilter = ExtGroupFilter_Serialize | ExtGroupFilter_Deserialize;
+
+export type ExtGroupFilter_Deserialize = {
+	/**  この ID のグループだけ。 */
+	ids?: string[],
+	/**  これらのアノテーションを含むグループ。 */
+	annotation_ids?: string[],
+	/**  このアセットのアノテーションを含むグループ。 */
+	asset_id?: string | null,
+	types?: string[],
+};
+
+export type ExtGroupFilter_Serialize = {
+	/**  この ID のグループだけ。 */
+	ids: string[],
+	/**  これらのアノテーションを含むグループ。 */
+	annotation_ids: string[],
+	/**  このアセットのアノテーションを含むグループ。 */
+	asset_id: string | null,
+	types: string[],
+};
+
+export type ExtGroup_Deserialize = {
+	id: string,
+	type: string,
+	ordered: boolean,
+	label_id?: string | null,
+	attributes_json: string,
+	source: string,
+	/**  `position` 順のアノテーション ID。 */
+	member_ids: string[],
+};
+
+export type ExtGroup_Serialize = {
+	id: string,
+	type: string,
+	ordered: boolean,
+	label_id: string | null,
+	attributes_json: string,
+	source: string,
+	/**  `position` 順のアノテーション ID。 */
+	member_ids: string[],
+};
+
+/**  `items` の 1 行（拡張機能の `Item`）。 */
+export type ExtItem = {
+	id: string,
+	asset_id: string,
+	item_key: string,
+	provider: string,
+	status: Status,
+	metadata_json: string,
+	attributes_json: string,
+};
+
+export type ExtRelation = ExtRelation_Serialize | ExtRelation_Deserialize;
+
+export type ExtRelationFilter = ExtRelationFilter_Serialize | ExtRelationFilter_Deserialize;
+
+export type ExtRelationFilter_Deserialize = {
+	/**  この ID の関係だけ（ホストが、更新の前に現在の値を読むために使う）。 */
+	ids?: string[],
+	/**  どちらかの端がこれらのアノテーションである関係。 */
+	annotation_ids?: string[],
+	/**  どちらかの端がこのアセットのアノテーションである関係。 */
+	asset_id?: string | null,
+	types?: string[],
+};
+
+export type ExtRelationFilter_Serialize = {
+	/**  この ID の関係だけ（ホストが、更新の前に現在の値を読むために使う）。 */
+	ids: string[],
+	/**  どちらかの端がこれらのアノテーションである関係。 */
+	annotation_ids: string[],
+	/**  どちらかの端がこのアセットのアノテーションである関係。 */
+	asset_id: string | null,
+	types: string[],
+};
+
+export type ExtRelation_Deserialize = {
+	id: string,
+	type: string,
+	from_id: string,
+	to_id: string,
+	directed: boolean,
+	label_id?: string | null,
+	attributes_json: string,
+	source: string,
+};
+
+export type ExtRelation_Serialize = {
+	id: string,
+	type: string,
+	from_id: string,
+	to_id: string,
+	directed: boolean,
+	label_id: string | null,
+	attributes_json: string,
+	source: string,
 };
 
 export type ExtensionCheck = {
@@ -810,6 +1043,15 @@ export type PermissionVerdictDto = {
 export type PermissionsChanged = {
 	id: string,
 };
+
+/**  拡張機能専用の保存領域の単位（`plugin_data.scope`）。 */
+export type PluginScope = 
+/**  プロジェクト全体（`scope_id` は空）。 */
+"project" | 
+/**  アセット（`scope_id` はアセット ID）。 */
+"asset" | 
+/**  アイテム（`scope_id` は `<アセット ID>/<アイテムのキー>`）。 */
+"item";
 
 export type ProblemDto = ProblemDto_Serialize | ProblemDto_Deserialize;
 

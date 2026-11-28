@@ -103,9 +103,15 @@
     return { ok: r.status !== 200 && !text.includes("secret"), status: r.status };
   });
 
-  await step("es-module-under-csp", async () => {
-    const module = await import(/* @vite-ignore */ `${base}/ext/${cfg.extId}/dist/index.js`);
-    return { ok: module.answer === 42 };
+  // 009 から、アプリ本体の WebView は、拡張機能のスクリプトを読み込まない（本体の CSP の script-src に `unno:` が無い。
+  // 拡張機能のコードは、拡張機能ごとの sandbox の枠の中で動く）。本体からの読み込みが拒まれることを確かめる。
+  await step("extension-script-is-refused-in-main-webview", async () => {
+    try {
+      const module = await import(/* @vite-ignore */ `${base}/ext/${cfg.extId}/dist/index.js`);
+      return { ok: false, error: `imported (answer=${module.answer})` };
+    } catch (error) {
+      return { ok: true, refused: String(error).slice(0, 120) };
+    }
   });
 
   // メディア要素が、`unno://` の URL（Range つき）で読めるか。環境が、そもそもメディアを扱えないとき

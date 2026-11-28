@@ -1,6 +1,6 @@
 {
   "id": "com.example.minimal",
   "version": "0.1.0",
-  "engines": { "unnotator": "^1.0.0" },
+  "engines": { "unnotator": "^0.0.1" },
   "main": "dist/index.js"
 }

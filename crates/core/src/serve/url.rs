@@ -1,6 +1,7 @@
 //! `unno://` のパスの解釈。区切りごとにパーセントの表記を 1 回だけ展開し、展開後に危ない成分を拒む。
 
 use super::ServeError;
+use super::host_files::HOST_FILE_NAMES;
 
 /// 配信の対象。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,6 +12,8 @@ pub enum Target {
     Preview(String),
     /// 拡張機能の静的ファイル。
     Ext { id: String, rest: Vec<String> },
+    /// 起動用の予約パス（`ext/<id>/@host/<名前>`）。拡張機能のファイルより優先する。
+    ExtHost { id: String, name: String },
     /// ブロブの置き場の直下のファイル名。
     Blob(String),
 }
@@ -95,11 +98,110 @@ pub fn parse_target(path: &str) -> Result<Target, ServeError> {
             {
                 return Err(bad("拡張機能の ID の形でない"));
             }
-            Ok(Target::Ext {
-                id,
-                rest: segments.split_off(2),
-            })
+            let rest = segments.split_off(2);
+            // `@host` は予約。パッケージのファイルより先に解釈し、ファイルとしては返さない
+            if rest[0] == "@host" {
+                if rest.len() != 2 {
+                    return Err(bad("予約の @host の下は 1 段だけ"));
+                }
+                let name = &rest[1];
+                if !HOST_FILE_NAMES.contains(&name.as_str()) {
+                    return Err(ServeError::NotFound);
+                }
+                return Ok(Target::ExtHost {
+                    id,
+                    name: name.clone(),
+                });
+            }
+            Ok(Target::Ext { id, rest })
         }
         _ => Err(bad("未対応の経路")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    fn host(id: &str, name: &str) -> Target {
+        Target::ExtHost {
+            id: id.to_owned(),
+            name: name.to_owned(),
+        }
+    }
+
+    #[test]
+    fn the_reserved_host_path_is_parsed_before_extension_files() {
+        assert_eq!(
+            parse_target("/ext/com.example.text/@host/frame.html").unwrap(),
+            host("com.example.text", "frame.html")
+        );
+        assert_eq!(
+            parse_target("/ext/com.example.text/@host/frame.js").unwrap(),
+            host("com.example.text", "frame.js")
+        );
+        // クエリは名前に含まれない
+        assert_eq!(
+            parse_target("/ext/a.b/@host/frame.html?role=editor").unwrap(),
+            host("a.b", "frame.html")
+        );
+    }
+
+    #[test]
+    fn an_escaped_at_sign_is_still_reserved() {
+        assert_eq!(
+            parse_target("/ext/a.b/%40host/frame.html").unwrap(),
+            host("a.b", "frame.html")
+        );
+    }
+
+    #[test]
+    fn an_unknown_host_name_is_not_found() {
+        assert_eq!(
+            parse_target("/ext/a.b/@host/nothing.js"),
+            Err(ServeError::NotFound)
+        );
+    }
+
+    #[test]
+    fn the_reserved_segment_never_falls_back_to_a_package_file() {
+        // `@host` 単独・深い入れ子は、予約に属する不正なパス（ファイルとして返さない）
+        for path in [
+            "/ext/a.b/@host",
+            "/ext/a.b/@host/x/y",
+            "/ext/a.b/%40host/x/y",
+        ] {
+            assert!(
+                matches!(parse_target(path), Err(ServeError::BadRequest(_))),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn existing_ext_paths_do_not_change() {
+        let ext = |id: &str, rest: &[&str]| Target::Ext {
+            id: id.to_owned(),
+            rest: rest.iter().map(|s| (*s).to_owned()).collect(),
+        };
+        assert_eq!(
+            parse_target("/ext/a.b/dist/index.js").unwrap(),
+            ext("a.b", &["dist", "index.js"])
+        );
+        // `@host` が先頭の成分でなければ、普通のファイル
+        assert_eq!(
+            parse_target("/ext/a.b/dist/@host/frame.html").unwrap(),
+            ext("a.b", &["dist", "@host", "frame.html"])
+        );
+        // `@` で始まるだけの別の名前も普通のファイル
+        assert_eq!(
+            parse_target("/ext/a.b/@hosts/x.js").unwrap(),
+            ext("a.b", &["@hosts", "x.js"])
+        );
+        assert_eq!(
+            parse_target("/ext/a.b/@hostile.js").unwrap(),
+            ext("a.b", &["@hostile.js"])
+        );
     }
 }

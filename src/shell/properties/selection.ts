@@ -4,6 +4,8 @@ export interface Selection {
   /** `multi` のときは、選択に足す・外す。そうでなければ、それだけを選ぶ。 */
   select(id: string, multi: boolean): void;
   clear(): void;
+  /** 選択をまるごと置き換える（拡張機能の `selection.set`）。同じなら知らせない。 */
+  set(ids: Iterable<string>): void;
   /** 一覧から消えた ID を、選択から外す。 */
   retain(existing: ReadonlySet<string>): void;
   subscribe(listener: () => void): () => void;
@@ -26,6 +28,15 @@ export function createSelection(): Selection {
     },
     clear() {
       if (ids.size > 0) set(new Set());
+    },
+    set(next) {
+      const incoming = new Set(next);
+      if (
+        incoming.size === ids.size &&
+        [...incoming].every((id, i) => id === [...ids][i])
+      )
+        return;
+      set(incoming);
     },
     retain(existing) {
       const next = new Set([...ids].filter((id) => existing.has(id)));

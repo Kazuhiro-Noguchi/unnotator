@@ -129,6 +129,70 @@
   text-align: center;
 }
 
+/* 拡張機能の画面の枠（009）。枠の中身はこの入れ物の外へ出られない:
+   はみ出しを切り（overflow・contain: paint）、重なりの順位を持ち込ませない（isolation。z-index は付けない）。 */
+.surface-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.surface-frame > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.surface-frame[data-state="failed"] > iframe,
+.surface-frame[data-state="removed"] > iframe {
+  display: none;
+}
+
+/* 単独で動く画面（ダイアログの中）。高さは画面の高さに合わせる。 */
+.surface-screen {
+  width: 100%;
+  height: min(60vh, 560px);
+}
+
+.surface-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: var(--color-fg-muted);
+  text-align: center;
+}
+
+.surface-area {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.surface-area > .surface-frame {
+  flex: 1 1 0;
+  height: auto;
+}
+
+/* エディターの切り替え（候補が 2 つ以上あるときだけ出る）。枠の上の細い帯に置き、枠に重ねない。 */
+.surface-switcher {
+  order: -1;
+  align-self: flex-end;
+  margin: 4px 8px;
+  max-width: 50%;
+}
+
 /* 枠つきボタン（outlined）。枠は背景との対比 3:1 以上（WCAG 1.4.11）。主な操作は .primary（塗りつぶし）。 */
 .button {
   border: 1px solid var(--color-outline);
@@ -1866,4 +1930,96 @@ fieldset.ribbon-group {
 
 .button.icon-button:disabled {
   border-color: transparent;
+}
+
+/* 権限の確認ダイアログ（ホストが描く） */
+.consent-list {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+}
+
+.consent-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+.consent-list li.consent-warning span {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.consent-list small {
+  color: var(--color-fg-muted);
+}
+
+/* 拡張機能の確認ダイアログの本文（文字として、折り返して出す） */
+.confirm-message {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 候補（`annotations.suggest`。まだ採用していない仮の状態）。通常のアノテーションとは、点線の枠と色で区別する */
+.suggestions {
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px dashed var(--color-accent);
+  border-radius: 6px;
+}
+
+.suggestions h3 {
+  margin: 0 0 6px;
+}
+
+.suggestions-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.suggestion-list {
+  position: relative;
+  max-height: 256px;
+  overflow-y: auto;
+}
+
+.suggestion-body {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-left: 3px dashed var(--color-accent);
+}
+
+.suggestion-badge {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  font-size: 11px;
+}
+
+.suggestion-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
 }

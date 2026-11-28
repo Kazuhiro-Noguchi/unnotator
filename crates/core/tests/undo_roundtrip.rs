@@ -473,6 +473,22 @@ fn scenarios() -> Vec<Scenario> {
             },
         },
         Scenario {
+            command: "set_asset_metadata",
+            prepare: |_| Command::SetAssetMetadata {
+                asset_id: "a1".into(),
+                namespace: "com.example.ext".into(),
+                metadata_json: "{\"width\":10}".into(),
+            },
+        },
+        Scenario {
+            command: "set_item_metadata",
+            prepare: |_| Command::SetItemMetadata {
+                item: item(),
+                namespace: "com.example.ext".into(),
+                metadata_json: "{\"page\":3}".into(),
+            },
+        },
+        Scenario {
             command: "transaction",
             prepare: |_| Command::Transaction {
                 commands: vec![
@@ -493,7 +509,7 @@ fn scenarios() -> Vec<Scenario> {
 
 /// 往復テストの網羅から外すコマンド。全コマンドが揃ったので空。
 /// 往復の対象外のコマンド（Undo に積まない書き込み。振る舞いは `sync_command.rs` で確かめる）。
-const PENDING: &[&str] = &["sync_assets"];
+const PENDING: &[&str] = &["sync_assets", "set_plugin_data"];
 
 #[test]
 fn every_command_round_trips() {
@@ -669,4 +685,28 @@ fn subscribers_hear_about_undo_and_redo() {
         *seen.lock().unwrap(),
         vec![Origin::Apply, Origin::Undo, Origin::Redo]
     );
+}
+
+/// 候補の一括採用（009 の US6）: 複数の `CreateAnnotation` の Transaction は、1 回の Undo で戻り、Redo で元に戻る。
+#[test]
+fn accepting_suggestions_in_one_transaction_round_trips() {
+    let (dir, mut store) = new_project(&["a1"]);
+    let before = snapshot(&read_conn(dir.path()));
+    store
+        .apply_command(Command::Transaction {
+            commands: vec![
+                annotation(1, "a1"),
+                annotation(2, "a1"),
+                annotation(3, "a1"),
+            ],
+        })
+        .unwrap();
+    let applied = snapshot(&read_conn(dir.path()));
+    assert_eq!(support::count(&read_conn(dir.path()), "annotations"), 3);
+    assert_eq!(store.undo_state().undo_depth, 1);
+
+    store.undo().unwrap().unwrap();
+    assert_eq!(snapshot(&read_conn(dir.path())), before);
+    store.redo().unwrap().unwrap();
+    assert_eq!(snapshot(&read_conn(dir.path())), applied);
 }

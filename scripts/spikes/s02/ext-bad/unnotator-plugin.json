@@ -1,6 +1,19 @@
 {
   "id": "dev.spike.bad",
   "version": "0.0.1",
-  "engines": { "unnotator": "^1.0.0" },
-  "main": "dist/index.js"
+  "engines": {
+    "unnotator": "^0.0.1"
+  },
+  "main": "dist/index.js",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "attack",
+        "title": "Attack",
+        "location": "panel",
+        "entry": "dist/surface.js"
+      }
+    ]
+  }
 }

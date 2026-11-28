@@ -62,6 +62,13 @@ pub const CORE_KEYS: &[CoreKey] = &[
         kind: ValueKind::Bool,
         default_json: "false",
     },
+    // 媒体種別 → 既定のエディターの ID（009）。プロジェクト設定。
+    CoreKey {
+        name: "core.editors.default",
+        // キーは修飾名（`<拡張機能 ID>/<名前>`）で `/` を含むので、`StringMap`（`/` を拒む）ではなく Json にする。
+        kind: ValueKind::Json,
+        default_json: "{}",
+    },
     // 画面の設定（006）。利用者の設定（user 層）だけに置く。
     CoreKey {
         name: "ui.theme",
@@ -227,6 +234,22 @@ mod tests {
         assert!(validate("ui.explorer", &json!({"/p": ["a:b"]})).is_ok());
         let big = "x".repeat(1024 * 1024 + 1);
         assert!(validate("ui.explorer", &json!({ "/p": [big] })).is_err());
+    }
+
+    #[test]
+    fn editors_default_is_a_size_limited_json_defaulting_to_empty() {
+        // 媒体種別 → 既定のエディターの ID（009）。プロジェクト設定。
+        assert!(core_key("core.editors.default").is_some());
+        assert_eq!(default_value("core.editors.default"), Some(json!({})));
+        assert!(
+            validate(
+                "core.editors.default",
+                &json!({"com.example.a/text": "com.example.a/editor"})
+            )
+            .is_ok()
+        );
+        let big = "x".repeat(1024 * 1024 + 1);
+        assert!(validate("core.editors.default", &json!({ "t": big })).is_err());
     }
 
     #[test]

@@ -212,6 +212,54 @@ impl ProjectStore {
         crate::query::page::annotations_page_for(&self.conn, asset_id, item_key, cursor)
     }
 
+    /// 拡張機能向けの読み取り（009。`selector_json` を含む）。
+    pub fn ext_asset(
+        &self,
+        asset_id: &str,
+    ) -> Result<Option<crate::query::ext::ExtAsset>, StoreError> {
+        crate::query::ext::ext_asset(&self.conn, asset_id)
+    }
+
+    pub fn ext_item(
+        &self,
+        asset_id: &str,
+        item_key: &str,
+    ) -> Result<Option<crate::query::ext::ExtItem>, StoreError> {
+        crate::query::ext::ext_item(&self.conn, asset_id, item_key)
+    }
+
+    /// 拡張機能専用の値（009。`host.storage.get`）。
+    pub fn plugin_value(
+        &self,
+        plugin_id: &str,
+        scope: crate::command::PluginScope,
+        scope_id: &str,
+        key: &str,
+    ) -> Result<Option<String>, StoreError> {
+        crate::query::ext::plugin_value(&self.conn, plugin_id, scope, scope_id, key)
+    }
+
+    pub fn ext_annotations(
+        &self,
+        filter: &crate::query::ext::ExtAnnotationFilter,
+    ) -> Result<Vec<crate::query::ext::ExtAnnotation>, StoreError> {
+        crate::query::ext::ext_annotations(&self.conn, filter)
+    }
+
+    pub fn ext_relations(
+        &self,
+        filter: &crate::query::ext::ExtRelationFilter,
+    ) -> Result<Vec<crate::query::ext::ExtRelation>, StoreError> {
+        crate::query::ext::ext_relations(&self.conn, filter)
+    }
+
+    pub fn ext_groups(
+        &self,
+        filter: &crate::query::ext::ExtGroupFilter,
+    ) -> Result<Vec<crate::query::ext::ExtGroup>, StoreError> {
+        crate::query::ext::ext_groups(&self.conn, filter)
+    }
+
     /// 属性スキーマを変えるときの影響の件数（読み取り。008）。
     pub fn attribute_usage(
         &self,

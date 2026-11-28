@@ -73,7 +73,7 @@ pub fn manifest(id: &str, version: &str) -> ManifestBuilder {
         value: json!({
             "id": id,
             "version": version,
-            "engines": { "unnotator": "^1.0.0" },
+            "engines": { "unnotator": "^0.0.1" },
             "main": "dist/index.js",
             "contributes": {}
         }),
@@ -119,7 +119,7 @@ impl ManifestBuilder {
     pub fn editor(self, local: &str, media_types: &[&str]) -> Self {
         self.push(
             "editors",
-            json!({ "id": local, "title": local, "mediaTypes": media_types }),
+            json!({ "id": local, "title": local, "mediaTypes": media_types, "entry": "dist/editor.js" }),
         )
     }
 

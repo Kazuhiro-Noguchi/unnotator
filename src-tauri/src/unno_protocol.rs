@@ -6,11 +6,13 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use unnotator_core::serve::mime::{EXT_HTML_CSP, FALLBACK_CONTENT_TYPE, web_content_type};
+use unnotator_core::serve::ext_csp::ext_csp;
+use unnotator_core::serve::host_files::host_file;
+use unnotator_core::serve::mime::{FALLBACK_CONTENT_TYPE, web_content_type};
 use unnotator_core::serve::{
     BYTE_BUDGET, BlobStore, Budget, MAX_CONCURRENT, PreviewCache, ResponseContext, ServeError,
     ServeResponse, Target, confine_inside, confine_no_links, error_response, parse_target,
-    preflight_response, respond_file,
+    preflight_response, respond_bytes, respond_file,
 };
 use unnotator_extensions::registry::{ExtensionStatus, MimeRules, Registry};
 use unnotator_extensions::state::ExtensionsState;
@@ -33,6 +35,8 @@ pub struct ServeState {
     pub budget: Budget,
     /// 有効な拡張機能の ID → 展開先のフォルダ。
     ext_dirs: RwLock<BTreeMap<String, PathBuf>>,
+    /// 拡張機能 ID → 同意済みの権限（CSP の組み立てに使う。未設定なら、権限なしとして扱う）。
+    ext_grants: RwLock<BTreeMap<String, Vec<String>>>,
     mime: RwLock<MimeRules>,
 }
 
@@ -44,6 +48,7 @@ impl ServeState {
             previews,
             budget: Budget::new(BYTE_BUDGET, MAX_CONCURRENT),
             ext_dirs: RwLock::new(BTreeMap::new()),
+            ext_grants: RwLock::new(BTreeMap::new()),
             mime: RwLock::new(MimeRules::default()),
         }
     }
@@ -62,6 +67,32 @@ impl ServeState {
         if let Ok(mut slot) = self.mime.write() {
             *slot = registry.mime_rules(state);
         }
+    }
+
+    /// 拡張機能ごとの同意済みの権限を入れ替える。登録簿・同意が変わるたびに呼ぶ。
+    pub fn set_ext_grants(&self, grants: BTreeMap<String, Vec<String>>) {
+        if let Ok(mut slot) = self.ext_grants.write() {
+            *slot = grants;
+        }
+    }
+
+    /// 同意済みの権限（テスト・診断用）。
+    pub fn ext_grants_of(&self, id: &str) -> Vec<String> {
+        self.ext_grants
+            .read()
+            .ok()
+            .and_then(|g| g.get(id).cloned())
+            .unwrap_or_default()
+    }
+
+    fn ext_csp_of(&self, id: &str) -> String {
+        let granted = self
+            .ext_grants
+            .read()
+            .ok()
+            .and_then(|g| g.get(id).cloned())
+            .unwrap_or_default();
+        ext_csp(id, &granted)
     }
 
     fn ext_dir(&self, id: &str) -> Option<PathBuf> {
@@ -178,6 +209,17 @@ fn respond(
                     .unwrap_or_else(|| FALLBACK_CONTENT_TYPE.to_owned());
                 (path, content_type, true, Vec::new())
             }
+            Target::ExtHost { id, name } => {
+                // 有効な拡張機能のときだけ。拡張機能のフォルダは見ない（同名のファイルでは差し替えられない）
+                serve.ext_dir(id).ok_or(ServeError::NotFound)?;
+                let (body, content_type) = host_file(name).ok_or(ServeError::NotFound)?;
+                let extra = if content_type.starts_with("text/html") {
+                    vec![("Content-Security-Policy".to_owned(), serve.ext_csp_of(id))]
+                } else {
+                    Vec::new()
+                };
+                return Ok(respond_bytes(body, content_type, head, extra));
+            }
             Target::Blob(name) => {
                 let path = serve.blobs.resolve(name)?;
                 (path, serve.content_type_of(name), true, Vec::new())
@@ -190,10 +232,7 @@ fn respond(
                     .unwrap_or(FALLBACK_CONTENT_TYPE)
                     .to_owned();
                 let extra = if content_type.starts_with("text/html") {
-                    vec![(
-                        "Content-Security-Policy".to_owned(),
-                        EXT_HTML_CSP.to_owned(),
-                    )]
+                    vec![("Content-Security-Policy".to_owned(), serve.ext_csp_of(id))]
                 } else {
                     Vec::new()
                 };
@@ -314,7 +353,7 @@ mod tests {
     fn registry_with_text_extension(temp: &Temp, disabled: bool) -> (Registry, ExtensionsState) {
         let manifest = serde_json::json!({
             "id": "com.example.text", "version": "1.0.0",
-            "engines": { "unnotator": "^1.0.0" }, "main": "dist/index.js",
+            "engines": { "unnotator": "^0.0.1" }, "main": "dist/index.js",
             "contributes": { "mediaTypes": [
                 { "id": "text", "title": "text", "extensions": [".txt"], "mimeTypes": ["text/plain"] }
             ] }
@@ -329,7 +368,7 @@ mod tests {
         let registry = Registry::build(RegistryInput {
             installed: &[raw],
             state: &state,
-            app_api_version: "1.0.0",
+            app_api_version: unnotator_extensions::EXTENSION_API_VERSION,
         });
         (registry, state)
     }
@@ -515,6 +554,141 @@ mod tests {
         assert_eq!(r.header("content-type"), Some("application/x-thumb"));
         assert_eq!(
             handle(&project, &serve, &get("/preview/asset-0")).status,
+            404
+        );
+    }
+
+    #[test]
+    fn extension_html_gets_a_csp_built_from_its_id_and_consented_permissions() {
+        let temp = Temp::new();
+        std::fs::write(temp.0.join("ext/views/a.html"), b"<p>hi</p>").expect("書ける");
+        let project = project_state(&temp);
+        let serve = serve_state(&temp);
+        let (registry, state) = registry_with_text_extension(&temp, false);
+        serve.update(&registry, &state);
+        let csp_of = |serve: &ServeState| {
+            handle(&project, serve, &get("/ext/com.example.text/views/a.html"))
+                .header("content-security-policy")
+                .expect("ある")
+                .to_owned()
+        };
+
+        let csp = csp_of(&serve);
+        assert!(csp.contains(
+            "script-src unno://localhost/ext/com.example.text/ http://unno.localhost/ext/com.example.text/;"
+        ));
+        assert!(!csp.contains("img-src data: unno: "), "{csp}");
+        assert!(csp.contains("connect-src 'none'"));
+
+        serve.set_ext_grants(BTreeMap::from([(
+            "com.example.text".to_owned(),
+            vec!["assets.read".to_owned()],
+        )]));
+        assert!(csp_of(&serve).contains("img-src data: unno: http://unno.localhost"));
+    }
+
+    #[test]
+    fn a_dev_extension_gets_the_same_frame_csp_as_an_installed_one() {
+        // 開発者モードで緩めてよいのは読み込み元のフォルダだけ。枠の CSP は変えない（FR-035）。
+        let csp_for = |origin: Origin| {
+            let temp = Temp::new();
+            std::fs::write(temp.0.join("ext/views/a.html"), b"<p>hi</p>").expect("書ける");
+            let project = project_state(&temp);
+            let serve = serve_state(&temp);
+            let manifest = serde_json::json!({
+                "id": "com.example.text", "version": "1.0.0",
+                "engines": { "unnotator": "^0.0.1" }, "main": "dist/index.js"
+            });
+            let raw = RawExtension::new(
+                temp.0.join("ext"),
+                origin,
+                Manifest::from_value(manifest).expect("読める"),
+            );
+            let mut state = ExtensionsState::default();
+            state.set_dev_mode(true);
+            let registry = Registry::build(RegistryInput {
+                installed: &[raw],
+                state: &state,
+                app_api_version: unnotator_extensions::EXTENSION_API_VERSION,
+            });
+            serve.update(&registry, &state);
+            handle(&project, &serve, &get("/ext/com.example.text/views/a.html"))
+                .header("content-security-policy")
+                .expect("ある")
+                .to_owned()
+        };
+        let installed = csp_for(Origin::Installed);
+        let dev = csp_for(Origin::Dev);
+        assert_eq!(installed, dev);
+        for always in [
+            "connect-src 'none'",
+            "frame-src 'none'",
+            "base-uri 'none'",
+            "form-action 'none'",
+        ] {
+            assert!(dev.contains(always), "{always}");
+        }
+    }
+
+    #[test]
+    fn the_reserved_host_files_are_served_from_the_embedded_copy() {
+        let temp = Temp::new();
+        // 拡張機能が同名のファイルを持っていても、起動用が返る
+        std::fs::create_dir_all(temp.0.join("ext/@host")).expect("作れる");
+        std::fs::write(temp.0.join("ext/@host/frame.html"), b"EVIL").expect("書ける");
+        std::fs::write(temp.0.join("ext/@host/frame.js"), b"EVIL").expect("書ける");
+        let project = project_state(&temp);
+        let serve = serve_state(&temp);
+        let (registry, state) = registry_with_text_extension(&temp, false);
+        serve.update(&registry, &state);
+
+        let r = handle(
+            &project,
+            &serve,
+            &get("/ext/com.example.text/@host/frame.html?role=editor"),
+        );
+        assert_eq!(r.status, 200);
+        assert_ne!(r.body, b"EVIL");
+        assert_eq!(r.header("content-type"), Some("text/html; charset=utf-8"));
+        assert!(
+            r.header("content-security-policy")
+                .expect("ある")
+                .contains("script-src unno://localhost/ext/com.example.text/ ")
+        );
+        assert_eq!(r.header("x-content-type-options"), Some("nosniff"));
+        let r = handle(
+            &project,
+            &serve,
+            &get("/ext/com.example.text/%40host/frame.js"),
+        );
+        assert_eq!(r.status, 200);
+        assert_ne!(r.body, b"EVIL");
+        assert_eq!(
+            r.header("content-type"),
+            Some("text/javascript; charset=utf-8")
+        );
+
+        for path in [
+            "/ext/com.example.text/@host/none.js",
+            "/ext/com.example.other/@host/frame.html",
+        ] {
+            assert_eq!(handle(&project, &serve, &get(path)).status, 404, "{path}");
+        }
+        assert_eq!(
+            handle(&project, &serve, &get("/ext/com.example.text/@host/a/b")).status,
+            400
+        );
+
+        // 無効にした拡張機能には返さない
+        let (registry, state) = registry_with_text_extension(&temp, true);
+        serve.update(&registry, &state);
+        assert_eq!(
+            handle(
+                &project,
+                &serve,
+                &get("/ext/com.example.text/@host/frame.html")
+            )
+            .status,
             404
         );
     }

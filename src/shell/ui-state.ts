@@ -31,12 +31,17 @@ export const dialogFolderPicker = {
 
 /** ウィンドウを閉じるときの、未保存の確認。選ばれるまで待つ。 */
 export const [closeRequest, setCloseRequest] = createSignal<{
+  /** 採用していない候補の件数（保存されず、閉じると捨てられる）。 */
+  suggestions: number;
   resolve: (decision: "save" | "discard" | "cancel") => void;
 } | null>(null);
 
-export function askCloseDecision(): Promise<"save" | "discard" | "cancel"> {
+export function askCloseDecision(
+  suggestions = 0,
+): Promise<"save" | "discard" | "cancel"> {
   return new Promise((resolve) => {
     setCloseRequest({
+      suggestions,
       resolve: (decision) => {
         setCloseRequest(null);
         resolve(decision);

@@ -5,9 +5,15 @@ export function activate(host) {
     summarize: (s) => `rect ${s.x},${s.y} ${s.w}x${s.h}`,
   });
 
-  const current = () => {
-    const target = host.assets.current();
-    if (target === null) throw new Error("開いているアセットが無い");
+  // 同期の API（assets.current）は、同意の前は null を返し、確認ダイアログも出せない。
+  // そこで、非同期の呼び出し（assets.get）で、先に assets.read の同意を求める。
+  const current = async () => {
+    let target = host.assets.current();
+    if (target === null) {
+      await host.assets.get("00000000-0000-0000-0000-000000000000").catch(() => {});
+      target = host.assets.current();
+    }
+    if (target === null) throw new Error("開いているアセットが無い（または assets.read が許可されていない）");
     return target;
   };
   const rect = (i) => ({
@@ -18,7 +24,7 @@ export function activate(host) {
 
   host.commands.register("create", async () => {
     try {
-      const a = await host.annotations.create({ target: current(), ...rect(1) });
+      const a = await host.annotations.create({ target: await current(), ...rect(1) });
       host.ui.notify(`writer: created ${a.id}`, "info");
     } catch (e) {
       fail(e);
@@ -26,7 +32,7 @@ export function activate(host) {
   });
   host.commands.register("suggest", async () => {
     try {
-      const target = current();
+      const target = await current();
       const list = [1, 2, 3].map((i) => ({ target, ...rect(i) }));
       const r = await host.annotations.suggest(list, { title: "Writer suggestions" });
       host.ui.notify(`writer: accepted ${r.accepted.length}, rejected ${r.rejectedCount}`, "info");
@@ -36,7 +42,7 @@ export function activate(host) {
   });
   host.commands.register("query", async () => {
     try {
-      const list = await host.annotations.query({ assetId: current().assetId });
+      const list = await host.annotations.query({ assetId: (await current()).assetId });
       host.ui.notify(`writer: ${list.length} annotations`, "info");
     } catch (e) {
       fail(e);

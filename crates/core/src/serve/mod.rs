@@ -8,6 +8,7 @@ pub mod blob;
 pub mod budget;
 pub mod confine;
 pub mod ext_csp;
+pub mod host_files;
 pub mod mime;
 pub mod range;
 pub mod url;
@@ -306,6 +307,25 @@ pub fn respond_file(path: &Path, ctx: &ResponseContext<'_>) -> ServeResponse {
         status,
         headers,
         body,
+    }
+}
+
+/// 埋め込みのバイト列を返す（Range は扱わず、常に全体）。起動用ファイル（`host_files`）に使う。
+pub fn respond_bytes(
+    body: &'static [u8],
+    content_type: &str,
+    head: bool,
+    extra_headers: Vec<(String, String)>,
+) -> ServeResponse {
+    let mut headers = common_headers();
+    headers.push(("Cache-Control".to_owned(), "no-cache".to_owned()));
+    headers.extend(extra_headers);
+    headers.push(("Content-Type".to_owned(), content_type.to_owned()));
+    headers.push(("Content-Length".to_owned(), body.len().to_string()));
+    ServeResponse {
+        status: 200,
+        headers,
+        body: if head { Vec::new() } else { body.to_vec() },
     }
 }
 

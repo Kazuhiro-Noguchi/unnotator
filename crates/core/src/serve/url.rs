@@ -1,6 +1,7 @@
 //! `unno://` のパスの解釈。区切りごとにパーセントの表記を 1 回だけ展開し、展開後に危ない成分を拒む。
 
 use super::ServeError;
+use super::host_files::HOST_FILE_NAMES;
 
 /// 配信の対象。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,10 +98,22 @@ pub fn parse_target(path: &str) -> Result<Target, ServeError> {
             {
                 return Err(bad("拡張機能の ID の形でない"));
             }
-            Ok(Target::Ext {
-                id,
-                rest: segments.split_off(2),
-            })
+            let rest = segments.split_off(2);
+            // `@host` は予約。パッケージのファイルより先に解釈し、ファイルとしては返さない
+            if rest[0] == "@host" {
+                if rest.len() != 2 {
+                    return Err(bad("予約の @host の下は 1 段だけ"));
+                }
+                let name = &rest[1];
+                if !HOST_FILE_NAMES.contains(&name.as_str()) {
+                    return Err(ServeError::NotFound);
+                }
+                return Ok(Target::ExtHost {
+                    id,
+                    name: name.clone(),
+                });
+            }
+            Ok(Target::Ext { id, rest })
         }
         _ => Err(bad("未対応の経路")),
     }
@@ -154,7 +167,11 @@ mod tests {
     #[test]
     fn the_reserved_segment_never_falls_back_to_a_package_file() {
         // `@host` 単独・深い入れ子は、予約に属する不正なパス（ファイルとして返さない）
-        for path in ["/ext/a.b/@host", "/ext/a.b/@host/x/y", "/ext/a.b/%40host/x/y"] {
+        for path in [
+            "/ext/a.b/@host",
+            "/ext/a.b/@host/x/y",
+            "/ext/a.b/%40host/x/y",
+        ] {
             assert!(
                 matches!(parse_target(path), Err(ServeError::BadRequest(_))),
                 "{path}"

@@ -7,11 +7,12 @@ use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use unnotator_core::serve::ext_csp::ext_csp;
+use unnotator_core::serve::host_files::host_file;
 use unnotator_core::serve::mime::{FALLBACK_CONTENT_TYPE, web_content_type};
 use unnotator_core::serve::{
     BYTE_BUDGET, BlobStore, Budget, MAX_CONCURRENT, PreviewCache, ResponseContext, ServeError,
     ServeResponse, Target, confine_inside, confine_no_links, error_response, parse_target,
-    preflight_response, respond_file,
+    preflight_response, respond_bytes, respond_file,
 };
 use unnotator_extensions::registry::{ExtensionStatus, MimeRules, Registry};
 use unnotator_extensions::state::ExtensionsState;
@@ -199,8 +200,17 @@ fn respond(
                     .unwrap_or_else(|| FALLBACK_CONTENT_TYPE.to_owned());
                 (path, content_type, true, Vec::new())
             }
-            // T011 で、埋め込んだ起動用のファイルを返す
-            Target::ExtHost { .. } => return Err(ServeError::NotFound),
+            Target::ExtHost { id, name } => {
+                // 有効な拡張機能のときだけ。拡張機能のフォルダは見ない（同名のファイルでは差し替えられない）
+                serve.ext_dir(id).ok_or(ServeError::NotFound)?;
+                let (body, content_type) = host_file(name).ok_or(ServeError::NotFound)?;
+                let extra = if content_type.starts_with("text/html") {
+                    vec![("Content-Security-Policy".to_owned(), serve.ext_csp_of(id))]
+                } else {
+                    Vec::new()
+                };
+                return Ok(respond_bytes(body, content_type, head, extra));
+            }
             Target::Blob(name) => {
                 let path = serve.blobs.resolve(name)?;
                 (path, serve.content_type_of(name), true, Vec::new())
@@ -566,6 +576,69 @@ mod tests {
             vec!["assets.read".to_owned()],
         )]));
         assert!(csp_of(&serve).contains("img-src data: unno: http://unno.localhost"));
+    }
+
+    #[test]
+    fn the_reserved_host_files_are_served_from_the_embedded_copy() {
+        let temp = Temp::new();
+        // 拡張機能が同名のファイルを持っていても、起動用が返る
+        std::fs::create_dir_all(temp.0.join("ext/@host")).expect("作れる");
+        std::fs::write(temp.0.join("ext/@host/frame.html"), b"EVIL").expect("書ける");
+        std::fs::write(temp.0.join("ext/@host/frame.js"), b"EVIL").expect("書ける");
+        let project = project_state(&temp);
+        let serve = serve_state(&temp);
+        let (registry, state) = registry_with_text_extension(&temp, false);
+        serve.update(&registry, &state);
+
+        let r = handle(
+            &project,
+            &serve,
+            &get("/ext/com.example.text/@host/frame.html?role=editor"),
+        );
+        assert_eq!(r.status, 200);
+        assert_ne!(r.body, b"EVIL");
+        assert_eq!(r.header("content-type"), Some("text/html; charset=utf-8"));
+        assert!(
+            r.header("content-security-policy")
+                .expect("ある")
+                .contains("script-src unno://localhost/ext/com.example.text/ ")
+        );
+        assert_eq!(r.header("x-content-type-options"), Some("nosniff"));
+        let r = handle(
+            &project,
+            &serve,
+            &get("/ext/com.example.text/%40host/frame.js"),
+        );
+        assert_eq!(r.status, 200);
+        assert_ne!(r.body, b"EVIL");
+        assert_eq!(
+            r.header("content-type"),
+            Some("text/javascript; charset=utf-8")
+        );
+
+        for path in [
+            "/ext/com.example.text/@host/none.js",
+            "/ext/com.example.other/@host/frame.html",
+        ] {
+            assert_eq!(handle(&project, &serve, &get(path)).status, 404, "{path}");
+        }
+        assert_eq!(
+            handle(&project, &serve, &get("/ext/com.example.text/@host/a/b")).status,
+            400
+        );
+
+        // 無効にした拡張機能には返さない
+        let (registry, state) = registry_with_text_extension(&temp, true);
+        serve.update(&registry, &state);
+        assert_eq!(
+            handle(
+                &project,
+                &serve,
+                &get("/ext/com.example.text/@host/frame.html")
+            )
+            .status,
+            404
+        );
     }
 
     #[test]

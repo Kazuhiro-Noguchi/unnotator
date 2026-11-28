@@ -106,7 +106,12 @@ mod tests {
 
     #[test]
     fn the_closing_directives_are_always_present_whatever_is_granted() {
-        let all = grants(&["assets.read", "network", "labels.write", "annotations.write"]);
+        let all = grants(&[
+            "assets.read",
+            "network",
+            "labels.write",
+            "annotations.write",
+        ]);
         for granted in [grants(&[]), all] {
             let csp = ext_csp("com.example.text", &granted);
             assert!(csp.starts_with("default-src 'none'"), "{csp}");

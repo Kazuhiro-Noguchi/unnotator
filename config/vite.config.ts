@@ -1,4 +1,6 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
@@ -11,8 +13,14 @@ export default defineConfig({
     {
       name: "s02-report",
       configureServer(server) {
+        const file = process.env.S02_OUT ?? join(tmpdir(), "s02.txt");
+        mkdirSync(dirname(file), { recursive: true });
         server.ws.on("s02:report", (data: string) => {
-          writeFileSync(process.env.S02_OUT ?? "/tmp/s02.txt", data);
+          try {
+            writeFileSync(file, data);
+          } catch (error) {
+            console.error(`Could not write S-02 report to ${file}:`, error);
+          }
         });
       },
     },
@@ -21,9 +29,15 @@ export default defineConfig({
       name: "dev-console",
       configureServer(server) {
         const file =
-          process.env.UNNO_DEV_CONSOLE ?? "/tmp/unnotator-console.log";
+          process.env.UNNO_DEV_CONSOLE ??
+          join(tmpdir(), "unnotator-console.log");
+        mkdirSync(dirname(file), { recursive: true });
         server.ws.on("dev:log", (line: string) => {
-          appendFileSync(file, `${line}\n`);
+          try {
+            appendFileSync(file, `${line}\n`);
+          } catch (error) {
+            console.error(`Could not append dev console log to ${file}:`, error);
+          }
         });
       },
     },

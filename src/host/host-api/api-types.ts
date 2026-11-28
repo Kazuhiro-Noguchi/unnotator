@@ -61,6 +61,8 @@ export interface HostApiDeps {
   callFrame(extId: string, m: string, a: unknown): Promise<unknown>;
   /** 種別の `validate` / `summarize`（定義側の枠へ問い合わせる）。無ければ検査しない。 */
   typeChecks?: TypeChecks;
+  /** 選択（FR-024）。無ければ何もしない。 */
+  selection?: { set(ids: string[]): Promise<void> };
   /** 書き込みが済んだとき（通知にコマンドの表示名を結ぶ）。 */
   onApplied?(set: ChangeSetDto, name: string): void;
 }

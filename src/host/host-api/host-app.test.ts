@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createSelection } from "../../shell/properties/selection";
 import type { Frame } from "../frames";
 import { createHostApp } from "./host-app";
 import { createManifestIndex } from "./manifests";
@@ -191,5 +192,38 @@ describe("Host API の本体（host-app）", () => {
     expect(first[2].length).toBeLessThanOrEqual(2000);
     const second = log.mock.calls[1] as unknown as [string, string, string];
     expect(second[1]).toBe("info");
+  });
+
+  it("selection.set: シェルの選択を更新し、存在しない ID は外した値が枠の写しへ届く（ホストが正）", async () => {
+    const selection = createSelection();
+    const ipc = fakeIpc();
+    const app = createHostApp({
+      ipc,
+      manifests: createManifestIndex(() => [{ id: "com.example.a", manifest }]),
+      locale: () => "ja",
+      nameOf: (id) => id,
+      ask: vi.fn(async () => true),
+      readSetting: vi.fn(async () => undefined),
+      selection: {
+        port: selection,
+        exists: async (ids) => new Set(ids.filter((id) => id !== "gone")),
+      },
+    });
+    const emit = vi.fn();
+    app.onFrameCreate({
+      extensionId: "com.example.a",
+      role: "view",
+      channel: { emit },
+    } as unknown as Frame);
+    await tick();
+    emit.mockClear();
+    await app.handle({
+      extId: "com.example.a",
+      m: "selection.set",
+      a: [["a1", "gone"]],
+    });
+    await tick();
+    expect([...selection.ids()]).toEqual(["a1"]);
+    expect(emit).toHaveBeenLastCalledWith("selection", ["a1"]);
   });
 });

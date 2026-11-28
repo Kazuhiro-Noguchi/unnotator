@@ -31,3 +31,21 @@ describe("Selection", () => {
     expect(s.ids().size).toBe(0);
   });
 });
+
+describe("Selection.set", () => {
+  it("まるごと置き換える。同じ内容（順序も同じ）なら知らせない", () => {
+    const s = createSelection();
+    let n = 0;
+    s.subscribe(() => {
+      n += 1;
+    });
+    s.set(["a", "b"]);
+    expect([...s.ids()]).toEqual(["a", "b"]);
+    expect(n).toBe(1);
+    s.set(["a", "b"]);
+    expect(n).toBe(1);
+    s.set([]);
+    expect(s.ids().size).toBe(0);
+    expect(n).toBe(2);
+  });
+});

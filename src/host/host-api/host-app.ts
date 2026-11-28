@@ -4,6 +4,11 @@ import { Registrations } from "../activation";
 import { createApiBroker } from "../api-proxy";
 import type { HostRequest } from "../channel";
 import type { Frame } from "../frames";
+import {
+  createHostSelection,
+  type HostSelection,
+  type SelectionPort,
+} from "../selection";
 import { createHostApi, type HostApi } from "./api";
 import type { Handlers, ShellPort } from "./api-types";
 import { type ChangeBridge, createChangeBridge } from "./events";
@@ -34,6 +39,11 @@ export interface HostAppDeps {
   ): Promise<{ call(m: string, a: unknown): Promise<unknown> } | undefined>;
   /** 拡張機能ごとの登録（止めたとき、まとめて取り消す）。`ActivationManager` のものを渡す。 */
   registrations?: () => Registrations;
+  /** 選択の持ち主（シェルの選択）と、アノテーションが存在するかの問い合わせ（FR-024）。 */
+  selection?: {
+    port: SelectionPort;
+    exists(ids: string[]): Promise<ReadonlySet<string>>;
+  };
   /** シェル（画面）側の受け口。無ければ何もしない（テスト用）。 */
   shell?: ShellPort;
   /** 各部の実装（write・events・misc など）。 */
@@ -45,6 +55,8 @@ export interface HostApp {
   /** 変更の通知（シェルの購読者と枠の両方へ）。 */
   readonly changes: ChangeBridge;
   readonly gate: PermissionGate;
+  /** 選択（持ち主はシェル）。`selection` を渡さなければ `undefined`。 */
+  readonly selection: HostSelection | undefined;
   readonly api: HostApi;
   readonly deps: HostAppDeps;
   handle(request: HostRequest): Promise<unknown>;
@@ -95,6 +107,14 @@ export function createHostApp(deps: HostAppDeps): HostApp {
   });
 
   const changes = createChangeBridge({ allowed });
+  const selection =
+    deps.selection === undefined
+      ? undefined
+      : createHostSelection({
+          selection: deps.selection.port,
+          state,
+          exists: deps.selection.exists,
+        });
 
   /** 種別の実装が登録したメンバー（`register` の `members`）。`validate` があるかを知る。 */
   const members = new Map<string, readonly string[]>();
@@ -115,6 +135,7 @@ export function createHostApp(deps: HostAppDeps): HostApp {
     state,
     changes,
     gate,
+    selection,
     deps,
     // 下で作る。
     api: undefined as unknown as HostApi,
@@ -197,6 +218,7 @@ export function createHostApp(deps: HostAppDeps): HostApp {
         return frame.call(m, a);
       },
       typeChecks,
+      ...(selection === undefined ? {} : { selection }),
       onApplied: (set, name) => changes.noteLabel(set.seq, name),
     },
     [apiBroker.handlers, ...(deps.handlers?.(app) ?? [])],

@@ -5,6 +5,7 @@ import type { Ctx, Handlers, HostApiDeps } from "./api-types";
 import { createMiscHandlers } from "./misc";
 import { HostApiError } from "./permissions";
 import { readHandlers } from "./read";
+import { selectionHandlers } from "./selection-api";
 import { createWriteHandlers } from "./write";
 
 export type { HostApiDeps } from "./api-types";
@@ -47,6 +48,7 @@ export function createHostApi(
     readHandlers,
     write.handlers,
     createMiscHandlers(),
+    selectionHandlers,
     ...extra,
   );
   return {

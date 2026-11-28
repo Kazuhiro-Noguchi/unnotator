@@ -7,6 +7,8 @@ import { showExtensionView } from "../shell/layout/surfaces-instance";
 import { askConfirm } from "../shell/overlays/confirm";
 import { askConsent } from "../shell/overlays/consent";
 import { reportExtensionProblem, reportProblem } from "../shell/problems";
+import { projectData, selection } from "../shell/properties/instance";
+import { loadAllPages } from "../shell/properties/paging";
 import {
   ctx,
   keymap,
@@ -73,6 +75,29 @@ function displayName(extId: string): string {
   return extId;
 }
 
+/** 現在位置のアノテーションの ID。変更・現在位置の移動で作り直す（`selection.set` のたびに読み直さない）。 */
+let knownIds: Promise<ReadonlySet<string>> | null = null;
+function invalidateKnownIds(): void {
+  knownIds = null;
+}
+function currentIds(): Promise<ReadonlySet<string>> {
+  knownIds ??= loadAllPages(
+    (cursor) => projectData.annotationsPage(cursor),
+    () => true,
+  )
+    .then(
+      (rows) =>
+        new Set((rows ?? []).map((row) => row.id)) as ReadonlySet<string>,
+    )
+    .catch(() => {
+      knownIds = null;
+      return new Set<string>();
+    });
+  return knownIds;
+}
+projectData.subscribe(invalidateKnownIds);
+explorer.current.subscribe(invalidateKnownIds);
+
 const manifests = createManifestIndex(() => extensionHost.infos());
 
 /** Host API の本体（権限の門・読み書き・写し）。 */
@@ -83,6 +108,18 @@ export const hostApp = createHostApp({
   nameOf: displayName,
   ask: (prompt) => askConsent(prompt),
   registrations: () => extensionHost.manager.registrations,
+  selection: {
+    port: selection,
+    exists: async (ids) => {
+      let known = await currentIds();
+      // 作った直後の ID は、変更の通知より先に来ることがある。見つからないときだけ、読み直して確かめる。
+      if (ids.some((id) => !known.has(id))) {
+        invalidateKnownIds();
+        known = await currentIds();
+      }
+      return new Set(ids.filter((id) => known.has(id)));
+    },
+  },
   shell: {
     notify: (level, text, source) => notify(level, text, { source }),
     confirm: (prompt) =>

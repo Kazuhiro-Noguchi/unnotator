@@ -15,8 +15,6 @@ export interface DemoDeps {
   measureExplorer?: () => Promise<string>;
   /** プロパティパネルの計測を実行する（アセットを開いて使う）。 */
   measureProperties?: () => Promise<string>;
-  /** S-02 の技術検証（unno-5da）。検証後に消す。 */
-  spikeS02?: () => Promise<string>;
 }
 
 export function installDemoCommands({
@@ -26,7 +24,6 @@ export function installDemoCommands({
   enableItemDemo,
   measureExplorer,
   measureProperties,
-  spikeS02,
 }: DemoDeps): Disposable {
   // プロジェクトの状態を切り替えるデモのコマンド（パレットから実行する）。
   const declare = (
@@ -65,14 +62,6 @@ export function installDemoCommands({
         void measureProperties()
           .then((text) => notify("info", text))
           .catch(() => notify("error", "measure failed")),
-    );
-  }
-  if (spikeS02) {
-    declare(
-      "dev.demo.spikeS02",
-      "S-02 検証（拡張機能の読み込み）",
-      "S-02 spike (extension loading)",
-      () => void spikeS02().catch((e) => notify("error", String(e))),
     );
   }
   if (enableItemDemo) {

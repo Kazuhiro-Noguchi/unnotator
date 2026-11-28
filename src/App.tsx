@@ -173,20 +173,12 @@ if (import.meta.env.DEV || import.meta.env.VITE_UNNO_DEV_TOOLS === "1") {
         enableItemDemo: () => itemDemo.enableItemDemo(itemSource),
         measureExplorer: () =>
           import("./shell/dev/measure-explorer").then((m) => m.measureAll()),
-        spikeS02: () =>
-          import("./shell/dev/spike-s02").then((m) => m.runSpikeS02()),
         measureProperties: () =>
           import("./shell/dev/measure-properties").then((m) =>
             m.measureProperties(),
           ),
       }),
     ),
-  );
-}
-if (import.meta.env.DEV && import.meta.env.VITE_S02_AUTORUN) {
-  setTimeout(
-    () => void import("./shell/dev/spike-s02").then((m) => m.runSpikeS02()),
-    3000,
   );
 }
 registerCoreViews(views, {

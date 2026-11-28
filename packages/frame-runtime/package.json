@@ -1,0 +1,7 @@
+{
+  "name": "@unnotator/frame-runtime",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Bootstrap code that runs inside an extension frame (sandboxed iframe).",
+  "type": "module"
+}

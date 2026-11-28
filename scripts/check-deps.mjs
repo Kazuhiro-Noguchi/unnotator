@@ -136,6 +136,25 @@ export function checkProjectDataSource(file, source) {
   return problems;
 }
 
+/** 009: 枠の中の起動用コード（`packages/frame-runtime/`）は、本体の TS（`src/`）に依存しない。 */
+export function checkFrameRuntimeSource(file, source) {
+  if (!file.startsWith("packages/frame-runtime/")) return [];
+  const problems = [];
+  const importPattern = /from\s+["']([^"']+)["']/g;
+  for (const match of source.matchAll(importPattern)) {
+    const spec = match[1] ?? "";
+    if (
+      /(^|\/)src\//.test(spec.replace(/^(\.\.?\/)+/, "")) &&
+      spec.startsWith("..")
+    ) {
+      problems.push(
+        `${file}: 枠の起動用コードは本体の TS を import できない（${spec}）`,
+      );
+    }
+  }
+  return problems;
+}
+
 function walkSource(root, rel, check) {
   const problems = [];
   const dir = `${root}${rel}`;
@@ -193,6 +212,11 @@ function main() {
       fileURLToPath(new URL("..", import.meta.url)),
       "src/shell",
       checkProjectDataSource,
+    ),
+    ...walkSource(
+      fileURLToPath(new URL("..", import.meta.url)),
+      "packages/frame-runtime",
+      checkFrameRuntimeSource,
     ),
   ];
   for (const p of metadata.packages.filter((p) =>

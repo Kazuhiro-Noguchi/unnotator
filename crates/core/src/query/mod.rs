@@ -3,6 +3,7 @@
 //! 媒体に関係しない（憲章 I）。`selector_json` は返さない。
 //! 形は `specs/008-properties-labels/data-model.md`。
 
+pub mod ext;
 pub mod labels;
 pub mod page;
 pub mod schemas;

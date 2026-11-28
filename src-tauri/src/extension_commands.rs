@@ -175,9 +175,138 @@ pub fn ext_asset_get(
     project: tauri::State<'_, ProjectState>,
     ext_id: String,
     asset_id: String,
-) -> Result<Option<unnotator_core::assets::AssetRow>, IpcError> {
+) -> Result<Option<unnotator_core::query::ext::ExtAsset>, IpcError> {
     ext_check_method(&rt, &ext_id, "assets.get")?;
-    crate::asset_commands::get(&project, &asset_id)
+    crate::project_commands::with_store(&project, |store| store.ext_asset(&asset_id))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_item_get(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    asset_id: String,
+    item_key: String,
+) -> Result<Option<unnotator_core::query::ext::ExtItem>, IpcError> {
+    ext_check_method(&rt, &ext_id, "assets.getItem")?;
+    crate::project_commands::with_store(&project, |store| store.ext_item(&asset_id, &item_key))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_annotations_query(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    filter: unnotator_core::query::ext::ExtAnnotationFilter,
+) -> Result<Vec<unnotator_core::query::ext::ExtAnnotation>, IpcError> {
+    ext_annotations(&rt, &project, &ext_id, &filter)
+}
+
+/// アノテーションの問い合わせ（`selector` を含む）。先に権限の門を通す。
+pub fn ext_annotations(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    filter: &unnotator_core::query::ext::ExtAnnotationFilter,
+) -> Result<Vec<unnotator_core::query::ext::ExtAnnotation>, IpcError> {
+    ext_check_method(rt, ext_id, "annotations.query")?;
+    crate::project_commands::with_store(project, |store| store.ext_annotations(filter))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_relations_query(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    filter: unnotator_core::query::ext::ExtRelationFilter,
+) -> Result<Vec<unnotator_core::query::ext::ExtRelation>, IpcError> {
+    ext_check_method(&rt, &ext_id, "relations.query")?;
+    crate::project_commands::with_store(&project, |store| store.ext_relations(&filter))
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_groups_query(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    filter: unnotator_core::query::ext::ExtGroupFilter,
+) -> Result<Vec<unnotator_core::query::ext::ExtGroup>, IpcError> {
+    ext_check_method(&rt, &ext_id, "groups.query")?;
+    crate::project_commands::with_store(&project, |store| store.ext_groups(&filter))
+}
+
+/// 1 回に読めるバイト数の上限（IPC の応答を大きくしすぎない。続きは `offset` を進めて呼ぶ）。
+pub const MAX_ASSET_READ_BYTES: u64 = 1024 * 1024;
+
+/// アセットの実体の範囲を読む。範囲が上限を超えるときは、上限までを返す（呼び出し側が続きを読む）。
+pub fn read_asset_range(
+    file: &unnotator_core::serve::AssetFile,
+    offset: u64,
+    length: Option<u64>,
+) -> Result<Vec<u8>, IpcError> {
+    use std::io::{Read, Seek, SeekFrom};
+    let io_err = |error: std::io::Error| IpcError {
+        code: "io".to_owned(),
+        message: error.to_string(),
+    };
+    let path = file.root.join(&file.rel_path);
+    let mut handle = std::fs::File::open(path).map_err(io_err)?;
+    let total = handle.metadata().map_err(io_err)?.len();
+    if offset >= total {
+        return Ok(Vec::new());
+    }
+    let wanted = length.unwrap_or(u64::MAX).min(total - offset);
+    let count = wanted.min(MAX_ASSET_READ_BYTES);
+    handle.seek(SeekFrom::Start(offset)).map_err(io_err)?;
+    let mut buffer = Vec::new();
+    handle
+        .take(count)
+        .read_to_end(&mut buffer)
+        .map_err(io_err)?;
+    Ok(buffer)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn ext_asset_read(
+    rt: tauri::State<'_, ExtensionRuntime>,
+    project: tauri::State<'_, ProjectState>,
+    ext_id: String,
+    asset_id: String,
+    offset: f64,
+    length: Option<f64>,
+) -> Result<Vec<u8>, IpcError> {
+    ext_asset_bytes(&rt, &project, &ext_id, &asset_id, offset, length)
+}
+
+/// アセットの実体の範囲（`assets.read`）。先に権限の門を通す。
+pub fn ext_asset_bytes(
+    rt: &ExtensionRuntime,
+    project: &ProjectState,
+    ext_id: &str,
+    asset_id: &str,
+    offset: f64,
+    length: Option<f64>,
+) -> Result<Vec<u8>, IpcError> {
+    ext_check_method(rt, ext_id, "assets.read")?;
+    let file = crate::project_commands::with_store(project, |store| {
+        store
+            .asset_file(asset_id)
+            .map_err(|_| unnotator_core::error::StoreError::NotFound(asset_id.to_owned()))
+    })?;
+    // JS の number は 2^53 まで正確。負・非数は 0 として扱う。
+    let to_u64 = |value: f64| {
+        if value.is_finite() && value > 0.0 {
+            value as u64
+        } else {
+            0
+        }
+    };
+    read_asset_range(&file, to_u64(offset), length.map(to_u64))
 }
 
 /// 拡張機能の状態（登録簿・利用者の状態・同意）。
@@ -1404,5 +1533,71 @@ mod tests {
         assert!(page(&project).is_empty());
         crate::project_commands::redo_project(&project).expect("やり直せる");
         assert_eq!(page(&project), created);
+    }
+
+    #[test]
+    fn ext_reads_are_gated_and_return_selector_and_bytes() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(
+            &temp,
+            &["annotations.write", "annotations.read", "assets.read"],
+            &["annotations.write", "annotations.read"],
+        );
+        let id = "com.example.text";
+        ext_apply(&rt, &project, id, create_annotation(&asset, None)).expect("作れる");
+        let filter = unnotator_core::query::ext::ExtAnnotationFilter::default();
+        let rows = ext_annotations(&rt, &project, id, &filter).expect("読める");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].source, id);
+        assert!(!rows[0].selector_json.is_empty());
+        // 同意の無い読み取りは、何も返さない
+        assert_eq!(
+            ext_asset_bytes(&rt, &project, id, &asset, 0.0, None)
+                .unwrap_err()
+                .code,
+            "needs_consent"
+        );
+        // 宣言の無い拡張機能は、読み取りも拒否される
+        assert_eq!(
+            ext_annotations(&rt, &project, "com.example.ghost", &filter)
+                .unwrap_err()
+                .code,
+            "not_found"
+        );
+    }
+
+    #[test]
+    fn asset_bytes_respect_range_and_the_per_call_cap() {
+        let temp = Temp::new();
+        let (rt, project, asset) = ready(&temp, &["assets.read"], &["assets.read"]);
+        let id = "com.example.text";
+        let all = ext_asset_bytes(&rt, &project, id, &asset, 0.0, None).expect("読める");
+        assert_eq!(all, b"hello");
+        let middle = ext_asset_bytes(&rt, &project, id, &asset, 1.0, Some(3.0)).expect("読める");
+        assert_eq!(middle, b"ell");
+        // 終わりを超える範囲は、あるところまで。始めが終わりを超えれば空
+        let tail = ext_asset_bytes(&rt, &project, id, &asset, 3.0, Some(100.0)).expect("読める");
+        assert_eq!(tail, b"lo");
+        assert!(
+            ext_asset_bytes(&rt, &project, id, &asset, 99.0, None)
+                .expect("読める")
+                .is_empty()
+        );
+        // 負・非数は 0 として扱う
+        assert_eq!(
+            ext_asset_bytes(&rt, &project, id, &asset, -5.0, Some(f64::NAN)).expect("読める"),
+            b""
+        );
+        // 1 回の上限
+        let big = temp.0.join("project/big.bin");
+        std::fs::write(&big, vec![7u8; (MAX_ASSET_READ_BYTES as usize) + 10]).expect("書ける");
+        let file = unnotator_core::serve::AssetFile {
+            root: temp.0.join("project"),
+            rel_path: "big.bin".to_owned(),
+            size: 0,
+            mtime_ms: 0,
+        };
+        let chunk = read_asset_range(&file, 0, None).expect("読める");
+        assert_eq!(chunk.len() as u64, MAX_ASSET_READ_BYTES);
     }
 }

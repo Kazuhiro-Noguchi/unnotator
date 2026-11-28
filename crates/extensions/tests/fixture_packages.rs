@@ -21,7 +21,7 @@ fn fixture(name: &str) -> PathBuf {
 fn the_009_fixture_packages_install_and_scan() {
     let tmp = TempDir::new();
     let paths = AppPaths::new(&tmp.data_dir(), &tmp.cache_dir());
-    for name in ["ext-base", "ext-rect", "ext-bad"] {
+    for name in ["ext-base", "ext-rect", "ext-writer", "ext-bad"] {
         install_package(&paths, &fixture(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
     }
     let scanned = scan_installed(&paths);
@@ -32,5 +32,13 @@ fn the_009_fixture_packages_install_and_scan() {
         .map(|e| e.manifest.id.clone())
         .collect();
     ids.sort();
-    assert_eq!(ids, ["dev.spike.bad", "dev.spike.base", "dev.spike.rect"]);
+    assert_eq!(
+        ids,
+        [
+            "dev.spike.bad",
+            "dev.spike.base",
+            "dev.spike.rect",
+            "dev.spike.writer"
+        ]
+    );
 }
